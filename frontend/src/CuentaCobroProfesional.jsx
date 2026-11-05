@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import useCargaAsincrona from './useCargaAsincrona.js'
 import './CuentaCobroProfesional.css'
 
 const API = '/api/profesionales/'
@@ -33,24 +34,27 @@ export default function CuentaCobroProfesional() {
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
 
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    setError('')
-    try {
+  const consultar = useCallback(async (signal) => {
       const [a, b] = await Promise.all([
-        fetch(`${API}mi-cuenta-bancaria/`, { credentials: 'same-origin', cache: 'no-store' }),
-        fetch(`${API}mis-abonos/`, { credentials: 'same-origin', cache: 'no-store' }),
+        fetch(`${API}mi-cuenta-bancaria/`, { credentials: 'same-origin', cache: 'no-store', signal }),
+        fetch(`${API}mis-abonos/`, { credentials: 'same-origin', cache: 'no-store', signal }),
       ])
       const datosCuenta = await jsonRespuesta(a)
       const datosAbonos = await jsonRespuesta(b)
+      return { datosCuenta, datosAbonos }
+  }, [])
+  const aplicarConsulta = useCallback(({ datosCuenta, datosAbonos }) => {
       setCuenta(datosCuenta.cuenta)
       setAbonos(datosAbonos.abonos || [])
       if (!datosCuenta.cuenta) setEditando(true)
-    } catch (e) { setError(e.message) }
-    finally { setCargando(false) }
+      setError('')
+      setCargando(false)
   }, [])
-
-  useEffect(() => { void cargar() }, [cargar])
+  const fallarConsulta = useCallback((e) => {
+    setError(e.message)
+    setCargando(false)
+  }, [])
+  useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
 
   async function guardar(evento) {
     evento.preventDefault()

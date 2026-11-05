@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import useCargaAsincrona from './useCargaAsincrona.js'
 import AdminNavegacion from './AdminNavegacion.jsx'
 import './Administracion.css'
 import './CuentasBancariasAdministracion.css'
@@ -17,16 +18,16 @@ export default function CuentasBancariasAdministracion() {
   const [cargando,setCargando]=useState(true)
   const [trabajando,setTrabajando]=useState(false)
   const [verHistorial,setVerHistorial]=useState(false)
-  const cargar=useCallback(async ()=>{
-    setCargando(true)
-    try {
-      const r=await fetch(API,{credentials:'same-origin',headers:{Accept:'application/json'}})
+  const consultar=useCallback(async (signal)=>{
+      const r=await fetch(API,{credentials:'same-origin',headers:{Accept:'application/json'},signal})
       const d=await r.json().catch(()=>({}))
       if(!r.ok) throw new Error(d.mensaje || `HTTP ${r.status}`)
-      setCuentas(d.cuentas || []);setError('')
-    }catch(e){setError(e.message)}finally{setCargando(false)}
+      return d
   },[])
-  useEffect(()=>{cargar()},[cargar])
+  const aplicarConsulta=useCallback(d=>{setCuentas(d.cuentas || []);setError('');setCargando(false)},[])
+  const fallarConsulta=useCallback(e=>{setError(e.message);setCargando(false)},[])
+  const recargar=useCargaAsincrona(consultar,aplicarConsulta,fallarConsulta)
+  async function cargar(){setCargando(true);setError('');await recargar()}
   async function historialCuentas(){
     try {const r=await fetch(`${API}historial/`,{credentials:'same-origin'});const d=await r.json();
       if(!r.ok)throw new Error(d.mensaje||`HTTP ${r.status}`);setHistorial(d.historial||[]);setVerHistorial(true)}

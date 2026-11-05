@@ -22,10 +22,26 @@ Evidencias locales fuera de Git, bajo `C:\Users\felip\Downloads\SKILLY_recuperac
 - `validacion_csrf_f6e7e0fccd1f47c885ebbf09fade9353/resultado.json` y `tests.log`.
 - Los directorios de evidencia contienen configuración privada de pruebas; no se incorporan al repositorio.
 
-## En verificación
+## Completado: cargas asíncronas y estados de interfaz
 
-- Cargas asíncronas React: cancelación de respuestas obsoletas, estado por expediente/revisión y política por referencia/versión.
-- Detector de codificación: eliminar falsos positivos de sintaxis sin perder detección de mojibake real.
+- Se separaron consultas de aplicación de estado con un controlador que cancela e invalida solicitudes anteriores, incluso si la respuesta llega después del aborto.
+- Se corrigieron cargas de cuentas, reversas, abonos y reagendamientos. Liquidación y conciliación quedan vinculadas al expediente y revisión vigentes.
+- El aviso de política deriva de referencia y versión: cerrar no acepta, refrescar la misma versión no reabre, y cambiar versión o referencia presenta el aviso que corresponde.
+- No se modificaron CSS, endpoints, cuerpos de solicitudes ni reglas de pago/consentimiento.
+- ESLint: **0 errores y 0 advertencias**. Node: **40 pruebas aprobadas**, incluidas cuatro de respuestas fuera de orden/cancelación. Build correcto; permanece la advertencia de tamaño.
+- Navegador React real con **fetch simulado**, sin BD: **11 comprobaciones aprobadas** sobre respuestas obsoletas, cierre/reapertura, aceptación, versión y referencia. No son integración con PostgreSQL ni E2E de negocio.
+- La integración real React/Django/PostgreSQL se repitió con los formularios React de creación y edición bancaria: **23 comprobaciones aprobadas** con el backend actualizado y escrituras comprobadas en la copia. Un ensayo intermedio recibió el 409 de negocio por porcentaje sin cambios; se corrigió el dato del ensayo, sin eludir esa regla.
+
+Evidencias adicionales en el mismo respaldo externo:
+
+- `navegador_ux_4b74d4e92c5d42abb715cf97523c6dda/resultado.json`, captura y harness conservado.
+- `integracion_real_ca0377f060c14b02b631053609d48d10/browser_result.json` y `resultado.json`.
+- `validacion_modulos_83fb3a47278a415aa0b49b5250e05590/`: resultados de suite, ESLint, Node, codificación fuente y build.
+
+## En cierre
+
+- Recuperación de acceso: revocación de sesiones/tokens y protección frente a sesiones guardadas con la contraseña anterior, verificada en copia aislada.
+- Detector de codificación: falsos positivos de sintaxis corregidos, con pruebas de mojibake y UTF-8 inválido.
 
 ## Pendiente y límites
 

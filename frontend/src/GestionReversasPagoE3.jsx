@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import useCargaAsincrona from './useCargaAsincrona.js'
 
 const api = '/api/pagos/administracion/'
 
@@ -29,9 +30,13 @@ const campos = { width: '100%', padding: 10, borderRadius: 8,
   border: '1px solid #abc7b9', boxSizing: 'border-box', font: 'inherit' }
 
 export default function GestionReversasPagoE3({ pago, alActualizar }) {
+  return <GestionReversasPago key={pago?.id_pago} pago={pago} alActualizar={alActualizar} />
+}
+
+function GestionReversasPago({ pago, alActualizar }) {
   const idPago = pago?.id_pago
   const [reversas, setReversas] = useState([])
-  const [cargando, setCargando] = useState(false)
+  const [cargando, setCargando] = useState(Boolean(idPago))
   const [procesando, setProcesando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
@@ -39,18 +44,18 @@ export default function GestionReversasPagoE3({ pago, alActualizar }) {
   const [fundamento, setFundamento] = useState('')
   const [confirma, setConfirma] = useState(false)
 
-  const cargar = useCallback(async () => {
-    if (!idPago) return
-    setCargando(true)
-    setError('')
-    try {
-      const datos = await peticion(`${api}${idPago}/reversas/`)
-      setReversas(Array.isArray(datos.reversas) ? datos.reversas : [])
-    } catch (e) { setError(e.message) }
-    finally { setCargando(false) }
+  const consultar = useCallback(async (signal) => {
+    if (!idPago) return { reversas: [] }
+    return peticion(`${api}${idPago}/reversas/`, { signal })
   }, [idPago])
-
-  useEffect(() => { void cargar() }, [cargar])
+  const aplicarConsulta = useCallback((datos) => {
+      setReversas(Array.isArray(datos.reversas) ? datos.reversas : [])
+      setError('')
+      setCargando(false)
+  }, [])
+  const fallarConsulta = useCallback((e) => { setError(e.message); setCargando(false) }, [])
+  const recargar = useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
+  async function cargar() { setCargando(true); setError(''); await recargar() }
 
   async function solicitar() {
     if (procesando || motivo.trim().length < 20) {

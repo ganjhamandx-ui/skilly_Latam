@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import AvisoPoliticaCancelacionE3 from './AvisoPoliticaCancelacionE3.jsx'
 import { mostrarAvisoPolitica, mostrarBloquePolitica, claveAvisoPolitica } from './avisoPoliticaCancelacionE3.mjs'
 import CuentaReceptoraOrganizacion from './CuentaReceptoraOrganizacion.jsx'
@@ -115,6 +115,10 @@ export default function PagoEmpresaSeguimiento({
   referencia,
   prestacion,
 }) {
+  return <PagoEmpresa key={referencia} referencia={referencia} prestacion={prestacion} />
+}
+
+function PagoEmpresa({ referencia, prestacion }) {
   const [pago, setPago] = useState(null)
   const [sinPago, setSinPago] = useState(false)
   const [cargando, setCargando] = useState(true)
@@ -127,17 +131,15 @@ export default function PagoEmpresaSeguimiento({
   const [acepto, setAcepto] = useState(false)
   const [aceptando, setAceptando] = useState(false)
   const [resolucionCancelacion, setResolucionCancelacion] = useState(null)
-  const [avisoPoliticaVisible, setAvisoPoliticaVisible] = useState(false)
-  const ultimaClaveAvisada = useRef('')
+  const [claveAvisoCerrado, setClaveAvisoCerrado] = useState('')
+  const [claveAvisoAbierto, setClaveAvisoAbierto] = useState('')
 
 
   const [comprobante, setComprobante] = useState(null)
   const [metodoElegido, setMetodoElegido] = useState('TRANSFERENCIA')
   const [referenciaTransaccion, setReferenciaTransaccion] =
     useState('')
-  const [cuentaReceptora, setCuentaReceptora] = useState(null)
-  const [avisoBancario, setAvisoBancario] = useState('')
-  const [cargandoCuenta, setCargandoCuenta] = useState(false)
+  const [consultaCuenta, setConsultaCuenta] = useState(null)
 
   const condicionesComunicadas =
     prestacion?.condiciones_comunicadas === true ||
@@ -152,10 +154,26 @@ export default function PagoEmpresaSeguimiento({
     condicionesComunicadas &&
     pendienteContratacion
 
+  const clavePolitica = politica?.version ? claveAvisoPolitica(referencia, politica.version) : ''
+  const avisoPoliticaVisible = mostrarAvisoPolitica({ referencia, habilitarFormulario, cargando, politica }) &&
+    (claveAvisoCerrado !== clavePolitica || claveAvisoAbierto === clavePolitica)
+  const consultarCuenta = Boolean(referencia && habilitarFormulario && !cargando && metodoElegido === 'TRANSFERENCIA')
+  const cuentaConsultada = consultaCuenta?.revision === revision
+  const cuentaReceptora = consultarCuenta && cuentaConsultada ? consultaCuenta.cuenta : null
+  const avisoBancario = consultarCuenta && cuentaConsultada ? consultaCuenta.mensaje : ''
+  const cargandoCuenta = consultarCuenta && !cuentaConsultada
+
+  function cerrarAvisoPolitica() { setClaveAvisoCerrado(clavePolitica); setClaveAvisoAbierto('') }
+  function elegirMetodo(metodo) { setMetodoElegido(metodo); setConsultaCuenta(null) }
+  function actualizarPago() {
+    setCargando(true); setError(''); setPago(null); setSinPago(false)
+    setPolitica(null); setPoliticaError(''); setAcepto(false); setConsultaCuenta(null)
+    setRevision(actual => actual + 1)
+  }
+
   useEffect(() => {
     if (!referencia) return undefined
     const controller = new AbortController()
-    setPolitica(null); setPoliticaError(''); setAcepto(false)
     fetch(`/api/seguimiento/empresa/${encodeURIComponent(referencia)}/politica-cancelacion/`, {
       credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
     }).then(async r => {
@@ -166,20 +184,6 @@ export default function PagoEmpresaSeguimiento({
       .catch(e => { if (!controller.signal.aborted) setPoliticaError(e.message || 'No se consultó la política.') })
     return () => controller.abort()
   }, [referencia, revision])
-
-  // Aviso visible al consultar un seguimiento con condiciones publicadas y pago pendiente.
-  // Se muestra una vez por referencia y versión, y reaparece si cambia la versión vigente.
-  useEffect(() => {
-    if (!mostrarAvisoPolitica({ referencia, habilitarFormulario, cargando, politica })) return
-    const clave = claveAvisoPolitica(referencia, politica.version)
-    if (ultimaClaveAvisada.current === clave) return
-    ultimaClaveAvisada.current = clave
-    setAvisoPoliticaVisible(true)
-  }, [referencia, habilitarFormulario, cargando, politica])
-
-  useEffect(() => {
-    if (politica?.aceptada) setAvisoPoliticaVisible(false)
-  }, [politica?.aceptada])
 
   useEffect(() => {
     if (!referencia) return undefined
@@ -208,7 +212,7 @@ export default function PagoEmpresaSeguimiento({
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(obtenerMensaje(d,r.status))
       if (d.aceptada !== true) throw new Error('No se confirmó la aceptación. Consulta el estado antes de continuar.')
-      setPolitica(d); setAcepto(false); setAvisoPoliticaVisible(false)
+      setPolitica(d); setAcepto(false); cerrarAvisoPolitica()
     } catch(e) { setPoliticaError(e.message || 'No se pudo registrar la aceptación.') }
     finally { setAceptando(false) }
   }
@@ -219,11 +223,6 @@ export default function PagoEmpresaSeguimiento({
     const controlador = new AbortController()
 
     async function consultarPago() {
-      setCargando(true)
-      setError('')
-      setPago(null)
-      setSinPago(false)
-
       try {
         const respuesta = await fetch(
           `/api/pagos/empresa/${encodeURIComponent(referencia)}/estado/`,
@@ -299,9 +298,6 @@ export default function PagoEmpresaSeguimiento({
       return undefined
     }
     const controlador = new AbortController()
-    setCargandoCuenta(true)
-    setCuentaReceptora(null)
-    setAvisoBancario('')
     fetch(`/api/pagos/empresa/${encodeURIComponent(referencia)}/transferencia/disponibilidad/`, {
       credentials: 'same-origin',
       cache: 'no-store',
@@ -316,18 +312,15 @@ export default function PagoEmpresaSeguimiento({
       .then((datos) => {
         if (controlador.signal.aborted) return
         if (datos.disponible && datos.cuenta) {
-          setCuentaReceptora(datos.cuenta)
+          setConsultaCuenta({ revision, cuenta: datos.cuenta, mensaje: '' })
         } else {
-          setAvisoBancario(datos.mensaje || 'Transferencia no disponible.')
+          setConsultaCuenta({ revision, cuenta: null, mensaje: datos.mensaje || 'Transferencia no disponible.' })
         }
       })
       .catch((fallo) => {
         if (!controlador.signal.aborted) {
-          setAvisoBancario(fallo.message || 'No fue posible consultar la cuenta receptora.')
+          setConsultaCuenta({ revision, cuenta: null, mensaje: fallo.message || 'No fue posible consultar la cuenta receptora.' })
         }
-      })
-      .finally(() => {
-        if (!controlador.signal.aborted) setCargandoCuenta(false)
       })
     return () => controlador.abort()
   }, [referencia, habilitarFormulario, cargando, revision, metodoElegido])
@@ -504,9 +497,7 @@ export default function PagoEmpresaSeguimiento({
         type="button"
         style={estiloBoton}
         disabled={cargando || guardando}
-        onClick={() =>
-          setRevision((actual) => actual + 1)
-        }
+        onClick={actualizarPago}
       >
         {cargando
           ? 'Consultando…'
@@ -590,7 +581,7 @@ export default function PagoEmpresaSeguimiento({
             <>
               <strong>Antes de pagar</strong>
               <p>Revisa las condiciones de cancelación y registra tu aceptación.</p>
-              <button type="button" style={estiloBoton} onClick={() => setAvisoPoliticaVisible(true)}>
+              <button type="button" style={estiloBoton} onClick={() => setClaveAvisoAbierto(clavePolitica)}>
                 Ver y aceptar condiciones
               </button>
             </>
@@ -605,16 +596,16 @@ export default function PagoEmpresaSeguimiento({
           guardando={aceptando}
           error={politicaError}
           onAceptar={aceptarPolitica}
-          onCerrar={() => setAvisoPoliticaVisible(false)}
+          onCerrar={cerrarAvisoPolitica}
         />
       )}
       {!cargando && habilitarFormulario && (
         <div className="sg-nota" style={{ display: 'grid', gap: 10, marginTop: 16 }}>
           <strong>Seleccionar medio de pago</strong>
           <label><input type="radio" name="metodo-e3" checked={metodoElegido === 'TRANSFERENCIA'}
-            onChange={() => setMetodoElegido('TRANSFERENCIA')} /> Transferencia bancaria a SKILLY</label>
+            onChange={() => elegirMetodo('TRANSFERENCIA')} /> Transferencia bancaria a SKILLY</label>
           <label><input type="radio" name="metodo-e3" checked={metodoElegido === 'WEBPAY_PLUS'}
-            onChange={() => setMetodoElegido('WEBPAY_PLUS')} /> Webpay Plus (solo pruebas, sin dinero real)</label>
+            onChange={() => elegirMetodo('WEBPAY_PLUS')} /> Webpay Plus (solo pruebas, sin dinero real)</label>
         </div>
       )}
       {!cargando && habilitarFormulario && metodoElegido === 'WEBPAY_PLUS' && (

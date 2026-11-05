@@ -23,14 +23,22 @@ export default function ExpedientesCancelacionAdministracionE3() {
   const [derechosVerificados, setDerechosVerificados] = useState(false)
   const [fundamentoLiquidacion, setFundamentoLiquidacion] = useState('')
   const [confirmacionSinDinero, setConfirmacionSinDinero] = useState(false)
-  const [liquidacion, setLiquidacion] = useState(null)
-  const [consultandoLiq, setConsultandoLiq] = useState(false)
-  const [conciliacion, setConciliacion] = useState(null)
-  const [cargandoConciliacion, setCargandoConciliacion] = useState(false)
+  const [resultadoLiquidacion, setResultadoLiquidacion] = useState(null)
+  const [resultadoConciliacion, setResultadoConciliacion] = useState(null)
   const [fundamentoConciliacion, setFundamentoConciliacion] = useState('')
   const [confirmaSinDinero, setConfirmaSinDinero] = useState(false)
   const [confirmaRemanente, setConfirmaRemanente] = useState(false)
 
+  const elegidoId = elegido?.id_expediente
+  const estadoElegido = elegido?.estado
+  const liquidacionVigente = resultadoLiquidacion?.id === elegidoId && resultadoLiquidacion?.revision === revision
+  const liquidacion = liquidacionVigente ? resultadoLiquidacion.datos : null
+  const consultandoLiq = estadoElegido === 'RESUELTO' && !liquidacionVigente
+  const idReversa = liquidacion?.id_reversa
+  const conciliacionVigente = resultadoConciliacion?.id === elegidoId &&
+    resultadoConciliacion?.idReversa === idReversa && resultadoConciliacion?.revision === revision
+  const conciliacion = conciliacionVigente ? resultadoConciliacion.datos : null
+  const cargandoConciliacion = Boolean(idReversa) && !conciliacionVigente
 
   useEffect(() => {
     let activo = true
@@ -42,28 +50,24 @@ export default function ExpedientesCancelacionAdministracionE3() {
   }, [revision])
 
   useEffect(() => {
-    if (!elegido || elegido.estado !== 'RESUELTO') { setLiquidacion(null); return }
-    let activo = true
-    setConsultandoLiq(true)
-    fetch(`${API}${elegido.id_expediente}/liquidacion/`, {credentials:'same-origin',cache:'no-store'})
+    if (!elegidoId || estadoElegido !== 'RESUELTO') return
+    const controller = new AbortController()
+    fetch(`${API}${elegidoId}/liquidacion/`, {credentials:'same-origin',cache:'no-store',signal:controller.signal})
       .then(async r => {const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(textoError(d,r.status));return d})
-      .then(d => {if(activo) setLiquidacion(d.liquidacion)})
-      .catch(e => {if(activo) setError(e.message)})
-      .finally(() => {if(activo) setConsultandoLiq(false)})
-    return () => {activo = false}
-  }, [elegido?.id_expediente, elegido?.estado, revision])
+      .then(d => {if(!controller.signal.aborted) setResultadoLiquidacion({id:elegidoId,revision,datos:d.liquidacion})})
+      .catch(e => {if(!controller.signal.aborted) {setError(e.message);setResultadoLiquidacion({id:elegidoId,revision,datos:null})}})
+    return () => controller.abort()
+  }, [elegidoId, estadoElegido, revision])
 
   useEffect(() => {
-    if (!elegido || !liquidacion?.id_reversa) { setConciliacion(null); return }
-    let activo = true
-    setCargandoConciliacion(true)
-    fetch(`${API}${elegido.id_expediente}/conciliacion/`, { credentials:'same-origin', cache:'no-store' })
+    if (!elegidoId || !idReversa) return
+    const controller = new AbortController()
+    fetch(`${API}${elegidoId}/conciliacion/`, { credentials:'same-origin', cache:'no-store',signal:controller.signal })
       .then(async r => {const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(textoError(d,r.status));return d})
-      .then(d => {if(activo)setConciliacion(d.conciliacion)})
-      .catch(e => {if(activo)setError(e.message)})
-      .finally(() => {if(activo)setCargandoConciliacion(false)})
-    return () => {activo = false}
-  }, [elegido?.id_expediente, liquidacion?.id_reversa, revision])
+      .then(d => {if(!controller.signal.aborted)setResultadoConciliacion({id:elegidoId,idReversa,revision,datos:d.conciliacion})})
+      .catch(e => {if(!controller.signal.aborted){setError(e.message);setResultadoConciliacion({id:elegidoId,idReversa,revision,datos:null})}})
+    return () => controller.abort()
+  }, [elegidoId, idReversa, revision])
 
   async function registrarConciliacion(e) {
     e.preventDefault()
@@ -79,7 +83,7 @@ export default function ExpedientesCancelacionAdministracionE3() {
           confirmacion_simulacion:confirmaSinDinero,confirmacion_saldo_pendiente:confirmaRemanente})
       })
       const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(textoError(d,r.status))
-      setConciliacion(d.conciliacion);setMensaje(d.mensaje);setRevision(x=>x+1)
+      setResultadoConciliacion({id:elegidoId,idReversa,revision,datos:d.conciliacion});setMensaje(d.mensaje);setRevision(x=>x+1)
     } catch(e) {setError(e.message || 'No se registró la conciliación.')} finally {setGuardando(false)}
   }
 
@@ -99,7 +103,7 @@ export default function ExpedientesCancelacionAdministracionE3() {
       })
       const d=await r.json().catch(()=>({}))
       if(!r.ok) throw Error(textoError(d,r.status))
-      setLiquidacion(d.liquidacion);setMensaje(d.mensaje);setRevision(x=>x+1)
+      setResultadoLiquidacion({id:elegidoId,revision,datos:d.liquidacion});setMensaje(d.mensaje);setRevision(x=>x+1)
     }catch(e){setError(e.message || 'No se registró la liquidación.')}
     finally{setGuardando(false)}
   }

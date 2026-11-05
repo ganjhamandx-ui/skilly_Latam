@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import useCargaAsincrona from './useCargaAsincrona.js'
 import './RegistroAbonoAdministracion.css'
 const csrf = async () => {
   const r=await fetch('/api/acceso/csrf/',{credentials:'same-origin',cache:'no-store'})
@@ -12,17 +13,23 @@ async function leer(r){
   return d
 }
 export default function RegistroAbonoAdministracion({pago}){
+ return <RegistroAbono key={pago.id_pago} pago={pago}/>
+}
+function RegistroAbono({pago}){
  const [datos,setDatos]=useState(null)
  const [referencia,setReferencia]=useState('')
  const [observacion,setObservacion]=useState('')
  const [confirmado,setConfirmado]=useState(false)
- const [cargando,setCargando]=useState(false)
+ const [cargando,setCargando]=useState(true)
  const [error,setError]=useState('')
  const [aviso,setAviso]=useState('')
  const [visible,setVisible]=useState(false)
  const ruta=`/api/profesionales/administracion/pagos/${pago.id_pago}/destino-abono/`
- const cargar=useCallback(async ()=>{setCargando(true);setError('');try{setDatos(await leer(await fetch(ruta,{credentials:'same-origin',cache:'no-store'})))}catch(e){setError(e.message)}finally{setCargando(false)}},[ruta])
- useEffect(()=>{void cargar()},[cargar])
+ const consultar=useCallback(async signal=>leer(await fetch(ruta,{credentials:'same-origin',cache:'no-store',signal})),[ruta])
+ const aplicarConsulta=useCallback(d=>{setDatos(d);setError('');setCargando(false)},[])
+ const fallarConsulta=useCallback(e=>{setError(e.message);setCargando(false)},[])
+ const recargar=useCargaAsincrona(consultar,aplicarConsulta,fallarConsulta)
+ async function cargar(){setCargando(true);setError('');await recargar()}
  async function registrar(e){
   e.preventDefault()
   if(cargando||!confirmado||!referencia.trim()||datos?.abono)return

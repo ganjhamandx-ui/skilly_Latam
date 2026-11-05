@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import useCargaAsincrona from './useCargaAsincrona.js'
 import './ReagendamientosSkilly.css'
 
 const API = '/api/reagendamientos/'
@@ -84,6 +85,10 @@ function Estado({ caso }) {
 }
 
 export function ReagendamientosOrganizacion({ referencia, estadoPrestacion }) {
+  return <ReagendamientosOrganizacionContenido key={referencia} referencia={referencia} estadoPrestacion={estadoPrestacion} />
+}
+
+function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) {
   const [items, setItems] = useState([])
   const [motivo, setMotivo] = useState('')
   const [motivoAlternativa, setMotivoAlternativa] = useState('')
@@ -93,18 +98,18 @@ export function ReagendamientosOrganizacion({ referencia, estadoPrestacion }) {
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
   const url = `${API}organizacion/${encodeURIComponent(referencia || '')}/`
-  const cargar = useCallback(async () => {
-    if (!referencia) return
-    try {
-      const r = await solicitudHttp(url)
+  const consultar = useCallback(async (signal) => {
+    if (!referencia) return {}
+    return solicitudHttp(url, { signal })
+  }, [url, referencia])
+  const aplicarConsulta = useCallback((r) => {
       setItems(r.solicitudes || [])
       setPermiteSolicitar(r.permite_solicitar === true)
       setMotivoNoDisponible(r.motivo_no_disponible || '')
       setError('')
-    }
-    catch (e) { setError(e.message) }
-  }, [url, referencia])
-  useEffect(() => { void cargar() }, [cargar])
+  }, [])
+  const fallarConsulta = useCallback((e) => setError(e.message), [])
+  const cargar = useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
   useActualizacionInterna(cargar)
   async function enviar(data) {
     setCargando(true); setError(''); setAviso('')
@@ -152,11 +157,10 @@ export function ReagendamientosAdministracion() {
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
-  const cargar = useCallback(async () => {
-    try { const r = await solicitudHttp(`${API}administracion/`); setItems(r.solicitudes || []); setError('') }
-    catch (e) { setError(e.message) }
-  }, [])
-  useEffect(() => { void cargar() }, [cargar])
+  const consultar = useCallback((signal) => solicitudHttp(`${API}administracion/`, { signal }), [])
+  const aplicarConsulta = useCallback((r) => { setItems(r.solicitudes || []); setError('') }, [])
+  const fallarConsulta = useCallback((e) => setError(e.message), [])
+  const cargar = useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
   useActualizacionInterna(cargar)
   async function accionar(item, accion) {
     if (accion === 'CONFIRMAR' && !window.confirm('¿Confirmas el nuevo horario? Esta acción reemplaza la reserva actual.')) return
@@ -208,11 +212,10 @@ export function ReagendamientosProfesional() {
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
-  const cargar = useCallback(async () => {
-    try { const r = await solicitudHttp(`${API}profesional/`); setItems(r.solicitudes || []); setError('') }
-    catch (e) { setError(e.message) }
-  }, [])
-  useEffect(() => { void cargar() }, [cargar])
+  const consultar = useCallback((signal) => solicitudHttp(`${API}profesional/`, { signal }), [])
+  const aplicarConsulta = useCallback((r) => { setItems(r.solicitudes || []); setError('') }, [])
+  const fallarConsulta = useCallback((e) => setError(e.message), [])
+  const cargar = useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
   useActualizacionInterna(cargar)
   async function accionar(item, accion, campos = {}) {
     setCargando(true); setError(''); setAviso('')
