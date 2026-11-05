@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import SesionSkillyAuthentication
+from .sesiones import _vincular_sesion_con_contrasena
 from .models import Usuario
 from .permissions import EsUsuarioSkillyAutenticado
 from .recuperacion import (
@@ -101,6 +102,8 @@ class InicioSesionView(APIView):
         )
 
         request.session["rol"] = usuario.rol
+
+        _vincular_sesion_con_contrasena(request.session, usuario)
 
         rotate_token(request)
 

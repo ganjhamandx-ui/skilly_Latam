@@ -5,11 +5,12 @@ from datetime import timedelta, timezone as datetime_timezone
 
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
+from django.contrib.sessions.models import Session
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
-from .models import RecuperacionAcceso
+from .models import RecuperacionAcceso, Usuario
 
 
 def convertir_fecha_bd(fecha):
@@ -74,20 +75,47 @@ def enviar_correo_recuperacion(usuario, token):
     )
 
 
+def _revocar_sesiones_usuario(id_usuario, ahora):
+    """Revoca solo sesiones DB vigentes del usuario que restablece su acceso."""
+    claves = []
+    sesiones = Session.objects.filter(expire_date__gt=ahora)
+
+    for sesion in sesiones.iterator(chunk_size=500):
+        if str(sesion.get_decoded().get("id_usuario")) == str(id_usuario):
+            claves.append(sesion.session_key)
+
+    if claves:
+        Session.objects.filter(session_key__in=claves).delete()
+
+
 def restablecer_contrasena(token, nueva_contrasena):
     token_hash = hashlib.sha256(
         token.encode("utf-8")
     ).hexdigest()
 
     with transaction.atomic():
+        id_usuario = (
+            RecuperacionAcceso.objects
+            .filter(token_hash=token_hash, usado=False)
+            .values_list("id_usuario_id", flat=True)
+            .first()
+        )
+
+        if id_usuario is None:
+            return False, "TOKEN_INVALIDO_O_UTILIZADO"
+
+        # Serializar todos los tokens del mismo usuario antes de bloquear uno.
+        # Evita bloqueos cruzados al invalidar otros tokens tras un cambio.
+        usuario = Usuario.objects.select_for_update().get(pk=id_usuario)
+
         recuperacion = (
             RecuperacionAcceso.objects
             .select_for_update()
             .filter(
                 token_hash=token_hash,
                 usado=False,
+                id_usuario=usuario,
             )
-            .select_related("id_usuario")
             .first()
         )
 
@@ -100,8 +128,6 @@ def restablecer_contrasena(token, nueva_contrasena):
 
         if fecha_expiracion <= timezone.now():
             return False, "TOKEN_EXPIRADO"
-
-        usuario = recuperacion.id_usuario
 
         usuario.password_hash = make_password(
             nueva_contrasena
@@ -123,5 +149,12 @@ def restablecer_contrasena(token, nueva_contrasena):
                 "usado",
             ]
         )
+
+        RecuperacionAcceso.objects.filter(
+            id_usuario=usuario,
+            usado=False,
+        ).update(usado=True)
+
+        _revocar_sesiones_usuario(usuario.pk, timezone.now())
 
     return True, "CONTRASENA_ACTUALIZADA"

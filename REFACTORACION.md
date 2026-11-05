@@ -38,14 +38,25 @@ Evidencias adicionales en el mismo respaldo externo:
 - `integracion_real_ca0377f060c14b02b631053609d48d10/browser_result.json` y `resultado.json`.
 - `validacion_modulos_83fb3a47278a415aa0b49b5250e05590/`: resultados de suite, ESLint, Node, codificación fuente y build.
 
+## Completado: recuperación de acceso y sesiones
+
+- Restablecer contraseña bloquea primero el usuario y vuelve a validar el token antes del cambio, conservando expiración, mensajes y contrato del endpoint.
+- Se invalidan todos sus tokens pendientes y se revocan sus sesiones DB vigentes, sin afectar otros usuarios. Los cambios quedan en una única transacción.
+- Las sesiones nuevas se vinculan mediante HMAC a la identidad y contraseña que autorizó el login. Una sesión guardada tardíamente con la contraseña anterior se rechaza en la siguiente solicitud.
+- Las sesiones antiguas sin marca siguen admitidas por compatibilidad y se revocan mediante el escaneo al restablecer. El escaneo tiene coste proporcional a las sesiones vigentes; no se añadió ningún esquema ni índice.
+- Se añadieron **16 pruebas unitarias**. La suite conjunta, incluido el detector, terminó con **153 aprobadas** y sin acceso a BD real durante las unitarias.
+- Integración contra la copia aislada: **18 comprobaciones reales** de identidad, login, reset, revocación, expiración y preservación de otro usuario; **3 comprobaciones de rollback con fallo inyectado** sobre transacciones PostgreSQL reales. Se distinguen esas tres del resto: usan un hook simulado para provocar el fallo.
+- No se enviaron correos, no se modificó el `.env` ni las credenciales/contraseña/permisos del usuario PostgreSQL operativo. La instancia aislada quedó apagada.
+
+Evidencia: `integracion_recuperacion_f0b144ac4d014d6587198ec447327f26/resultado.json` y script conservado, dentro del respaldo externo ya indicado.
+
 ## En cierre
 
-- Recuperación de acceso: revocación de sesiones/tokens y protección frente a sesiones guardadas con la contraseña anterior, verificada en copia aislada.
 - Detector de codificación: falsos positivos de sintaxis corregidos, con pruebas de mojibake y UTF-8 inválido.
 
 ## Pendiente y límites
 
-- Revisar revocación de otras sesiones/tokens tras restablecer contraseña y límites de intentos, con pruebas aisladas antes de cualquier cambio persistente.
+- Revisar límites de intentos de autenticación/recuperación y comportamiento bajo carga antes de introducir controles adicionales.
 - Evaluar carga diferida por pantalla: el build aún advierte de un bloque JavaScript superior a 500 kB.
 - No se ejecutaron SonarQube ni JMeter. No se declara aprobación de esos controles ni de todos los flujos E2E del proyecto.
 - Los 23 casos de navegador cubren el alcance CSRF descrito; no equivalen a una certificación de pagos reales, flujos completos del negocio o compatibilidad visual en todos los dispositivos.

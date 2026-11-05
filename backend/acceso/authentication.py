@@ -1,6 +1,7 @@
 from rest_framework.authentication import SessionAuthentication
 
 from .models import Usuario
+from .sesiones import _sesion_contrasena_vigente
 
 
 class SesionSkillyAuthentication(SessionAuthentication):
@@ -15,7 +16,7 @@ class SesionSkillyAuthentication(SessionAuthentication):
             estado="ACTIVO",
         ).first()
 
-        if usuario is None:
+        if usuario is None or not _sesion_contrasena_vigente(request.session, usuario):
             request.session.flush()
             return None
 
