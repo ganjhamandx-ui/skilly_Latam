@@ -7,6 +7,8 @@ from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,6 +30,7 @@ class ActualizarCargoCancelacionSerializer(serializers.Serializer):
     )
 
 
+@method_decorator(csrf_protect, name='dispatch')
 class ConfiguracionCargoCancelacionView(APIView):
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]

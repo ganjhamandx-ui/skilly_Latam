@@ -2,6 +2,8 @@
 from django.conf import settings
 from django.db import connections, transaction, IntegrityError
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from acceso.authentication import SesionSkillyAuthentication
@@ -43,6 +45,7 @@ def usuario_id(request):
     return request.user.pk
 
 
+@method_decorator(csrf_protect, name='dispatch')
 class CuentasBancariasView(APIView):
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
@@ -78,6 +81,7 @@ class CuentasBancariasView(APIView):
         return Response({'cuenta': serializar(c)}, status=201)
 
 
+@method_decorator(csrf_protect, name='dispatch')
 class CuentaBancariaDetalleView(APIView):
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]

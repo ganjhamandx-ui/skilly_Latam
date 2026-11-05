@@ -1,9 +1,9 @@
-from rest_framework.authentication import BaseAuthentication
+from rest_framework.authentication import SessionAuthentication
 
 from .models import Usuario
 
 
-class SesionSkillyAuthentication(BaseAuthentication):
+class SesionSkillyAuthentication(SessionAuthentication):
     def authenticate(self, request):
         id_usuario = request.session.get("id_usuario")
 
@@ -18,5 +18,7 @@ class SesionSkillyAuthentication(BaseAuthentication):
         if usuario is None:
             request.session.flush()
             return None
+
+        self.enforce_csrf(request)
 
         return (usuario, None)
