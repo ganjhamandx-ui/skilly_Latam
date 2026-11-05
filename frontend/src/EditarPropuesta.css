@@ -1,0 +1,131 @@
+
+.ep-contenedor {
+  margin: 22px 0;
+  padding: 20px;
+  border: 1px solid #dce8e0;
+  border-radius: 14px;
+  background: #f8fbf9;
+}
+
+.ep-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ep-cabecera h3 {
+  color: #285d55;
+  margin: 0;
+}
+
+.ep-cabecera p {
+  margin-bottom: 0;
+}
+
+.ep-formulario {
+  display: grid;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.ep-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.ep-campo {
+  display: grid;
+  gap: 8px;
+}
+
+.ep-campo label,
+.ep-competencias legend {
+  color: #285d55;
+  font-weight: 700;
+}
+
+.ep-campo input,
+.ep-campo textarea,
+.ep-campo select {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #cfddd3;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  font: inherit;
+}
+
+.ep-campo textarea {
+  resize: vertical;
+}
+
+.ep-campo small {
+  color: #617568;
+}
+
+.ep-competencias {
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid #cfddd3;
+  border-radius: 10px;
+}
+
+.ep-opciones {
+  display: grid;
+  gap: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ep-opcion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.ep-opcion input {
+  flex: none;
+  width: auto;
+  margin: 0;
+}
+
+.ep-aviso {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff5df;
+  color: #735321;
+  font-size: 14px;
+}
+
+.ep-error,
+.ep-exito {
+  padding: 13px 15px;
+  border-radius: 9px;
+  margin-top: 16px;
+}
+
+.ep-error {
+  background: #fff4f4;
+  color: #812f2f;
+}
+
+.ep-exito {
+  background: #eaf5ee;
+  color: #276449;
+}
+
+@media (max-width: 700px) {
+  .ep-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ep-contenedor {
+    padding: 15px;
+  }
+}

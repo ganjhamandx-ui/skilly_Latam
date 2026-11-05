@@ -1,0 +1,142 @@
+
+.rp-enlace-acceso {
+  margin-top: 20px;
+  text-align: center;
+  padding: 18px 0;
+  border-top: 1px solid #e0e8e2;
+}
+
+.rp-enlace-acceso p {
+  color: #617568;
+  font-size: 14px;
+}
+
+.rp-boton-alternar {
+  border: 1px solid #395f53;
+  background: #fff;
+  color: #395f53;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 11px 18px;
+  cursor: pointer;
+}
+
+.rp-registro {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #dce8e0;
+  border-radius: 14px;
+  background: #f8fbf9;
+}
+
+.rp-registro h2 {
+  margin-top: 0;
+  font-size: 22px;
+  color: #285d55;
+}
+
+.rp-formulario {
+  display: grid;
+  gap: 13px;
+  margin-top: 18px;
+}
+
+.rp-formulario h3 {
+  margin: 20px 0 5px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #dce8e0;
+  color: #285d55;
+  font-size: 17px;
+}
+
+.rp-formulario > label:not(.rp-mostrar),
+.rp-campo label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #285d55;
+}
+
+.rp-formulario > input,
+.rp-formulario > textarea,
+.rp-campo input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cfddd3;
+  border-radius: 10px;
+  font: inherit;
+  background: #fff;
+}
+
+.rp-formulario textarea {
+  resize: vertical;
+}
+
+.rp-dos-columnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.rp-campo {
+  display: grid;
+  gap: 8px;
+}
+
+.rp-mostrar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.rp-boton-principal {
+  margin-top: 8px;
+  width: 100%;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #395f53;
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rp-boton-principal:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.rp-error,
+.rp-exito {
+  padding: 13px;
+  margin-top: 16px;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.rp-error {
+  background: #fff1f1;
+  color: #913f3f;
+}
+
+.rp-exito {
+  background: #eaf5ee;
+  color: #276449;
+}
+
+.rp-nota {
+  color: #617568;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .rp-dos-columnas {
+    grid-template-columns: 1fr;
+  }
+
+  .rp-registro {
+    padding: 15px;
+  }
+}

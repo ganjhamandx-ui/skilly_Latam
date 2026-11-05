@@ -1,0 +1,92 @@
+import { useCallback, useEffect, useState } from 'react'
+import AdminNavegacion from './AdminNavegacion.jsx'
+import './Administracion.css'
+import './CuentasBancariasAdministracion.css'
+
+const API = '/api/backoffice/configuracion/cuentas-bancarias/'
+const vacio = { titular:'', rut_titular:'', banco:'', tipo_cuenta:'', numero_cuenta:'', correo:'' }
+const etiquetas = { titular:'Titular', rut_titular:'RUT del titular', banco:'Banco', tipo_cuenta:'Tipo de cuenta', numero_cuenta:'Número de cuenta', correo:'Correo de comprobantes' }
+const tipos = ['CORRIENTE','VISTA','CUENTA_RUT','AHORRO']
+
+export default function CuentasBancariasAdministracion() {
+  const [cuentas,setCuentas]=useState([])
+  const [historial,setHistorial]=useState([])
+  const [form,setForm]=useState(vacio)
+  const [editando,setEditando]=useState(null)
+  const [error,setError]=useState('')
+  const [cargando,setCargando]=useState(true)
+  const [trabajando,setTrabajando]=useState(false)
+  const [verHistorial,setVerHistorial]=useState(false)
+  const cargar=useCallback(async ()=>{
+    setCargando(true)
+    try {
+      const r=await fetch(API,{credentials:'same-origin',headers:{Accept:'application/json'}})
+      const d=await r.json().catch(()=>({}))
+      if(!r.ok) throw new Error(d.mensaje || `HTTP ${r.status}`)
+      setCuentas(d.cuentas || []);setError('')
+    }catch(e){setError(e.message)}finally{setCargando(false)}
+  },[])
+  useEffect(()=>{cargar()},[cargar])
+  async function historialCuentas(){
+    try {const r=await fetch(`${API}historial/`,{credentials:'same-origin'});const d=await r.json();
+      if(!r.ok)throw new Error(d.mensaje||`HTTP ${r.status}`);setHistorial(d.historial||[]);setVerHistorial(true)}
+    catch(e){setError(e.message)}
+  }
+  async function obtenerCsrf(){
+    const r=await fetch('/api/acceso/csrf/',{credentials:'same-origin',cache:'no-store'})
+    const d=await r.json().catch(()=>({}))
+    if(!r.ok||!d.csrfToken)throw new Error('No se pudo obtener el token de seguridad.')
+    return d.csrfToken
+  }
+  async function enviar(url,method,body){
+    setTrabajando(true);setError('')
+    try {const csrf=await obtenerCsrf();const r=await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf},body:JSON.stringify(body)});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.mensaje || `HTTP ${r.status}`)
+      setForm(vacio);setEditando(null);await cargar();if(verHistorial) await historialCuentas()
+    }catch(e){setError(e.message)}finally{setTrabajando(false)}
+  }
+  function guardar(e){e.preventDefault();if(trabajando)return;
+    enviar(editando?`${API}${editando}/`:API,editando?'PATCH':'POST',editando?{...form,accion:'MODIFICAR'}:form)
+  }
+  function accion(c,accion){
+    if(trabajando)return
+    const descripcion={ACTIVAR:'activar',DESACTIVAR:'desactivar',PRINCIPAL:'seleccionar como principal'}[accion]
+    if(!window.confirm(`¿Confirmas ${descripcion} la cuenta ${c.banco} terminada en ${c.numero_cuenta.slice(-4)}?`))return
+    enviar(`${API}${c.id_cuenta}/`,'PATCH',{accion})
+  }
+  return <main className="bancos-root">
+    <AdminNavegacion activo="cuentas" />
+    <header><span className="bancos-subtitulo">BACK-OFFICE · CONFIGURACIÓN</span><h1>Cuentas bancarias de SKILLY</h1>
+    <p>Configura las cuentas receptoras de transferencias. No modifica pagos históricos.</p></header>
+    {error && <p role="alert" className="bancos-error">{error}</p>}
+    <section className="bancos-panel"><h2>{editando?'Modificar cuenta inactiva':'Registrar nueva cuenta'}</h2>
+      <p>Los seis campos son obligatorios. Las cuentas nuevas se crean inactivas hasta su autorización.</p>
+      <form onSubmit={guardar} className="bancos-form">
+        {Object.keys(vacio).map(k=><label key={k}>{etiquetas[k]} *
+          {k==='tipo_cuenta'?<select required value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})}>
+            <option value="">Seleccionar</option>{tipos.map(t=><option key={t}>{t}</option>)}</select>:
+            <input required type={k==='correo'?'email':'text'} value={form[k]} maxLength={k==='numero_cuenta'?32:254}
+              inputMode={k==='numero_cuenta'?'numeric':'text'} pattern={k==='numero_cuenta'?'[0-9]{5,32}':undefined}
+              onChange={e=>setForm({...form,[k]:e.target.value})}/>}</label>)}
+        <div className="bancos-acciones"><button disabled={trabajando}>{editando?'Guardar cambios':'Registrar cuenta'}</button>
+          {editando && <button type="button" onClick={()=>{setEditando(null);setForm(vacio)}}>Cancelar</button>}</div>
+      </form>
+    </section>
+    <section className="bancos-panel"><div className="bancos-titulo"><h2>Cuentas registradas</h2><button onClick={cargar}>Actualizar</button></div>
+      {cargando?<p>Cargando cuentas…</p>:cuentas.length===0?<p>Sin cuentas registradas.</p>:cuentas.map(c=><article className="bancos-cuenta" key={c.id_cuenta}>
+        <h3>{c.banco} · {c.tipo_cuenta} {c.principal?'· PRINCIPAL':''}</h3>
+        <p>{c.titular} · RUT {c.rut_titular} · Cuenta terminada en {c.numero_cuenta.slice(-4)}</p>
+        <p>{c.activa?'Activa':'Inactiva'} · {c.correo}</p>
+        <div className="bancos-acciones">
+          {!c.activa&&<button disabled={trabajando} onClick={()=>{setEditando(c.id_cuenta);setForm(Object.fromEntries(Object.keys(vacio).map(k=>[k,c[k]])));window.scrollTo({top:0,behavior:'smooth'})}}>Editar</button>}
+          {!c.activa&&<button disabled={trabajando} onClick={()=>accion(c,'ACTIVAR')}>Activar</button>}
+          {c.activa&&!c.principal&&<button disabled={trabajando} onClick={()=>accion(c,'PRINCIPAL')}>Establecer principal</button>}
+          {c.activa&&!c.principal&&<button disabled={trabajando} onClick={()=>accion(c,'DESACTIVAR')}>Desactivar</button>}
+        </div>
+      </article>)}
+    </section>
+    <section className="bancos-panel"><div className="bancos-titulo"><h2>Historial de cambios</h2><button onClick={historialCuentas}>Consultar historial</button></div>
+      {verHistorial&&historial.map(h=><p key={h.id_cambio}>Cuenta #{h.id_cuenta} · {h.accion} · Administrador #{h.usuario_id} · {new Date(h.fecha).toLocaleString('es-CL')}</p>)}
+    </section>
+  </main>
+}

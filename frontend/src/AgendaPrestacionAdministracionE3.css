@@ -1,0 +1,20 @@
+.sk-agenda-e3{margin:22px 0;padding:20px;border:1px solid #dbe7df;border-radius:16px;background:#f8fbf8;color:#25423b}
+.sk-agenda-e3-header{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.sk-agenda-e3-header h3{margin:0 0 6px;font-size:18px}
+.sk-agenda-e3-header p{margin:0;color:#60766b;font-size:14px;line-height:1.5}
+.sk-agenda-e3-contenido{display:grid;gap:14px;margin-top:18px;border-top:1px solid #dfebe2;padding-top:18px}
+.sk-agenda-e3-resumen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sk-agenda-e3-resumen span{display:grid;gap:5px;padding:13px;background:#fff;border:1px solid #e3ece6;border-radius:10px}
+.sk-agenda-e3-resumen small{color:#62766d}
+.sk-agenda-e3-formulario{display:grid;gap:15px}
+.sk-agenda-e3-formulario label{display:grid;gap:7px;font-size:14px;font-weight:700}
+.sk-agenda-e3-formulario select,.sk-agenda-e3-formulario textarea{width:100%;box-sizing:border-box;border:1px solid #afc8bc;border-radius:10px;background:#fff;color:#203a38;padding:11px;font:inherit;font-weight:400}
+.sk-agenda-e3-formulario label>small{font-weight:400;color:#64786d}
+.sk-agenda-e3-acciones{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.sk-agenda-e3-acciones .adm-accion{margin:0}
+.sk-agenda-e3-alerta{border-left:4px solid #ac6449;background:#fff4ed;padding:13px;border-radius:8px;font-size:14px;line-height:1.55}
+.sk-agenda-e3-aviso{font-size:13px;color:#64786d;line-height:1.5}
+@media(max-width:660px){.sk-agenda-e3{padding:14px}.sk-agenda-e3-resumen{grid-template-columns:1fr}.sk-agenda-e3-acciones{display:grid}.sk-agenda-e3-acciones button{width:100%}}
+.sk-agenda-e3-acciones .adm-accion{display:inline-flex;justify-content:center;align-items:center;padding:12px 18px;border:1px solid #315f50;border-radius:10px;background:#315f50;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.sk-agenda-e3-acciones .adm-accion:hover:not(:disabled){background:#254b3f}
+.sk-agenda-e3-acciones .adm-accion:disabled{opacity:.6;cursor:not-allowed}

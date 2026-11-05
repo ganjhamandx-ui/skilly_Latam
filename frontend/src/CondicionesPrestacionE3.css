@@ -1,0 +1,20 @@
+/* Vista compartida: condiciones publicadas, sin alterar datos ni estados. */
+.cp-e3 { width: 100%; min-width: 0; font-size: 14px; color: #304f44; font-weight: 400; }
+.cp-e3-resumen { border: 1px solid #dae6de; background: #f3f8f4; border-radius: 13px; padding: 14px 17px; }
+.cp-e3-resumen h4 { margin: 0 0 12px; color: #24463a; font-size: 15px; font-weight: 780; }
+.cp-e3 dl, .cp-e3 dt, .cp-e3 dd { margin: 0; }
+.cp-e3-datos { display: grid; grid-template-columns: repeat(auto-fit,minmax(185px,1fr)); gap: 13px 18px; }
+.cp-e3-item { min-width: 0; }
+.cp-e3-item dt { color: #426c58; font-size: 12px; font-weight: 750; margin-bottom: 4px; }
+.cp-e3-item dd { color: #2d4940; font-size: 14px; line-height: 1.65; font-weight: 460; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cp-e3-acuerdos { display: grid; gap: 9px; margin-top: 11px; }
+.cp-e3-acordeon { border: 1px solid #dce7df; border-radius: 12px; background: #fff; overflow: hidden; }
+.cp-e3-acordeon > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 16px; color: #2c5141; font-size: 14px; font-weight: 750; }
+.cp-e3-acordeon > summary::-webkit-details-marker { display: none; }
+.cp-e3-acordeon > summary:hover, .cp-e3-acordeon > summary:focus-visible { background: #f1f7f2; }
+.cp-e3-acordeon > summary:focus-visible { outline: 2px solid #477e6e; outline-offset: -2px; }
+.cp-e3-indicador { font-size: 20px; color: #5a806b; transition: transform .18s; }
+.cp-e3-acordeon[open] .cp-e3-indicador { transform: rotate(180deg); }
+.cp-e3-lista { border-top: 1px solid #e4ece6; padding: 13px 16px 16px; display: grid; gap: 13px; }
+.cp-e3-lista .cp-e3-item + .cp-e3-item { padding-top: 11px; border-top: 1px solid #edf1ed; }
+@media(max-width:640px) { .cp-e3-datos { grid-template-columns: 1fr; gap: 12px; } .cp-e3-resumen { padding: 13px 14px; } .cp-e3-lista { padding: 13px 14px; } }

@@ -1,0 +1,8 @@
+.raa-modulo{background:#f8fbf9;border:1px solid #dfebe3;border-radius:14px;padding:18px;margin:18px 0}.raa-modulo h4{margin:0 0 10px}.raa-modulo p{line-height:1.5}.raa-cuenta{padding:15px;background:white;border:1px solid #dfebe3;border-radius:10px}.raa-cuenta p{margin:8px 0}.raa-form{display:grid;gap:12px;margin-top:16px}.raa-form label:not(.raa-check){display:grid;gap:6px;font-weight:700}.raa-form input:not([type=checkbox]),.raa-form textarea{border-radius:9px;border:1px solid #cfddd3;padding:11px;font:inherit;max-width:100%;width:100%}.raa-check{display:flex;gap:8px;align-items:center}.raa-primary{border:0;border-radius:10px;padding:12px 18px;background:#315e51;color:white;font:inherit;font-weight:700;cursor:pointer;justify-self:start}.raa-primary:disabled{opacity:.5;cursor:not-allowed}.raa-sec{border:1px solid #ccdcd1;background:white;border-radius:8px;color:#315e51;padding:7px 10px;font:inherit;font-weight:700;cursor:pointer;margin-top:10px}.raa-exito,.raa-aviso,.raa-error{border-radius:10px;padding:12px}.raa-exito{background:#e9f5ed;color:#285f4d}.raa-aviso{background:#f5f0e3}.raa-error{background:#fff0ed;color:#96382f}
+
+/* SKILLY: constancia de simulación y auditoría de abonos */
+.raa-simulacion{background:#f6f0e2;border-left:3px solid #b39a5a;border-radius:8px;padding:12px 14px;color:#63583c}
+.raa-ayuda{display:block;font-weight:400;font-size:12px;color:#647a6e;line-height:1.5;margin-top:2px}
+.raa-auditoria{border-top:1px solid #cee0d4;margin-top:12px;padding-top:12px}
+.raa-auditoria p{margin:5px 0;overflow-wrap:anywhere}
+.raa-check{line-height:1.5;flex-wrap:wrap}

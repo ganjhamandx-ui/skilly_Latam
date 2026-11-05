@@ -1,0 +1,19 @@
+.ccp-modulo{color:#233f37}.ccp-descripcion,.ccp-ayuda{color:#607669;line-height:1.6}.ccp-error,.ccp-exito{padding:13px;border-radius:10px}.ccp-error{color:#96342b;background:#fff0ec}.ccp-exito{color:#2f6454;background:#eaf5ed}.ccp-resumen,.ccp-formulario,.ccp-abonos{margin:16px 0;padding:20px;border:1px solid #deebe3;background:#f8fbf9;border-radius:14px}.ccp-resumen h3,.ccp-formulario h3,.ccp-abonos h3{margin:0 0 16px}.ccp-resumen dl,.ccp-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ccp-resumen dl>div{padding:12px;background:#fff;border:1px solid #e5eee8;border-radius:10px}.ccp-resumen dt{color:#64776d;font-size:12px}.ccp-resumen dd{margin:5px 0;font-weight:700;overflow-wrap:anywhere}.ccp-campos label{font-weight:700;font-size:13px;display:flex;flex-direction:column;gap:7px}.ccp-campos input,.ccp-campos select{width:100%;border:1px solid #cfded3;border-radius:9px;padding:12px;font:inherit;background:white;color:#1d3029}.ccp-boton,.ccp-secundario{font:inherit;font-weight:700;border-radius:10px;padding:12px 18px;cursor:pointer;border:0}.ccp-boton{background:#315e51;color:#fff}.ccp-secundario{color:#315e51;background:#e7f0e9}.ccp-boton:disabled{opacity:.5;cursor:wait}.ccp-acciones{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}.ccp-abonos article{background:white;border:1px solid #e5eee8;border-radius:10px;padding:14px;margin-top:12px}.ccp-abonos article p{margin:8px 0}@media(max-width:600px){.ccp-resumen dl,.ccp-campos{grid-template-columns:1fr}.ccp-resumen,.ccp-formulario,.ccp-abonos{padding:14px}}
+
+/* SKILLY: historial de abonos (solo presentación; sin movimientos bancarios) */
+.ccp-historial-titulo{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.ccp-historial-titulo h3{margin:0}
+.ccp-etiqueta-simulacion{font-size:12px;font-weight:700;color:#75632e;background:#f5f0df;border-radius:999px;padding:6px 10px}
+.ccp-nota-simulacion{color:#5b6e64;line-height:1.65;background:#eef4ef;border-radius:10px;padding:13px;margin:12px 0 16px}
+.ccp-sin-abonos{margin:18px 0 0;color:#63766e}
+.ccp-abono-item{margin-top:14px}
+.ccp-abono-cabecera{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.ccp-abono-cabecera>div{display:grid;gap:5px}
+.ccp-abono-subtitulo{color:#597266;font-weight:700}
+.ccp-abono-monto{font-size:24px;color:#28574c;line-height:1.2}
+.ccp-abono-estado{border-radius:999px;background:#e9f3ed;color:#2c644f;font-weight:700;font-size:12px;padding:6px 10px}
+.ccp-abono-datos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:15px 0 0}
+.ccp-abono-datos>div{min-width:0}
+.ccp-abono-datos dt{font-size:12px;color:#697d72}
+.ccp-abono-datos dd{font-weight:600;margin:4px 0 0;overflow-wrap:anywhere}
+@media(max-width:600px){.ccp-abono-datos{grid-template-columns:1fr}}

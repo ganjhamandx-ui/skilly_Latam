@@ -1,0 +1,23 @@
+SKILLY - RECUPERACION SELECTIVA DE LOGICA ORIGINAL
+
+Referencia de respaldo: SKILLY_AUDITORIA_FUNCIONAL.zip, contrastada con skilly (2).zip.
+
+CONTENIDO
+- Se restauran sin cambios los 6 archivos Python del modulo profesionales,
+  identicos a la copia original verificada.
+- Se restaura el componente de solicitud de validacion del respaldo anterior,
+  que no intenta presentar otra solicitud si ya existe una.
+- Se conserva el componente actual de carga/descarga y su interfaz de nueva version,
+  eliminando la vista previa que dependia de una ampliacion reciente del backend.
+- Se conserva el modal administrativo actual y su boton de descarga,
+  eliminando la vista previa incompatible con el endpoint anterior.
+- NO se incluyen cambios de CSS, estructura de ventanas o base de datos.
+- NO se incluyen migraciones, datos personales, ni archivos fisicos de documentos.
+
+ANTES DE INSTALAR: HACER UNA COPIA DEL CODIGO ACTUAL.
+DESPUES DE INSTALAR: python backend/manage.py check; npm run lint; npm run build.
+COMPROBAR CON CUENTAS DE PRUEBA: carga/descarga profesional y admin,
+ver perfil, entrevista, validacion, peticiones y ventanas.
+
+Este paquete es una propuesta de recuperacion selectiva basada en las copias
+anteriores. Pruebas reales HTTP/BD requieren el servidor del usuario.

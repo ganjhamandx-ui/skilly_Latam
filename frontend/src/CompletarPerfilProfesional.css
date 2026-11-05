@@ -1,0 +1,79 @@
+
+.cpp-panel {
+  margin-bottom: 26px;
+}
+
+.cpp-panel h2 {
+  color: #285d55;
+}
+
+.cpp-formulario {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #dce8e0;
+  border-radius: 14px;
+  background: #f8fbf9;
+}
+
+.cpp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.cpp-campo {
+  display: grid;
+  gap: 8px;
+}
+
+.cpp-campo label {
+  color: #285d55;
+  font-weight: 700;
+}
+
+.cpp-campo input,
+.cpp-campo textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid #cfddd3;
+  border-radius: 10px;
+  background: white;
+  font: inherit;
+}
+
+.cpp-campo textarea {
+  resize: vertical;
+}
+
+.cpp-formulario button {
+  justify-self: start;
+}
+
+.cpp-exito {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  color: #276449;
+  background: #eaf5ee;
+}
+
+@media (max-width: 700px) {
+  .cpp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cpp-formulario {
+    padding: 15px;
+  }
+}
+
+.cpp-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.cpp-acciones .pp-boton { margin: 0; }

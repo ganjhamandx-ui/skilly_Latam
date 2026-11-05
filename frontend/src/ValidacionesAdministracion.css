@@ -1,0 +1,264 @@
+
+.va-pagina {
+  min-height: 100vh;
+  background: #f5f8f6;
+  color: #243a34;
+  font-family: inherit;
+}
+
+.va-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px max(24px, calc((100% - 1080px)/2));
+  background: white;
+  border-bottom: 1px solid #e2eae5;
+}
+
+.va-cabecera a {
+  color: #315c50;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.va-cabecera span,
+.va-etiqueta {
+  color: #63816e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.va-contenido {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.va-contenido h1 {
+  font-size: clamp(30px, 4vw, 44px);
+  margin: 15px 0;
+}
+
+.va-descripcion {
+  color: #617568;
+}
+
+.va-resumen {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+
+.va-resumen > div,
+.va-panel {
+  background: white;
+  border: 1px solid #e2eae5;
+  border-radius: 18px;
+  padding: 24px;
+}
+
+.va-resumen > div {
+  display: grid;
+  gap: 12px;
+}
+
+.va-resumen strong {
+  font-size: 28px;
+}
+
+.va-panel {
+  margin-top: 20px;
+}
+
+.va-panel-titulo,
+.va-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.va-panel h2 {
+  margin-top: 0;
+}
+
+.va-panel button {
+  padding: 11px 15px;
+  border-radius: 10px;
+  background: #e7f0ea;
+  color: #315c50;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.va-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 18px 0;
+}
+
+.va-filtros button.activo {
+  background: #315c50;
+  color: white;
+}
+
+.va-lista {
+  display: grid;
+  gap: 12px;
+}
+
+.va-item,
+.va-documento {
+  border: 1px solid #e2eae5;
+  background: #f8fbf9;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.va-item h3 {
+  margin: 0 0 10px;
+}
+
+.va-item p {
+  margin: 6px 0;
+}
+
+.va-detalle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.va-detalle > div {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #e2eae5;
+  border-radius: 10px;
+  padding: 14px;
+  overflow-wrap: anywhere;
+}
+
+.va-detalle strong {
+  text-transform: capitalize;
+  color: #315c50;
+}
+
+.va-documentos {
+  display: grid;
+  gap: 12px;
+}
+
+.va-documento p {
+  margin: 8px 0 0;
+}
+
+.va-error {
+  color: #9d3232;
+  background: #fff1f1;
+  padding: 14px;
+  border-radius: 10px;
+}
+
+.va-nota {
+  color: #617568;
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .va-resumen,
+  .va-detalle {
+    grid-template-columns: 1fr;
+  }
+
+  .va-contenido {
+    padding: 28px 14px;
+  }
+}
+
+.va-documento-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.va-documento-acciones a {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: #285d55;
+  font-weight: 700;
+  background: #e6f0ea;
+  text-decoration: none;
+}
+.va-documento-acciones a:hover { text-decoration: underline; }
+
+
+/* Etapa 2: refinamiento estrictamente visual de validaciones */
+.va-contenido { max-width: 1200px; padding-top: 30px; }
+.va-contenido > .va-etiqueta { display: inline-block; margin-bottom: 6px; }
+.va-contenido > .va-descripcion { max-width: 720px; line-height: 1.65; margin-bottom: 25px; }
+.va-resumen { gap: 14px; margin: 20px 0 28px; }
+.va-resumen > div { border-color: #dbe8df; border-radius: 16px; box-shadow: 0 7px 21px rgba(20,67,45,.05); }
+.va-resumen > div > span { font-weight: 650; color: #526e60; }
+.va-resumen strong { color: #204c3b; font-size: clamp(28px,3vw,36px); line-height: 1.1; }
+.va-panel { margin-top: 18px; border-color: #dbe8df; box-shadow: 0 9px 27px rgba(22,58,36,.045); }
+.va-panel-titulo { align-items: flex-start; }
+.va-panel-titulo > div { flex: 1 1 420px; }
+.va-panel h2 { line-height: 1.3; margin-bottom: 8px; }
+.va-panel button { border: 1px solid #d0e2d5; min-height: 42px; transition: background-color .15s ease,border-color .15s ease; }
+.va-panel button:hover:not(:disabled) { background: #d8e9dd; border-color: #9fc9ad; }
+.va-panel button:focus-visible, .va-documento-acciones a:focus-visible, .va-cabecera a:focus-visible { outline: 3px solid #38765b; outline-offset: 3px; }
+.va-filtros { padding: 8px 0; gap: 10px; }
+.va-filtros button { border-radius: 999px; }
+.va-filtros button.activo { background: #315c50; border-color: #315c50; color: #fff; }
+.va-item,.va-documento { background: #fbfdfb; border-color: #dce8df; border-radius: 14px; }
+.va-item { align-items: flex-start; }
+.va-item h3 { color: #244a3a; }
+.va-item p { line-height: 1.55; overflow-wrap: anywhere; }
+.va-detalle > div { background: #fbfdfb; border-radius: 12px; }
+.va-documento-acciones a:hover { background: #d7e8df; }
+@media (max-width: 700px) {
+  .va-cabecera { padding: 16px; flex-wrap: wrap; }
+  .va-contenido { padding: 26px 16px 50px; }
+  .va-resumen { gap: 10px; }
+  .va-panel { padding: 18px 16px; }
+  .va-panel-titulo { gap: 12px; }
+  .va-panel-titulo > button { width: 100%; }
+  .va-item,.va-documento { padding: 15px; }
+  .va-filtros button { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .va-panel button { transition: none; }
+}
+
+
+/* Etapa 2: lectura del modal, sin afectar resoluciones ni descargas. */
+.va-detalle > div {background: #fafcfb; line-height: 1.5;}
+.va-detalle > div span {white-space: pre-wrap; overflow-wrap: anywhere;}
+.va-detalle > .va-detalle-entrevista {grid-column: 1 / -1;}
+.va-detalle > .va-detalle-entrevista span {font-size: 13px; line-height: 1.7;}
+.va-revision {border-top: 1px solid #e2eae5; margin-top: 22px; padding-top: 18px;}
+.va-revision p {line-height: 1.65; overflow-wrap: anywhere;}
+.va-documento {border-radius: 14px;}
+.va-documento p {line-height: 1.55;}
+
+/* Datos de entrevista: lectura accesible de los campos ya devueltos por la API. */
+.va-entrevista-campos {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+}
+.va-entrevista-campo {
+  display: flex; flex-direction: column; gap: 5px; min-width: 0;
+  padding: 12px; border: 1px solid #e2eae5; border-radius: 10px; background: #fff;
+}
+.va-entrevista-campo strong { font-size: 12px; color: #315c50; }
+.va-entrevista-campo span { overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; }
+@media(max-width: 700px) { .va-entrevista-campos {grid-template-columns: 1fr;} }

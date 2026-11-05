@@ -1,0 +1,3976 @@
+﻿REVISION DE PAGOS SKILLY
+
+========== ARCHIVO: .\backend\pagos\views.py ==========
+
+from datetime import datetime
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from django.db import transaction
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from acceso.authentication import SesionSkillyAuthentication
+from acceso.permissions import (
+    EsAdministracionSkilly,
+    EsProfesional,
+)
+from backoffice.models import (
+    EventoTrazabilidad,
+    ParametroSistema,
+)
+from backoffice.services import registrar_evento_trazabilidad
+from coordinacion.models import PrestacionServicio
+from marketplace.serializers import normalizar_precio_clp
+from profesionales.models import Profesional
+from seguimiento.models import (
+    Entrega,
+    ReclamoPrestacion,
+    ResolucionReclamo,
+)
+from solicitudes.models import (
+    Disponibilidad,
+    ReservaDisponibilidad,
+)
+from solicitudes.referencias import (
+    leer_referencia_seguimiento,
+)
+from .models import (
+    HistorialEstadoPago,
+    Pago,
+    ReversaPago,
+)
+from .serializers import (
+    HistorialEstadoPagoAdministracionSerializer,
+    IniciarPagoTransferenciaSerializer,
+    IniciarReversaPagoSerializer,
+    LiberarPagoSerializer,
+    VerificarPagoTransferenciaSerializer,
+    PagoAdministracionSerializer,
+    PagoEstadoComunicableSerializer,
+    ReversaPagoSerializer,
+)
+class IniciarPagoTransferenciaEmpresaView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    def post(self, request, referencia):
+        datos_referencia = leer_referencia_seguimiento(
+            referencia
+        )
+        if datos_referencia is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "La referencia de seguimiento "
+                        "no es válida."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        entrada_serializer = (
+            IniciarPagoTransferenciaSerializer(
+                data=request.data
+            )
+        )
+        if not entrada_serializer.is_valid():
+            return Response(
+                entrada_serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        datos = entrada_serializer.validated_data
+        comprobante = datos[
+            "comprobante_transferencia"
+        ]
+        referencia_transaccion = datos.get(
+            "referencia_transaccion"
+        )
+        if referencia_transaccion == "":
+            referencia_transaccion = None
+        with transaction.atomic():
+            prestacion = (
+                PrestacionServicio.objects
+                .select_for_update()
+                .select_related(
+                    "id_solicitud",
+                    "id_profesional",
+                )
+                .filter(
+                    id_solicitud_id=(
+                        datos_referencia[
+                            "id_solicitud"
+                        ]
+                    ),
+                    id_solicitud__id_contacto_id=(
+                        datos_referencia[
+                            "id_contacto"
+                        ]
+                    ),
+                )
+                .first()
+            )
+            if prestacion is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "No existe una prestación "
+                            "autorizada para esta referencia."
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            pago_existente = (
+                Pago.objects
+                .select_for_update()
+                .filter(
+                    id_prestacion=prestacion
+                )
+                .first()
+            )
+            if pago_existente is not None:
+                if (
+                    pago_existente.metodo_pago
+                    != "TRANSFERENCIA"
+                ):
+                    return Response(
+                        {
+                            "mensaje": (
+                                "La prestación ya posee "
+                                "un pago iniciado con otro "
+                                "medio de pago."
+                            )
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                pago_data = dict(
+                    PagoEstadoComunicableSerializer(
+                        pago_existente
+                    ).data
+                )
+                pago_data["metodo_pago"] = (
+                    pago_existente.metodo_pago
+                )
+                pago_data["estado_verificacion"] = (
+                    pago_existente.estado_verificacion
+                )
+                return Response(
+                    {
+                        "mensaje": (
+                            "La transferencia ya se "
+                            "encontraba registrada."
+                        ),
+                        "pago": pago_data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            if (
+                prestacion.estado
+                != "PENDIENTE_CONTRATACION"
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "La prestación no se encuentra "
+                            "pendiente de contratación."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            condiciones = str(
+                prestacion.condiciones_comunicadas
+                or ""
+            ).strip()
+            if not condiciones:
+                return Response(
+                    {
+                        "mensaje": (
+                            "Skilly debe comunicar las "
+                            "condiciones de la prestación "
+                            "antes de iniciar el pago."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            servicio = (
+                prestacion.id_solicitud.id_servicio
+            )
+            if servicio is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "La solicitud no posee un "
+                            "servicio asociado para "
+                            "determinar el precio."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                servicio.id_profesional_id
+                != prestacion.id_profesional_id
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "El profesional de la prestación "
+                            "no coincide con el profesional "
+                            "del servicio."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            reserva = (
+                ReservaDisponibilidad.objects
+                .select_for_update()
+                .filter(
+                    id_solicitud=(
+                        prestacion.id_solicitud
+                    ),
+                    estado="PENDIENTE_PAGO",
+                )
+                .order_by(
+                    "-fecha_reserva",
+                    "-id_reserva",
+                )
+                .first()
+            )
+            if reserva is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "La solicitud no posee un horario "
+                            "seleccionado pendiente de pago."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            bloque = (
+                Disponibilidad.objects
+                .select_for_update()
+                .filter(
+                    id_disponibilidad=(
+                        reserva.id_disponibilidad_id
+                    )
+                )
+                .first()
+            )
+            if bloque is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya no "
+                            "se encuentra disponible."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                bloque.id_profesional_id
+                != prestacion.id_profesional_id
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado no "
+                            "corresponde al profesional "
+                            "de la prestación."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if bloque.estado != "DISPONIBLE":
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya no "
+                            "está disponible. Debe elegir "
+                            "otro horario antes de pagar."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            reserva_activa_otra = (
+                ReservaDisponibilidad.objects
+                .filter(
+                    id_disponibilidad=bloque,
+                    estado="ACTIVA",
+                )
+                .exists()
+            )
+            if reserva_activa_otra:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya fue "
+                            "reservado. Debe elegir otro "
+                            "horario antes de pagar."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            inicio_bloque = timezone.make_aware(
+                datetime.combine(
+                    bloque.fecha,
+                    bloque.hora_inicio,
+                ),
+                timezone.get_current_timezone(),
+            )
+            if inicio_bloque <= timezone.now():
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya "
+                            "comenzó o quedó en el pasado. "
+                            "Debe elegir otro horario."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            try:
+                precio_normalizado = (
+                    normalizar_precio_clp(
+                        servicio.referencia_precio,
+                        permitir_vacio=False,
+                    )
+                )
+            except ValidationError:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El servicio no posee un precio "
+                            "final válido para iniciar "
+                            "el pago."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            partes_precio = (
+                precio_normalizado.split()
+            )
+            if len(partes_precio) != 2:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El precio final del servicio "
+                            "no pudo interpretarse."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            try:
+                monto_total = Decimal(
+                    partes_precio[0]
+                ).quantize(
+                    Decimal("0.01"),
+                    rounding=ROUND_HALF_UP,
+                )
+            except InvalidOperation:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El monto final del servicio "
+                            "no es válido."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            moneda = partes_precio[1]
+            parametro_comision = (
+                ParametroSistema.objects
+                .filter(
+                    clave="comision_porcentaje"
+                )
+                .first()
+            )
+            if parametro_comision is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "La comisión del sistema no se "
+                            "encuentra configurada."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            try:
+                porcentaje_comision = Decimal(
+                    str(
+                        parametro_comision.valor_actual
+                    ).strip()
+                )
+            except (
+                InvalidOperation,
+                TypeError,
+                ValueError,
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "La configuración de comisión "
+                            "del sistema no es válida."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                not porcentaje_comision.is_finite()
+                or porcentaje_comision < Decimal("0")
+                or porcentaje_comision > Decimal("100")
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "La configuración de comisión "
+                            "del sistema está fuera del "
+                            "rango permitido."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            porcentaje_comision = (
+                porcentaje_comision.quantize(
+                    Decimal("0.0001"),
+                    rounding=ROUND_HALF_UP,
+                )
+            )
+            monto_comision = (
+                monto_total
+                * porcentaje_comision
+                / Decimal("100")
+            ).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+            monto_neto_profesional = (
+                monto_total - monto_comision
+            ).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+            ahora = timezone.now()
+            pago = Pago.objects.create(
+                id_prestacion=prestacion,
+                monto_total=monto_total,
+                moneda=moneda,
+                porcentaje_comision_aplicado=(
+                    porcentaje_comision
+                ),
+                monto_comision=monto_comision,
+                monto_neto_profesional=(
+                    monto_neto_profesional
+                ),
+                estado_pago=(
+                    "PENDIENTE_VERIFICACION"
+                ),
+                metodo_pago="TRANSFERENCIA",
+                proveedor_pago=None,
+                estado_verificacion="PENDIENTE",
+                comprobante_transferencia=(
+                    comprobante
+                ),
+                fecha_pago=None,
+                fecha_retencion=None,
+                fecha_liberacion=None,
+                referencia_transaccion=(
+                    referencia_transaccion
+                ),
+            )
+            HistorialEstadoPago.objects.create(
+                id_pago=pago,
+                id_usuario_skilly=None,
+                estado_anterior=None,
+                estado_nuevo=(
+                    "PENDIENTE_VERIFICACION"
+                ),
+                fecha_cambio=ahora,
+                observacion=(
+                    "Transferencia informada por la "
+                    "empresa y pendiente de verificación "
+                    "por Skilly."
+                ),
+            )
+            EventoTrazabilidad.objects.create(
+                entidad_tipo="pago",
+                entidad_id=pago.id_pago,
+                accion="INICIAR_PAGO_TRANSFERENCIA",
+                detalle_resumido=(
+                    f"Pago {pago.id_pago} iniciado para "
+                    f"prestación "
+                    f"{prestacion.id_prestacion}. "
+                    f"Estado: "
+                    f"PENDIENTE_VERIFICACION."
+                )[:255],
+                fecha_evento=ahora,
+            )
+        pago_data = dict(
+            PagoEstadoComunicableSerializer(
+                pago
+            ).data
+        )
+        pago_data["metodo_pago"] = (
+            pago.metodo_pago
+        )
+        pago_data["estado_verificacion"] = (
+            pago.estado_verificacion
+        )
+        return Response(
+            {
+                "mensaje": (
+                    "Transferencia registrada. "
+                    "El pago quedó pendiente de "
+                    "verificación por Skilly."
+                ),
+                "pago": pago_data,
+                "reserva_confirmada": False,
+                "prestacion_contratada": False,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+class PagoEstadoEmpresaView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    def get(self, request, referencia):
+        datos_referencia = leer_referencia_seguimiento(
+            referencia
+        )
+        if datos_referencia is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "La referencia de seguimiento "
+                        "no es valida."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        prestacion = (
+            PrestacionServicio.objects
+            .select_related(
+                "id_solicitud",
+            )
+            .filter(
+                id_solicitud_id=(
+                    datos_referencia[
+                        "id_solicitud"
+                    ]
+                ),
+                id_solicitud__id_contacto_id=(
+                    datos_referencia[
+                        "id_contacto"
+                    ]
+                ),
+            )
+            .first()
+        )
+        if prestacion is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "No existe una prestacion "
+                        "autorizada para esta referencia."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        pago = (
+            Pago.objects
+            .filter(
+                id_prestacion=prestacion
+            )
+            .first()
+        )
+        if pago is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "Todavia no existe un pago "
+                        "registrado para esta prestacion."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = (
+            PagoEstadoComunicableSerializer(
+                pago
+            )
+        )
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+class PagoPrestacionProfesionalView(APIView):
+    authentication_classes = [
+        SesionSkillyAuthentication
+    ]
+    permission_classes = [
+        EsProfesional
+    ]
+    def get(self, request, id_prestacion):
+        profesional = Profesional.objects.filter(
+            id_usuario=request.user
+        ).first()
+        if profesional is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "El perfil profesional todavía "
+                        "no se encuentra registrado."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        pago = (
+            Pago.objects
+            .select_related(
+                "id_prestacion",
+            )
+            .filter(
+                id_prestacion=id_prestacion,
+                id_prestacion__id_profesional=profesional,
+            )
+            .first()
+        )
+        if pago is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "No existe un pago disponible "
+                        "para la prestación indicada."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = PagoEstadoComunicableSerializer(
+            pago
+        )
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+class MisPagosProfesionalView(APIView):
+    authentication_classes = [
+        SesionSkillyAuthentication
+    ]
+    permission_classes = [
+        EsProfesional
+    ]
+    def get(self, request):
+        profesional = Profesional.objects.filter(
+            id_usuario=request.user
+        ).first()
+        if profesional is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "El perfil profesional todavía "
+                        "no se encuentra registrado."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        pagos = (
+            Pago.objects
+            .filter(
+                id_prestacion__id_profesional=profesional
+            )
+            .order_by(
+                "-id_pago"
+            )
+        )
+        serializer = PagoEstadoComunicableSerializer(
+            pagos,
+            many=True,
+        )
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+class PagosAdministracionView(APIView):
+    authentication_classes = [
+        SesionSkillyAuthentication
+    ]
+    permission_classes = [
+        EsAdministracionSkilly
+    ]
+    def get(self, request):
+        pagos = (
+            Pago.objects
+            .select_related(
+                "id_prestacion",
+            )
+            .order_by(
+                "-id_pago"
+            )
+        )
+        serializer = PagoAdministracionSerializer(
+            pagos,
+            many=True,
+        )
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+class DetallePagoAdministracionView(APIView):
+    authentication_classes = [
+        SesionSkillyAuthentication
+    ]
+    permission_classes = [
+        EsAdministracionSkilly
+    ]
+    def get(self, request, id_pago):
+        pago = (
+            Pago.objects
+            .select_related(
+                "id_prestacion",
+            )
+            .filter(
+                id_pago=id_pago
+            )
+            .first()
+        )
+        if pago is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "El pago solicitado no existe."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        historial = (
+            HistorialEstadoPago.objects
+            .select_related(
+                "id_usuario_skilly",
+            )
+            .filter(
+                id_pago=pago
+            )
+            .order_by(
+                "fecha_cambio",
+                "id_historial_pago",
+            )
+        )
+        return Response(
+            {
+                "pago": (
+                    PagoAdministracionSerializer(
+                        pago
+                    ).data
+                ),
+                "historial": (
+                    HistorialEstadoPagoAdministracionSerializer(
+                        historial,
+                        many=True,
+                    ).data
+                ),
+            },
+            status=status.HTTP_200_OK,
+        )
+    def post(self, request, id_pago):
+        entrada_serializer = (
+            VerificarPagoTransferenciaSerializer(
+                data=request.data
+            )
+        )
+        if not entrada_serializer.is_valid():
+            return Response(
+                entrada_serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        observacion = (
+            entrada_serializer.validated_data.get(
+                "observacion"
+            )
+        )
+        if observacion is not None:
+            observacion = observacion.strip()
+        if not observacion:
+            observacion = (
+                "Transferencia verificada por Skilly."
+            )
+        with transaction.atomic():
+            pago = (
+                Pago.objects
+                .select_for_update()
+                .filter(
+                    id_pago=id_pago
+                )
+                .first()
+            )
+            if pago is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago solicitado no existe."
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if pago.metodo_pago != "TRANSFERENCIA":
+                return Response(
+                    {
+                        "mensaje": (
+                            "Esta operación solo permite "
+                            "verificar pagos realizados "
+                            "mediante transferencia."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                pago.estado_pago == "RETENIDO"
+                and pago.estado_verificacion
+                == "VERIFICADO"
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "La transferencia ya se "
+                            "encontraba verificada."
+                        ),
+                        "pago": (
+                            PagoAdministracionSerializer(
+                                pago
+                            ).data
+                        ),
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            if (
+                pago.estado_pago
+                != "PENDIENTE_VERIFICACION"
+                or pago.estado_verificacion
+                != "PENDIENTE"
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago no se encuentra en "
+                            "un estado válido para verificar "
+                            "la transferencia."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            prestacion = (
+                PrestacionServicio.objects
+                .select_for_update()
+                .filter(
+                    id_prestacion=(
+                        pago.id_prestacion_id
+                    )
+                )
+                .first()
+            )
+            if prestacion is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "La prestación asociada al pago "
+                            "no existe."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                prestacion.estado
+                != "PENDIENTE_CONTRATACION"
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "La prestación no se encuentra "
+                            "pendiente de contratación."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            reserva = (
+                ReservaDisponibilidad.objects
+                .select_for_update()
+                .filter(
+                    id_solicitud_id=(
+                        prestacion.id_solicitud_id
+                    ),
+                    estado="PENDIENTE_PAGO",
+                )
+                .order_by(
+                    "-fecha_reserva",
+                    "-id_reserva",
+                )
+                .first()
+            )
+            if reserva is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "No existe una selección de "
+                            "horario pendiente de pago "
+                            "para esta prestación."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            bloque = (
+                Disponibilidad.objects
+                .select_for_update()
+                .filter(
+                    id_disponibilidad=(
+                        reserva.id_disponibilidad_id
+                    )
+                )
+                .first()
+            )
+            if bloque is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya no "
+                            "existe."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                bloque.id_profesional_id
+                != prestacion.id_profesional_id
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado no "
+                            "corresponde al profesional "
+                            "de la prestación."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if bloque.estado != "DISPONIBLE":
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya "
+                            "no se encuentra disponible. "
+                            "La transferencia no puede "
+                            "confirmarse automáticamente."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            reserva_activa = (
+                ReservaDisponibilidad.objects
+                .filter(
+                    id_disponibilidad=bloque,
+                    estado="ACTIVA",
+                )
+                .exclude(
+                    id_reserva=reserva.id_reserva
+                )
+                .exists()
+            )
+            if reserva_activa:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya "
+                            "posee una reserva activa. "
+                            "La transferencia requiere "
+                            "gestión manual."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            inicio_bloque = timezone.make_aware(
+                datetime.combine(
+                    bloque.fecha,
+                    bloque.hora_inicio,
+                ),
+                timezone.get_current_timezone(),
+            )
+            if inicio_bloque <= timezone.now():
+                return Response(
+                    {
+                        "mensaje": (
+                            "El horario seleccionado ya "
+                            "comenz? o qued? en el pasado. "
+                            "La transferencia requiere "
+                            "gestión manual."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            ahora = timezone.now()
+            estado_anterior = pago.estado_pago
+            pago.estado_pago = "RETENIDO"
+            pago.estado_verificacion = "VERIFICADO"
+            pago.fecha_pago = ahora
+            pago.fecha_retencion = ahora
+            pago.save(
+                update_fields=[
+                    "estado_pago",
+                    "estado_verificacion",
+                    "fecha_pago",
+                    "fecha_retencion",
+                ]
+            )
+            reserva.estado = "ACTIVA"
+            reserva.fecha_cambio = ahora
+            reserva.motivo_cambio = (
+                "Reserva confirmada después de "
+                "verificar el pago."
+            )
+            reserva.save(
+                update_fields=[
+                    "estado",
+                    "fecha_cambio",
+                    "motivo_cambio",
+                ]
+            )
+            bloque.estado = "RESERVADA"
+            bloque.save(
+                update_fields=[
+                    "estado",
+                ]
+            )
+            HistorialEstadoPago.objects.create(
+                id_pago=pago,
+                id_usuario_skilly=request.user,
+                estado_anterior=estado_anterior,
+                estado_nuevo="RETENIDO",
+                fecha_cambio=ahora,
+                observacion=observacion,
+            )
+            registrar_evento_trazabilidad(
+                usuario=request.user,
+                entidad_tipo="pago",
+                entidad_id=pago.id_pago,
+                accion="VERIFICAR_TRANSFERENCIA",
+                detalle_resumido=(
+                    f"Pago {pago.id_pago} verificado. "
+                    f"Estado: RETENIDO. "
+                    f"Prestación "
+                    f"{prestacion.id_prestacion}."
+                )[:255],
+            )
+            registrar_evento_trazabilidad(
+                usuario=request.user,
+                entidad_tipo=(
+                    "reserva_disponibilidad"
+                ),
+                entidad_id=reserva.id_reserva,
+                accion="CONFIRMAR_RESERVA_PAGO",
+                detalle_resumido=(
+                    f"Reserva {reserva.id_reserva} "
+                    f"activada tras verificar el "
+                    f"pago {pago.id_pago}. "
+                    f"Bloque "
+                    f"{bloque.id_disponibilidad} "
+                    f"marcado RESERVADA."
+                )[:255],
+            )
+        pago = (
+            Pago.objects
+            .get(
+                id_pago=id_pago
+            )
+        )
+        return Response(
+            {
+                "mensaje": (
+                    "Transferencia verificada "
+                    "correctamente. El pago qued? "
+                    "retenido y el horario reservado."
+                ),
+                "pago": (
+                    PagoAdministracionSerializer(
+                        pago
+                    ).data
+                ),
+                "reserva": {
+                    "id_reserva": (
+                        reserva.id_reserva
+                    ),
+                    "estado": reserva.estado,
+                    "id_disponibilidad": (
+                        bloque.id_disponibilidad
+                    ),
+                    "estado_disponibilidad": (
+                        bloque.estado
+                    ),
+                },
+                "prestacion_estado": (
+                    prestacion.estado
+                ),
+                "prestacion_contratada": False,
+            },
+            status=status.HTTP_200_OK,
+        )
+class LiberarPagoAdministracionView(APIView):
+    authentication_classes = [
+        SesionSkillyAuthentication
+    ]
+    permission_classes = [
+        EsAdministracionSkilly
+    ]
+    def post(self, request, id_pago):
+        entrada_serializer = (
+            LiberarPagoSerializer(
+                data=request.data
+            )
+        )
+        if not entrada_serializer.is_valid():
+            return Response(
+                entrada_serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        observacion = (
+            entrada_serializer.validated_data.get(
+                "observacion"
+            )
+        )
+        if observacion is not None:
+            observacion = observacion.strip()
+        if not observacion:
+            observacion = (
+                "Pago liberado al profesional "
+                "tras validar la entrega."
+            )
+        with transaction.atomic():
+            pago = (
+                Pago.objects
+                .select_for_update()
+                .filter(
+                    id_pago=id_pago
+                )
+                .first()
+            )
+            if pago is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago solicitado no existe."
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if pago.estado_pago == "LIBERADO":
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago ya se encontraba "
+                            "liberado."
+                        ),
+                        "pago": (
+                            PagoAdministracionSerializer(
+                                pago
+                            ).data
+                        ),
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            if pago.estado_pago != "RETENIDO":
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago debe encontrarse "
+                            "retenido antes de liberarlo."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            reversa_pendiente = ReversaPago.objects.filter(
+                id_pago=pago,
+                estado_reversa="SOLICITADA",
+            ).exists()
+
+            if reversa_pendiente:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago posee una reversa solicitada. "
+                            "Debe permanecer retenido hasta que "
+                            "la reversa sea resuelta."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            prestacion = (
+                PrestacionServicio.objects
+                .select_for_update()
+                .filter(
+                    id_prestacion=(
+                        pago.id_prestacion_id
+                    )
+                )
+                .first()
+            )
+            if prestacion is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "La prestacion asociada al "
+                            "pago no existe."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if prestacion.estado in ["CANCELADA", "POSTERGADA"]:
+                return Response(
+                    {
+                        "mensaje": (
+                            "No se puede liberar un pago "
+                            "de una prestacion cancelada o postergada."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            ultima_entrega = (
+                Entrega.objects
+                .select_for_update()
+                .filter(
+                    id_prestacion=prestacion
+                )
+                .order_by(
+                    "-version",
+                    "-fecha_entrega",
+                    "-id_entrega",
+                )
+                .first()
+            )
+            if ultima_entrega is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "La prestacion todavia no "
+                            "posee una entrega registrada."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                ultima_entrega.estado
+                != "ACEPTADA"
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "La ultima entrega debe estar "
+                            "aceptada por la empresa antes "
+                            "de liberar el pago."
+                        ),
+                        "estado_entrega": (
+                            ultima_entrega.estado
+                        ),
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            reclamos = (
+                ReclamoPrestacion.objects
+                .filter(
+                    id_prestacion=prestacion
+                )
+            )
+            if reclamos.filter(
+                fecha_cierre__isnull=True
+            ).exists():
+                return Response(
+                    {
+                        "mensaje": (
+                            "Existe un reclamo abierto. "
+                            "El pago debe permanecer "
+                            "retenido hasta su resolucion."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            cantidad_reclamos = (
+                reclamos.count()
+            )
+            resoluciones = (
+                ResolucionReclamo.objects
+                .filter(
+                    id_reclamo__id_prestacion=(
+                        prestacion
+                    )
+                )
+            )
+            cantidad_resoluciones = (
+                resoluciones.count()
+            )
+            if (
+                cantidad_reclamos
+                != cantidad_resoluciones
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "Existe un reclamo sin una "
+                            "resolucion economica completa."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            resolucion_bloqueante = (
+                resoluciones
+                .exclude(
+                    efecto_economico="LIBERACION"
+                )
+                .order_by(
+                    "-fecha_resolucion",
+                    "-id_resolucion",
+                )
+                .first()
+            )
+            if resolucion_bloqueante is not None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "La resolucion economica "
+                            "registrada no permite liberar "
+                            "este pago."
+                        ),
+                        "efecto_economico": (
+                            resolucion_bloqueante
+                            .efecto_economico
+                        ),
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            ahora = timezone.now()
+            estado_anterior = (
+                pago.estado_pago
+            )
+            pago.estado_pago = "LIBERADO"
+            pago.fecha_liberacion = ahora
+            pago.save(
+                update_fields=[
+                    "estado_pago",
+                    "fecha_liberacion",
+                ]
+            )
+            HistorialEstadoPago.objects.create(
+                id_pago=pago,
+                id_usuario_skilly=request.user,
+                estado_anterior=estado_anterior,
+                estado_nuevo="LIBERADO",
+                fecha_cambio=ahora,
+                observacion=observacion,
+            )
+            registrar_evento_trazabilidad(
+                usuario=request.user,
+                entidad_tipo="pago",
+                entidad_id=pago.id_pago,
+                accion=(
+                    "LIBERAR_PAGO_PROFESIONAL"
+                ),
+                detalle_resumido=(
+                    f"Pago {pago.id_pago} liberado. "
+                    f"Prestacion "
+                    f"{prestacion.id_prestacion}. "
+                    f"Neto profesional: "
+                    f"{pago.monto_neto_profesional} "
+                    f"{pago.moneda}."
+                )[:255],
+            )
+        pago = (
+            Pago.objects
+            .get(
+                id_pago=id_pago
+            )
+        )
+        return Response(
+            {
+                "mensaje": (
+                    "Pago liberado correctamente "
+                    "al profesional."
+                ),
+                "pago": (
+                    PagoAdministracionSerializer(
+                        pago
+                    ).data
+                ),
+                "entrega_aceptada": {
+                    "id_entrega": (
+                        ultima_entrega.id_entrega
+                    ),
+                    "version": (
+                        ultima_entrega.version
+                    ),
+                    "estado": (
+                        ultima_entrega.estado
+                    ),
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+class ReversasPagoAdministracionView(APIView):
+    authentication_classes = [
+        SesionSkillyAuthentication
+    ]
+    permission_classes = [
+        EsAdministracionSkilly
+    ]
+    def get(self, request, id_pago):
+        pago = (
+            Pago.objects
+            .select_related(
+                "id_prestacion",
+            )
+            .filter(
+                id_pago=id_pago
+            )
+            .first()
+        )
+        if pago is None:
+            return Response(
+                {
+                    "mensaje": (
+                        "El pago solicitado no existe."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        reversas = (
+            ReversaPago.objects
+            .select_related(
+                "id_usuario_skilly",
+                "id_resolucion_reclamo",
+            )
+            .filter(
+                id_pago=pago
+            )
+            .order_by(
+                "-fecha_solicitud",
+                "-id_reversa",
+            )
+        )
+        return Response(
+            {
+                "pago": (
+                    PagoAdministracionSerializer(
+                        pago
+                    ).data
+                ),
+                "reversas": (
+                    ReversaPagoSerializer(
+                        reversas,
+                        many=True,
+                    ).data
+                ),
+            },
+            status=status.HTTP_200_OK,
+        )
+    def post(self, request, id_pago):
+        entrada_serializer = IniciarReversaPagoSerializer(
+            data=request.data
+        )
+        if not entrada_serializer.is_valid():
+            return Response(
+                entrada_serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        motivo = (
+            entrada_serializer.validated_data.get(
+                "motivo"
+            )
+        )
+        if motivo is not None:
+            motivo = motivo.strip()
+        if not motivo:
+            return Response(
+                {
+                    "motivo": [
+                        (
+                            "Debe indicar el motivo para "
+                            "iniciar la reversa."
+                        )
+                    ]
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            pago = (
+                Pago.objects
+                .select_related(
+                    "id_prestacion",
+                )
+                .select_for_update()
+                .filter(
+                    id_pago=id_pago
+                )
+                .first()
+            )
+            if pago is None:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago solicitado no existe."
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            reversa_pendiente = (
+                ReversaPago.objects
+                .filter(
+                    id_pago=pago,
+                    estado_reversa="SOLICITADA",
+                )
+                .exists()
+            )
+            if reversa_pendiente:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago ya posee una reversa "
+                            "pendiente de resolución."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if pago.estado_pago != "RETENIDO":
+                return Response(
+                    {
+                        "mensaje": (
+                            "Este flujo de reversa solo admite "
+                            "pagos en estado RETENIDO."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            if pago.estado_verificacion != "VERIFICADO":
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago debe estar VERIFICADO "
+                            "antes de solicitar una reversa."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            if pago.monto_total is None or pago.monto_total <= 0:
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago no posee un monto total "
+                            "valido para solicitar una reversa."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            prestacion_cancelada = (
+                pago.id_prestacion.estado
+                == "CANCELADA"
+            )
+            resolucion = (
+                ResolucionReclamo.objects
+                .filter(
+                    id_reclamo__id_prestacion=(
+                        pago.id_prestacion
+                    ),
+                    efecto_economico="REVERSA",
+                )
+                .order_by(
+                    "-fecha_resolucion",
+                    "-id_resolucion",
+                )
+                .first()
+            )
+            if (
+                not prestacion_cancelada
+                and resolucion is None
+            ):
+                return Response(
+                    {
+                        "mensaje": (
+                            "El pago no posee actualmente "
+                            "una condición documentada que "
+                            "autorice iniciar una reversa."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if resolucion is not None:
+                reversa_resolucion_existente = (
+                    ReversaPago.objects
+                    .filter(
+                        id_resolucion_reclamo=resolucion
+                    )
+                    .exists()
+                )
+                if reversa_resolucion_existente:
+                    return Response(
+                        {
+                            "mensaje": (
+                                "La resolución del reclamo "
+                                "ya posee una reversa "
+                                "asociada."
+                            )
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+            monto_reversa = None
+            if (
+                resolucion is not None
+                and resolucion.monto_afectado
+                is not None
+            ):
+                monto_reversa = (
+                    resolucion.monto_afectado
+                )
+            if monto_reversa is not None:
+                if (
+                    monto_reversa <= 0
+                    or monto_reversa > pago.monto_total
+                ):
+                    return Response(
+                        {
+                            "mensaje": (
+                                "El monto autorizado para la reversa "
+                                "debe ser mayor que cero y no superar "
+                                "el monto total del pago."
+                            )
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
+            reversa = ReversaPago.objects.create(
+                id_pago=pago,
+                id_usuario_skilly=request.user,
+                id_resolucion_reclamo=resolucion,
+                monto_reversa=monto_reversa,
+                estado_reversa="SOLICITADA",
+                motivo=motivo,
+                referencia_externa=None,
+                fecha_solicitud=timezone.now(),
+                fecha_resolucion=None,
+            )
+            detalle_evento = (
+                f"Reversa {reversa.id_reversa} solicitada "
+                f"para pago {pago.id_pago}. "
+                f"Prestación "
+                f"{pago.id_prestacion_id}. "
+            )
+            if resolucion is not None:
+                detalle_evento += (
+                    f"Resolución de reclamo "
+                    f"{resolucion.id_resolucion}. "
+                )
+            else:
+                detalle_evento += (
+                    "Origen: prestación cancelada. "
+                )
+            detalle_evento += (
+                f"Motivo: {motivo}"
+            )
+            registrar_evento_trazabilidad(
+                usuario=request.user,
+                entidad_tipo="reversa_pago",
+                entidad_id=reversa.id_reversa,
+                accion="SOLICITAR_REVERSA",
+                detalle_resumido=detalle_evento[:255],
+            )
+        reversa = (
+            ReversaPago.objects
+            .select_related(
+                "id_usuario_skilly",
+                "id_resolucion_reclamo",
+            )
+            .get(
+                id_reversa=reversa.id_reversa
+            )
+        )
+        return Response(
+            {
+                "mensaje": (
+                    "Solicitud de reversa registrada "
+                    "correctamente."
+                ),
+                "reversa": (
+                    ReversaPagoSerializer(
+                        reversa
+                    ).data
+                ),
+                "nota": (
+                    "La reversa quedó registrada como "
+                    "SOLICITADA. El resultado definitivo "
+                    "depende del medio de pago y de la "
+                    "integración correspondiente."
+                ),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+========== ARCHIVO: .\backend\pagos\serializers.py ==========
+
+from rest_framework import serializers
+
+from .models import (
+    HistorialEstadoPago,
+    Pago,
+    ReversaPago,
+)
+
+
+class PagoEstadoComunicableSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = Pago
+
+        fields = [
+            "id_pago",
+            "id_prestacion",
+            "monto_total",
+            "moneda",
+            "estado_pago",
+            "fecha_pago",
+            "fecha_retencion",
+            "fecha_liberacion",
+        ]
+
+        read_only_fields = fields
+
+
+class PagoAdministracionSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = Pago
+
+        fields = [
+            "id_pago",
+            "id_prestacion",
+            "monto_total",
+            "moneda",
+            "porcentaje_comision_aplicado",
+            "monto_comision",
+            "monto_neto_profesional",
+            "estado_pago",
+            "metodo_pago",
+            "proveedor_pago",
+            "estado_verificacion",
+            "comprobante_transferencia",
+            "fecha_pago",
+            "fecha_retencion",
+            "fecha_liberacion",
+            "referencia_transaccion",
+        ]
+
+        read_only_fields = fields
+
+
+class IniciarPagoTransferenciaSerializer(
+    serializers.Serializer
+):
+    metodo_pago = serializers.ChoiceField(
+        choices=[
+            "TRANSFERENCIA",
+        ]
+    )
+
+    comprobante_transferencia = serializers.CharField(
+        max_length=255,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+    referencia_transaccion = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        trim_whitespace=True,
+    )
+
+
+class VerificarPagoTransferenciaSerializer(
+    serializers.Serializer
+):
+    accion = serializers.ChoiceField(
+        choices=[
+            "VERIFICAR_TRANSFERENCIA",
+        ]
+    )
+
+    observacion = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        trim_whitespace=True,
+    )
+
+
+class LiberarPagoSerializer(
+    serializers.Serializer
+):
+    accion = serializers.ChoiceField(
+        choices=[
+            "LIBERAR_PAGO",
+        ]
+    )
+
+    observacion = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        trim_whitespace=True,
+    )
+
+
+class HistorialEstadoPagoAdministracionSerializer(
+    serializers.ModelSerializer
+):
+    responsable_skilly = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HistorialEstadoPago
+
+        fields = [
+            "id_historial_pago",
+            "id_pago",
+            "responsable_skilly",
+            "estado_anterior",
+            "estado_nuevo",
+            "fecha_cambio",
+            "observacion",
+        ]
+
+        read_only_fields = fields
+
+    def get_responsable_skilly(
+        self,
+        historial,
+    ):
+        usuario = historial.id_usuario_skilly
+
+        if usuario is None:
+            return None
+
+        return {
+            "id_usuario": usuario.id_usuario,
+            "correo": usuario.correo,
+            "rol": usuario.rol,
+        }
+
+
+class ReversaPagoSerializer(
+    serializers.ModelSerializer
+):
+    responsable_skilly = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReversaPago
+
+        fields = [
+            "id_reversa",
+            "id_pago",
+            "responsable_skilly",
+            "id_resolucion_reclamo",
+            "monto_reversa",
+            "estado_reversa",
+            "motivo",
+            "referencia_externa",
+            "fecha_solicitud",
+            "fecha_resolucion",
+        ]
+
+        read_only_fields = fields
+
+    def get_responsable_skilly(
+        self,
+        reversa,
+    ):
+        usuario = reversa.id_usuario_skilly
+
+        if usuario is None:
+            return None
+
+        return {
+            "id_usuario": usuario.id_usuario,
+            "correo": usuario.correo,
+            "rol": usuario.rol,
+        }
+
+
+class IniciarReversaPagoSerializer(
+    serializers.Serializer
+):
+    motivo = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+
+========== ARCHIVO: .\backend\pagos\urls.py ==========
+
+
+from django.urls import path
+
+from .operaciones_seguras import (
+    DetallePagoSeguroAdministracionView,
+    LiberarPagoSeguroAdministracionView,
+    ReversasPagoSegurasAdministracionView,
+)
+
+from .views import (
+    IniciarPagoTransferenciaEmpresaView,
+    MisPagosProfesionalView,
+    PagoEstadoEmpresaView,
+    PagoPrestacionProfesionalView,
+    PagosAdministracionView,
+)
+
+
+urlpatterns = [
+    path(
+        (
+            "empresa/"
+            "<str:referencia>/"
+            "transferencia/"
+        ),
+        IniciarPagoTransferenciaEmpresaView.as_view(),
+        name="iniciar_pago_transferencia_empresa",
+    ),
+
+    path(
+        (
+            "empresa/"
+            "<str:referencia>/"
+            "estado/"
+        ),
+        PagoEstadoEmpresaView.as_view(),
+        name="estado_pago_empresa",
+    ),
+
+    path(
+        "profesional/",
+        MisPagosProfesionalView.as_view(),
+        name="mis_pagos_profesional",
+    ),
+
+    path(
+        "profesional/prestaciones/<int:id_prestacion>/",
+        PagoPrestacionProfesionalView.as_view(),
+        name="pago_prestacion_profesional",
+    ),
+
+    path(
+        "administracion/",
+        PagosAdministracionView.as_view(),
+        name="pagos_administracion",
+    ),
+
+    path(
+        "administracion/<int:id_pago>/",
+        DetallePagoSeguroAdministracionView.as_view(),
+        name="detalle_pago_administracion",
+    ),
+
+    path(
+        "administracion/<int:id_pago>/liberar/",
+        LiberarPagoSeguroAdministracionView.as_view(),
+        name="liberar_pago_administracion",
+    ),
+
+    path(
+        "administracion/<int:id_pago>/reversas/",
+        ReversasPagoSegurasAdministracionView.as_view(),
+        name="reversas_pago_administracion",
+    ),
+]
+
+
+========== ARCHIVO: .\frontend\src\PagoEmpresaSeguimiento.jsx ==========
+
+
+import { useEffect, useState } from 'react'
+
+const estiloCampo = {
+  width: '100%',
+  padding: '13px',
+  border: '1px solid #d5e0da',
+  borderRadius: '10px',
+  boxSizing: 'border-box',
+}
+
+const estiloBoton = {
+  padding: '13px 18px',
+  border: 'none',
+  borderRadius: '10px',
+  background: '#285d55',
+  color: '#fff',
+  fontWeight: 700,
+  cursor: 'pointer',
+}
+
+function formatoDinero(valor, moneda = 'CLP') {
+  const numero = Number(valor)
+
+  if (!Number.isFinite(numero)) {
+    return 'No informado'
+  }
+
+  return (
+    new Intl.NumberFormat('es-CL', {
+      maximumFractionDigits: 2,
+    }).format(numero) +
+    ' ' +
+    (moneda || 'CLP')
+  )
+}
+
+function formatoFecha(valor) {
+  if (!valor) return 'No registrada'
+
+  const fecha = new Date(valor)
+
+  if (Number.isNaN(fecha.getTime())) {
+    return String(valor)
+  }
+
+  return fecha.toLocaleString('es-CL', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function obtenerMensaje(datos, codigo) {
+  if (typeof datos?.mensaje === 'string') {
+    return datos.mensaje
+  }
+
+  if (typeof datos?.detail === 'string') {
+    return datos.detail
+  }
+
+  if (datos && typeof datos === 'object') {
+    const errores = Object.entries(datos).flatMap(
+      ([campo, valor]) =>
+        Array.isArray(valor)
+          ? valor.map((mensaje) => `${campo}: ${mensaje}`)
+          : [],
+    )
+
+    if (errores.length) {
+      return errores.join(' | ')
+    }
+  }
+
+  return `Operación no completada (HTTP ${codigo}).`
+}
+
+function descripcionPago(estado) {
+  switch (estado) {
+    case 'RETENIDO':
+      return 'El pago está retenido por SKILLY y todavía no ha sido liberado al profesional.'
+
+    case 'LIBERADO':
+      return 'El pago figura como liberado en SKILLY.'
+
+    case 'PENDIENTE_VERIFICACION':
+      return 'La transferencia fue informada. SKILLY debe verificarla antes de confirmar la contratación.'
+
+    default:
+      return 'Este es el estado actual registrado por SKILLY.'
+  }
+}
+
+export default function PagoEmpresaSeguimiento({
+  referencia,
+  prestacion,
+}) {
+  const [pago, setPago] = useState(null)
+  const [sinPago, setSinPago] = useState(false)
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const [aviso, setAviso] = useState('')
+  const [revision, setRevision] = useState(0)
+
+  const [comprobante, setComprobante] = useState('')
+  const [referenciaTransaccion, setReferenciaTransaccion] =
+    useState('')
+  const [confirmado, setConfirmado] = useState(false)
+
+  const condicionesComunicadas =
+    prestacion?.condiciones_comunicadas === true
+
+  const pendienteContratacion =
+    prestacion?.estado === 'PENDIENTE_CONTRATACION'
+
+  const habilitarFormulario =
+    sinPago &&
+    condicionesComunicadas &&
+    pendienteContratacion
+
+  useEffect(() => {
+    if (!referencia) return undefined
+
+    const controlador = new AbortController()
+
+    async function consultarPago() {
+      setCargando(true)
+      setError('')
+      setPago(null)
+      setSinPago(false)
+
+      try {
+        const respuesta = await fetch(
+          `/api/pagos/empresa/${encodeURIComponent(referencia)}/estado/`,
+          {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {
+              Accept: 'application/json',
+            },
+            signal: controlador.signal,
+          },
+        )
+
+        const datos = await respuesta
+          .json()
+          .catch(() => ({}))
+
+        const pagoNoExiste =
+          respuesta.status === 404 &&
+          typeof datos.mensaje === 'string' &&
+          datos.mensaje.toLowerCase().includes(
+            'no existe un pago',
+          )
+
+        if (pagoNoExiste) {
+          if (!controlador.signal.aborted) {
+            setSinPago(true)
+          }
+          return
+        }
+
+        if (!respuesta.ok) {
+          throw new Error(
+            obtenerMensaje(datos, respuesta.status),
+          )
+        }
+
+        if (
+          !datos.id_pago ||
+          typeof datos.estado_pago !== 'string'
+        ) {
+          throw new Error(
+            'La API devolvió información de pago incompleta.',
+          )
+        }
+
+        if (!controlador.signal.aborted) {
+          setPago(datos)
+        }
+      } catch (fallo) {
+        if (!controlador.signal.aborted) {
+          setError(
+            fallo instanceof Error
+              ? fallo.message
+              : 'No fue posible consultar el pago.',
+          )
+        }
+      } finally {
+        if (!controlador.signal.aborted) {
+          setCargando(false)
+        }
+      }
+    }
+
+    void consultarPago()
+
+    return () => controlador.abort()
+  }, [referencia, revision])
+
+  async function informarTransferencia(evento) {
+    evento.preventDefault()
+
+    if (
+      guardando ||
+      cargando ||
+      !habilitarFormulario
+    ) {
+      return
+    }
+
+    const textoComprobante = comprobante.trim()
+    const textoReferencia = referenciaTransaccion.trim()
+
+    if (
+      !textoComprobante ||
+      textoComprobante.length > 255
+    ) {
+      setError(
+        'El comprobante debe contener una referencia válida de máximo 255 caracteres.',
+      )
+      return
+    }
+
+    if (textoReferencia.length > 255) {
+      setError(
+        'La referencia de transacción supera los 255 caracteres.',
+      )
+      return
+    }
+
+    if (!confirmado) {
+      setError(
+        'Debes confirmar que realizaste una transferencia real.',
+      )
+      return
+    }
+
+    const autorizacion = window.confirm(
+      '¿Confirmas que realizaste una transferencia real?\n\n' +
+      'SKILLY registrará el pago pendiente de verificación. ' +
+      'No se confirmará automáticamente la contratación.',
+    )
+
+    if (!autorizacion) return
+
+    setGuardando(true)
+    setError('')
+    setAviso('')
+
+    try {
+      const respuestaCsrf = await fetch(
+        '/api/acceso/csrf/',
+        {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      )
+
+      const datosCsrf = await respuestaCsrf
+        .json()
+        .catch(() => ({}))
+
+      if (
+        !respuestaCsrf.ok ||
+        !datosCsrf.csrfToken
+      ) {
+        throw new Error(
+          'No se pudo obtener el token de seguridad CSRF.',
+        )
+      }
+
+      const datosEnvio = {
+        metodo_pago: 'TRANSFERENCIA',
+        comprobante_transferencia: textoComprobante,
+      }
+
+      if (textoReferencia) {
+        datosEnvio.referencia_transaccion =
+          textoReferencia
+      }
+
+      const respuesta = await fetch(
+        `/api/pagos/empresa/${encodeURIComponent(referencia)}/transferencia/`,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRFToken': datosCsrf.csrfToken,
+          },
+          body: JSON.stringify(datosEnvio),
+        },
+      )
+
+      const datos = await respuesta
+        .json()
+        .catch(() => ({}))
+
+      if (!respuesta.ok) {
+        throw new Error(
+          obtenerMensaje(datos, respuesta.status),
+        )
+      }
+
+      if (!datos.pago?.id_pago) {
+        throw new Error(
+          'No se pudo confirmar la respuesta del servidor. Consulta el estado del pago antes de intentar nuevamente.',
+        )
+      }
+
+      setPago(datos.pago)
+      setSinPago(false)
+      setComprobante('')
+      setReferenciaTransaccion('')
+      setConfirmado(false)
+
+      setAviso(
+        datos.mensaje ||
+        'La transferencia quedó informada a SKILLY.',
+      )
+    } catch (fallo) {
+      setError(
+        fallo instanceof Error
+          ? fallo.message
+          : 'No fue posible informar la transferencia.',
+      )
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <section className="sg-tarjeta sg-panel-prestacion">
+      <span className="sg-etiqueta">
+        PAGO EMPRESARIAL
+      </span>
+
+      <h2>Estado del pago</h2>
+
+      <p>
+        Consulta el estado de tu pago o informa
+        una transferencia realizada, cuando
+        corresponda.
+      </p>
+
+      <button
+        type="button"
+        style={estiloBoton}
+        disabled={cargando || guardando}
+        onClick={() =>
+          setRevision((actual) => actual + 1)
+        }
+      >
+        {cargando
+          ? 'Consultando…'
+          : '↻ Actualizar estado del pago'}
+      </button>
+
+      {cargando && (
+        <p role="status">
+          Consultando el estado del pago…
+        </p>
+      )}
+
+      {error && (
+        <div className="sg-error" role="alert">
+          {error}
+        </div>
+      )}
+
+      {aviso && (
+        <div className="sg-nota" role="status">
+          {aviso}
+        </div>
+      )}
+
+      {!cargando && sinPago && (
+        <div className="sg-nota">
+          Todavía no existe un pago registrado
+          para esta prestación.
+        </div>
+      )}
+
+      {!cargando &&
+        sinPago &&
+        !condicionesComunicadas && (
+          <div className="sg-nota">
+            <strong>
+              Transferencia todavía no habilitada.
+            </strong>
+
+            <p>
+              SKILLY debe comunicar primero
+              las condiciones de contratación.
+              No se puede informar una transferencia
+              mientras ese requisito esté pendiente.
+            </p>
+          </div>
+        )}
+
+      {!cargando &&
+        sinPago &&
+        condicionesComunicadas &&
+        !pendienteContratacion && (
+          <div className="sg-nota">
+            Esta prestación no está pendiente de
+            contratación. No se puede iniciar
+            una transferencia desde este formulario.
+          </div>
+        )}
+
+      {!cargando && habilitarFormulario && (
+        <form
+          onSubmit={informarTransferencia}
+          style={{
+            display: 'grid',
+            gap: 12,
+            marginTop: 22,
+          }}
+        >
+          <h3>Informar transferencia realizada</h3>
+
+          <p>
+            Completa los datos únicamente después
+            de realizar una transferencia real.
+            SKILLY verificará posteriormente el pago.
+          </p>
+
+          <div className="sg-nota">
+            El comprobante se identifica mediante
+            una referencia textual. Este formulario
+            no permite subir archivos PDF o imágenes.
+          </div>
+
+          <label htmlFor="comprobante-transferencia">
+            Referencia del comprobante *
+          </label>
+
+          <input
+            id="comprobante-transferencia"
+            type="text"
+            required
+            maxLength={255}
+            style={estiloCampo}
+            value={comprobante}
+            disabled={guardando}
+            placeholder="Identificador del comprobante"
+            onChange={(evento) =>
+              setComprobante(evento.target.value)
+            }
+          />
+
+          <label htmlFor="referencia-transferencia">
+            Referencia bancaria (opcional)
+          </label>
+
+          <input
+            id="referencia-transferencia"
+            type="text"
+            maxLength={255}
+            style={estiloCampo}
+            value={referenciaTransaccion}
+            disabled={guardando}
+            placeholder="Código de operación bancaria"
+            onChange={(evento) =>
+              setReferenciaTransaccion(
+                evento.target.value,
+              )
+            }
+          />
+
+          <label
+            style={{
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-start',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={confirmado}
+              disabled={guardando}
+              onChange={(evento) =>
+                setConfirmado(evento.target.checked)
+              }
+            />
+
+            <span>
+              Confirmo que la transferencia
+              fue realizada realmente.
+            </span>
+          </label>
+
+          <button
+            type="submit"
+            style={estiloBoton}
+            disabled={
+              guardando ||
+              !confirmado ||
+              !comprobante.trim()
+            }
+          >
+            {guardando
+              ? 'Informando transferencia…'
+              : 'Confirmar transferencia informada'}
+          </button>
+        </form>
+      )}
+
+      {!cargando && pago && (
+        <>
+          <div
+            className="sg-grilla"
+            style={{ marginTop: 20 }}
+          >
+            <div>
+              <span>Número de pago</span>
+              <strong>#{pago.id_pago}</strong>
+            </div>
+
+            <div>
+              <span>Estado actual</span>
+              <strong>{pago.estado_pago}</strong>
+            </div>
+
+            <div>
+              <span>Monto registrado</span>
+              <strong>
+                {formatoDinero(
+                  pago.monto_total,
+                  pago.moneda,
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>Fecha de pago</span>
+              <strong>
+                {formatoFecha(pago.fecha_pago)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Fecha de retención</span>
+              <strong>
+                {formatoFecha(pago.fecha_retencion)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Fecha de liberación</span>
+              <strong>
+                {formatoFecha(pago.fecha_liberacion)}
+              </strong>
+            </div>
+          </div>
+
+          <div className="sg-nota">
+            {descripcionPago(pago.estado_pago)}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+
+========== ARCHIVO: C:\Users\felip\Downloads\skilly\frontend\src\Administracion.jsx ==========
+
+import AdminNavegacion from './AdminNavegacion.jsx'
+import ComunicarCondicionesAdministracion from './ComunicarCondicionesAdministracion.jsx'
+import SeguimientoPrestacionAdministracion from './SeguimientoPrestacionAdministracion.jsx'
+import VentanaAdministracion from './VentanaAdministracion.jsx'
+import { useCallback, useEffect, useState } from 'react'
+import './Administracion.css'
+
+const API = '/api'
+const estadosCerrados = new Set([
+  'RESUELTA', 'RESUELTO', 'CERRADA', 'CERRADO',
+  'FINALIZADA', 'FINALIZADO', 'CANCELADA',
+  'CANCELADO', 'RECHAZADA', 'RECHAZADO',
+])
+
+function mensajeError(datos, codigo) {
+  if (typeof datos?.mensaje === 'string') return datos.mensaje
+  if (typeof datos?.detail === 'string') return datos.detail
+  return `La operación no se completó (HTTP ${codigo}).`
+}
+
+async function obtenerCsrf() {
+  const respuesta = await fetch(`${API}/acceso/csrf/`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  const datos = await respuesta.json().catch(() => ({}))
+  if (!respuesta.ok || !datos.csrfToken) {
+    throw new Error('No se pudo obtener el token de seguridad.')
+  }
+  return datos.csrfToken
+}
+
+async function obtenerJson(ruta, opciones = {}) {
+  const respuesta = await fetch(`${API}${ruta}`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json', ...opciones.headers },
+    ...opciones,
+  })
+  const datos = await respuesta.json().catch(() => ({}))
+  if (!respuesta.ok) throw new Error(mensajeError(datos, respuesta.status))
+  return datos
+}
+
+
+function formatoMonto(valor, moneda) {
+  if (valor == null || valor === '') return 'No informado'
+
+  const numero = Number(valor)
+  if (!Number.isFinite(numero)) return String(valor)
+
+  return new Intl.NumberFormat('es-CL', {
+    minimumFractionDigits: moneda === 'CLP' ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(numero) + ' ' + (moneda || '')
+}
+
+
+function corregirTextoHistorico(valor) {
+  if (typeof valor !== 'string') return valor
+
+  return valor.replace(/sint\u00C3\u00A9tico/g, 'sint\u00E9tico')
+}
+
+function Administracion() {
+  const [usuario, setUsuario] = useState(null)
+  const [correo, setCorreo] = useState('')
+  const [contrasena, setContrasena] = useState('')
+  const [solicitudes, setSolicitudes] = useState([])
+  const [asignaciones, setAsignaciones] = useState({})
+  const [seleccion, setSeleccion] = useState(null)
+  const [pestana, setPestana] = useState('sin')
+  const [busqueda, setBusqueda] = useState('')
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState('')
+  const [aviso, setAviso] = useState('')
+  const [asignando, setAsignando] = useState(false)
+  const [coordinacion, setCoordinacion] = useState(null)
+  const [cargandoCoordinacion, setCargandoCoordinacion] = useState(false)
+  const [errorCoordinacion, setErrorCoordinacion] = useState('')
+  const [proponiendo, setProponiendo] = useState(false)
+  const [confirmandoAsociacion, setConfirmandoAsociacion] = useState(false)
+  const [preparandoPrestacion, setPreparandoPrestacion] = useState(false)
+  const [agendandoPrimeraReunion, setAgendandoPrimeraReunion] = useState(false)
+
+  const [pagos, setPagos] = useState([])
+  const [cargandoPagos, setCargandoPagos] = useState(false)
+  const [errorPagos, setErrorPagos] = useState('')
+  const [filtroPagos, setFiltroPagos] = useState('pendientes')
+  const [detallePago, setDetallePago] = useState(null)
+  const [cargandoDetallePago, setCargandoDetallePago] = useState(false)
+  const [errorDetallePago, setErrorDetallePago] = useState('')
+  const [recepcionComprobada, setRecepcionComprobada] = useState(false)
+  const [observacionVerificacion, setObservacionVerificacion] = useState('')
+  const [verificandoPago, setVerificandoPago] = useState(false)
+  const [avisoPago, setAvisoPago] = useState('')
+
+
+
+
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    setError('')
+    try {
+      const datos = await obtenerJson(
+        '/coordinacion/administracion/solicitudes/',
+      )
+      const lista = Array.isArray(datos.solicitudes) ? datos.solicitudes : []
+      const pares = await Promise.all(
+        lista.map(async (item) => {
+          try {
+            const respuesta = await obtenerJson(
+              `/coordinacion/administracion/solicitudes/${item.id_solicitud}/asignacion/`,
+            )
+            return [item.id_solicitud, {
+              actual: respuesta.asignacion_actual ?? respuesta.asignacion ?? null,
+              respuesta,
+            }]
+          } catch (fallo) {
+            return [item.id_solicitud, {
+              actual: null,
+              error: fallo.message,
+            }]
+          }
+        }),
+      )
+      setSolicitudes(lista)
+      setAsignaciones(Object.fromEntries(pares))
+      setSeleccion((anterior) => {
+        if (!anterior) return null
+        return lista.find((x) => x.id_solicitud === anterior.id_solicitud) ?? null
+      })
+    } catch (fallo) {
+      setError(fallo.message)
+      setSolicitudes([])
+    } finally {
+      setCargando(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    let vigente = true
+    async function verificar() {
+      try {
+        const datos = await obtenerJson(
+          '/coordinacion/administracion/solicitudes/',
+        )
+        if (!vigente) return
+        if (Array.isArray(datos.solicitudes)) {
+          const sesion = await obtenerJson('/acceso/sesion-actual/')
+          if (!vigente) return
+          if (sesion.usuario?.rol !== 'ADMIN_SKILLY') return
+          setUsuario(sesion.usuario)
+          await cargar()
+        }
+      } catch {
+        // La pantalla de acceso se mantiene disponible.
+      }
+    }
+    verificar()
+    return () => { vigente = false }
+  }, [cargar])
+
+  useEffect(() => {
+    if (!seleccion || !usuario) return undefined
+
+    let vigente = true
+
+    async function consultarCoordinacion() {
+      setCoordinacion(null)
+      setErrorCoordinacion('')
+      setCargandoCoordinacion(true)
+
+      try {
+        const datos = await obtenerJson(
+          `/coordinacion/administracion/solicitudes/${seleccion.id_solicitud}/coordinacion/`,
+        )
+        if (vigente) setCoordinacion(datos)
+      } catch (fallo) {
+        if (vigente) setErrorCoordinacion(fallo.message)
+      } finally {
+        if (vigente) setCargandoCoordinacion(false)
+      }
+    }
+
+    consultarCoordinacion()
+
+    return () => { vigente = false }
+  }, [seleccion, usuario])
+
+
+
+
+
+  const cargarPagos = useCallback(async () => {
+    setCargandoPagos(true)
+    setErrorPagos('')
+
+    try {
+      const datos = await obtenerJson('/pagos/administracion/')
+
+      if (!Array.isArray(datos)) {
+        throw new Error('La API devolvio un listado de pagos no valido.')
+      }
+
+      setPagos(datos)
+    } catch (fallo) {
+      setErrorPagos(fallo.message)
+      setPagos([])
+    } finally {
+      setCargandoPagos(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!usuario) return undefined
+
+    let vigente = true
+
+    async function consultarPagosIniciales() {
+      try {
+        const datos = await obtenerJson('/pagos/administracion/')
+
+        if (!vigente) return
+
+        if (!Array.isArray(datos)) {
+          throw new Error('La API devolvio un listado de pagos no valido.')
+        }
+
+        setPagos(datos)
+        setErrorPagos('')
+      } catch (fallo) {
+        if (vigente) {
+          setErrorPagos(fallo.message)
+          setPagos([])
+        }
+      }
+    }
+
+    consultarPagosIniciales()
+
+    return () => { vigente = false }
+  }, [usuario])
+
+
+
+  async function verificarTransferencia() {
+    const pago = detallePago?.pago
+    if (!pago || verificandoPago || !recepcionComprobada) return
+
+    const pendiente =
+      pago.metodo_pago === 'TRANSFERENCIA' &&
+      pago.estado_pago === 'PENDIENTE_VERIFICACION' &&
+      pago.estado_verificacion === 'PENDIENTE'
+
+    if (!pendiente) {
+      setErrorDetallePago('El pago no admite verificación.')
+      return
+    }
+
+    if (!observacionVerificacion.trim()) {
+      setErrorDetallePago('Debes registrar una observación administrativa.')
+      return
+    }
+
+    const confirmado = window.confirm(
+      `Confirma que Skilly comprobó la recepción efectiva ` +
+      `del dinero del pago #${pago.id_pago}. ` +
+      'Esta operación retendrá el pago y activará la reserva. ' +
+      'No contratará automáticamente la prestación.'
+    )
+
+    if (!confirmado) return
+
+    setVerificandoPago(true)
+    setErrorDetallePago('')
+    setAvisoPago('')
+
+    try {
+      const token = await obtenerCsrf()
+
+      const datos = await obtenerJson(
+        `/pagos/administracion/${pago.id_pago}/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': token,
+          },
+          body: JSON.stringify({
+            accion: 'VERIFICAR_TRANSFERENCIA',
+            observacion: observacionVerificacion.trim(),
+          }),
+        },
+      )
+
+      if (
+        datos.pago?.estado_pago !== 'RETENIDO' ||
+        datos.pago?.estado_verificacion !== 'VERIFICADO'
+      ) {
+        throw new Error('No se confirmó el estado del pago.')
+      }
+
+      const actualizado = await obtenerJson(
+        `/pagos/administracion/${pago.id_pago}/`,
+      )
+
+      setDetallePago(actualizado)
+      setRecepcionComprobada(false)
+      setObservacionVerificacion('')
+      setAvisoPago('Transferencia verificada administrativamente.')
+      await cargarPagos()
+    } catch (fallo) {
+      setErrorDetallePago(fallo.message)
+    } finally {
+      setVerificandoPago(false)
+    }
+  }
+
+  async function consultarDetallePago(idPago) {
+    if (!Number.isSafeInteger(idPago) || idPago <= 0) {
+      setErrorDetallePago('Identificador de pago no valido.')
+      return
+    }
+
+    setRecepcionComprobada(false)
+    setObservacionVerificacion('')
+    setAvisoPago('')
+    setCargandoDetallePago(true)
+    setErrorDetallePago('')
+    setDetallePago(null)
+
+    try {
+      const datos = await obtenerJson(
+        `/pagos/administracion/${idPago}/`,
+      )
+
+      if (!datos.pago || !Array.isArray(datos.historial)) {
+        throw new Error('La respuesta del detalle de pago no es valida.')
+      }
+
+      setDetallePago(datos)
+    } catch (fallo) {
+      setErrorDetallePago(fallo.message)
+    } finally {
+      setCargandoDetallePago(false)
+    }
+  }
+
+
+  async function agendarPrimeraReunion() {
+    const prestacion = coordinacion?.prestacion
+
+    if (!seleccion || !prestacion || agendandoPrimeraReunion) {
+      return
+    }
+
+    const pagoValido = pagos.some((pago) =>
+      Number(pago.id_prestacion) === Number(prestacion.id_prestacion) &&
+      pago.estado_pago === 'RETENIDO' &&
+      pago.estado_verificacion === 'VERIFICADO'
+    )
+
+    const reservaValida = (coordinacion.reservas ?? []).some(
+      (reserva) =>
+        reserva.estado === 'ACTIVA' &&
+        reserva.disponibilidad?.estado === 'RESERVADA'
+    )
+
+    const reunionExistente = (coordinacion.reuniones ?? []).some(
+      (reunion) => reunion.estado === 'AGENDADA'
+    )
+
+    if (
+      prestacion.estado !== 'PENDIENTE_CONTRATACION' ||
+      !pagoValido ||
+      !reservaValida ||
+      reunionExistente
+    ) {
+      setErrorCoordinacion(
+        'No se cumplen las condiciones para agendar la primera reunión.'
+      )
+      return
+    }
+
+    const confirmado = window.confirm(
+      `¿Confirmas agendar la primera reunión de la ` +
+      `prestación #${prestacion.id_prestacion}? ` +
+      'Se utilizará el horario ya reservado. ' +
+      'Si el backend valida todas las condiciones, ' +
+      'la prestación pasará a CONTRATADA.'
+    )
+
+    if (!confirmado) return
+
+    setAgendandoPrimeraReunion(true)
+    setErrorCoordinacion('')
+    setAviso('')
+
+    try {
+      const csrfToken = await obtenerCsrf()
+
+      const resultado = await obtenerJson(
+        `/coordinacion/administracion/prestaciones/${prestacion.id_prestacion}/agenda/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({
+            accion: 'AGENDAR_PRIMERA_REUNION',
+          }),
+        },
+      )
+
+      if (
+        resultado.prestacion_contratada !== true ||
+        resultado.prestacion?.estado !== 'CONTRATADA' ||
+        resultado.reunion?.estado !== 'AGENDADA'
+      ) {
+        throw new Error(
+          'La respuesta requiere revisión administrativa.'
+        )
+      }
+
+      const actualizado = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${seleccion.id_solicitud}/coordinacion/`,
+      )
+
+      setCoordinacion(actualizado)
+      setAviso(
+        'Primera reunión agendada. Prestación CONTRATADA.'
+      )
+    } catch (fallo) {
+      setErrorCoordinacion(fallo.message)
+    } finally {
+      setAgendandoPrimeraReunion(false)
+    }
+  }
+
+  async function prepararPrestacion(idProfesional) {
+    if (!seleccion || preparandoPrestacion || !coordinacion) return
+
+    if (!Number.isSafeInteger(idProfesional) || idProfesional <= 0) {
+      setErrorCoordinacion(
+        'No se pudo identificar al profesional asociado.'
+      )
+      return
+    }
+
+    const id = seleccion.id_solicitud
+
+    const aceptado = window.confirm(
+      `Confirmas preparar la prestacion de la solicitud #${id} para el profesional #${idProfesional}? Permanecera pendiente de contratacion y no confirma pagos.`
+    )
+
+    if (!aceptado) return
+
+    setPreparandoPrestacion(true)
+    setErrorCoordinacion('')
+    setAviso('')
+
+    try {
+      const csrfToken = await obtenerCsrf()
+
+      const datos = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${id}/profesionales/${idProfesional}/preparar-prestacion/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({}),
+        },
+      )
+
+      if (datos.prestacion?.estado !== 'PENDIENTE_CONTRATACION') {
+        throw new Error('La API no confirmo la preparacion.')
+      }
+
+      const actualizado = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${id}/coordinacion/`,
+      )
+
+      setCoordinacion(actualizado)
+      setAviso('Prestacion preparada. Sigue pendiente de contratacion.')
+    } catch (fallo) {
+      setErrorCoordinacion(fallo.message)
+    } finally {
+      setPreparandoPrestacion(false)
+    }
+  }
+
+  async function confirmarAsociacion(idProfesional) {
+    if (!seleccion || confirmandoAsociacion || proponiendo) return
+
+    if (!Number.isSafeInteger(idProfesional) || idProfesional <= 0) {
+      setErrorCoordinacion(
+        'No se pudo identificar al profesional asociado.'
+      )
+      return
+    }
+
+    const id = seleccion.id_solicitud
+
+    const aceptado = window.confirm(
+      `Confirmas la asociacion del profesional #${idProfesional} con la solicitud #${id}? Esta accion no confirma pagos ni contrataciones.`
+    )
+
+    if (!aceptado) return
+
+    setConfirmandoAsociacion(true)
+    setErrorCoordinacion('')
+    setAviso('')
+
+    try {
+      const csrfToken = await obtenerCsrf()
+
+      const datos = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${id}/asociaciones/${idProfesional}/confirmar/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({}),
+        },
+      )
+
+      if (datos.asociacion?.estado !== 'ACEPTADO') {
+        throw new Error('La API no confirmo la asociacion.')
+      }
+
+      const actualizado = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${id}/coordinacion/`,
+      )
+
+      setCoordinacion(actualizado)
+      setAviso('Asociacion profesional confirmada correctamente.')
+    } catch (fallo) {
+      setErrorCoordinacion(fallo.message)
+    } finally {
+      setConfirmandoAsociacion(false)
+    }
+  }
+
+  async function proponerAsociacion() {
+    if (!seleccion || proponiendo || !coordinacion) return
+
+    const id = seleccion.id_solicitud
+
+    const confirmado = window.confirm(
+      `Confirmas la propuesta de asociacion profesional para la solicitud #${id}? No confirma pago ni contratacion.`
+    )
+
+    if (!confirmado) return
+
+    setProponiendo(true)
+    setErrorCoordinacion('')
+    setAviso('')
+
+    try {
+      const csrfToken = await obtenerCsrf()
+
+      const datos = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${id}/asociaciones/proponer/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({}),
+        },
+      )
+
+      if (datos.asociacion?.estado !== 'PENDIENTE') {
+        throw new Error('La API no confirmo la propuesta.')
+      }
+
+      const actualizado = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${id}/coordinacion/`,
+      )
+
+      setCoordinacion(actualizado)
+      setAviso('Asociacion profesional propuesta correctamente.')
+    } catch (fallo) {
+      setErrorCoordinacion(fallo.message)
+    } finally {
+      setProponiendo(false)
+    }
+  }
+
+  async function iniciarSesion(evento) {
+    evento.preventDefault()
+    setCargando(true)
+    setError('')
+    setAviso('')
+    try {
+      const csrfToken = await obtenerCsrf()
+      const datos = await obtenerJson('/acceso/iniciar-sesion/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+          correo: correo.trim(),
+          contrasena,
+        }),
+      })
+      setContrasena('')
+      if (datos.usuario?.rol !== 'ADMIN_SKILLY') {
+        throw new Error('Esta cuenta no tiene permisos de administración Skilly.')
+      }
+      setUsuario(datos.usuario)
+      setAviso('Sesión administrativa iniciada.')
+      await cargar()
+    } catch (fallo) {
+      setContrasena('')
+      setError(fallo.message)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  async function autoasignar(solicitud) {
+    if (asignando || !solicitud) return
+
+    const id = solicitud.id_solicitud
+
+    if (!window.confirm(
+      `?Confirmas que deseas asumir la solicitud #${id} como responsable interno?`
+    )) return
+
+    setAsignando(true)
+    setError('')
+    setAviso('')
+
+    try {
+      const csrfToken = await obtenerCsrf()
+      const datos = await obtenerJson(
+        `/coordinacion/administracion/solicitudes/${id}/asignacion/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({ modo: 'AUTOASIGNAR' }),
+        },
+      )
+
+      if (!datos.asignacion || datos.asignacion.estado !== 'ACTIVA') {
+        throw new Error('La API no confirmó la asignación.')
+      }
+
+      setAsignaciones((anteriores) => ({
+        ...anteriores,
+        [id]: {
+          actual: datos.asignacion,
+          respuesta: datos,
+        },
+      }))
+
+      setAviso(`Solicitud #${id} asignada correctamente.`)
+      setPestana('gestion')
+    } catch (fallo) {
+      setError(fallo.message)
+    } finally {
+      setAsignando(false)
+    }
+  }
+
+  async function cerrarSesion() {
+    setError('')
+    try {
+      const csrfToken = await obtenerCsrf()
+      await obtenerJson('/acceso/cerrar-sesion/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+      })
+      setUsuario(null)
+      setSolicitudes([])
+      setAsignaciones({})
+      setSeleccion(null)
+      setPagos([])
+      setErrorPagos('')
+      setDetallePago(null)
+      setErrorDetallePago('')
+      setAviso('')
+    } catch (fallo) {
+      setError(fallo.message)
+    }
+  }
+
+  function responsable(item) {
+    return asignaciones[item.id_solicitud]?.actual?.responsable ?? null
+  }
+
+  function cerrada(item) {
+    return estadosCerrados.has(String(item.estado ?? '').toUpperCase())
+  }
+
+
+  const pagosVisibles = pagos.filter((pago) => {
+    const pendiente =
+      pago.metodo_pago === 'TRANSFERENCIA' &&
+      pago.estado_pago === 'PENDIENTE_VERIFICACION' &&
+      pago.estado_verificacion === 'PENDIENTE'
+
+    if (filtroPagos === 'pendientes') return pendiente
+    if (filtroPagos === 'verificados') {
+      return pago.estado_verificacion === 'VERIFICADO'
+    }
+
+    return true
+  })
+
+  const visibles = solicitudes.filter((item) => {
+    const asignacion = asignaciones[item.id_solicitud]
+    const actual = asignacion?.actual
+    const idResponsable = actual?.responsable?.id_usuario
+    const esMia = usuario?.id_usuario != null &&
+      String(idResponsable) === String(usuario.id_usuario)
+    const sinAsignar = !actual && !asignacion?.error
+
+    const coincide =
+      pestana === 'todas' ||
+      (pestana === 'sin' && sinAsignar && !cerrada(item)) ||
+      (pestana === 'mias' && esMia && !cerrada(item)) ||
+      (pestana === 'gestion' && Boolean(actual) && !cerrada(item)) ||
+      (pestana === 'cerradas' && cerrada(item))
+
+    const texto = [
+      item.id_solicitud,
+      item.empresa?.nombre_organizacion,
+      item.servicio?.nombre,
+      item.objetivo,
+      item.estado,
+    ].join(' ').toLowerCase()
+
+    return coincide && texto.includes(busqueda.toLowerCase().trim())
+  })
+
+  return (
+    <div className="adm-pagina">
+      <header className="adm-header">
+        <a href="/" className="adm-logo"><span className="adm-estrella">✦</span> Skilly</a>
+        <nav>
+          <a href="/">Marketplace</a>
+          <a href="/seguimiento">Seguimiento</a>
+          {usuario && <button type="button" onClick={cerrarSesion}>Cerrar sesión</button>}
+        </nav>
+      </header>
+
+      <AdminNavegacion activo="solicitudes" />
+
+      <main className="adm-contenedor">
+        <div className="adm-intro">
+          <span className="adm-eyebrow">BACK-OFFICE / SKILLY LATAM</span>
+          <h1>Gestión de solicitudes</h1>
+          <p>Control interno de solicitudes empresariales y responsables administrativos.</p>
+        </div>
+
+        {error && <div className="adm-error" role="alert">{error}</div>}
+        {aviso && <div className="adm-aviso">{aviso}</div>}
+
+        {!usuario ? (
+          <section className="adm-login">
+            <span className="adm-eyebrow">ACCESO RESTRINGIDO</span>
+            <h2>Ingreso administrativo</h2>
+            <p>Solo cuentas internas con rol ADMIN_SKILLY.</p>
+            <form onSubmit={iniciarSesion}>
+              <label>Correo institucional
+                <input type="email" value={correo}
+                  onChange={(e) => setCorreo(e.target.value)}
+                  autoComplete="username" required />
+              </label>
+              <label>Contraseña
+                <input type="password" value={contrasena}
+                  onChange={(e) => setContrasena(e.target.value)}
+                  autoComplete="current-password" required />
+              </label>
+              <button type="submit" disabled={cargando}>
+                {cargando ? 'Ingresando...' : 'Ingresar al panel'}
+              </button>
+            </form>
+          </section>
+        ) : (
+          <>
+            <section className="adm-resumen">
+              <div><span>Solicitudes registradas</span><strong>{solicitudes.length}</strong></div>
+              <div><span>Sin asignar</span><strong>{solicitudes.filter(
+                (x) => !asignaciones[x.id_solicitud]?.actual &&
+                  !asignaciones[x.id_solicitud]?.error && !cerrada(x),
+              ).length}</strong></div>
+              <div><span>En gestión</span><strong>{solicitudes.filter(
+                (x) => asignaciones[x.id_solicitud]?.actual && !cerrada(x),
+              ).length}</strong></div>
+            </section>
+
+
+            <section className="adm-panel">
+              <div className="adm-panel-header">
+                <div>
+                  <span className="adm-eyebrow">
+                    CONTROL ECONÓMICO
+                  </span>
+                  <h2>Pagos y transferencias</h2>
+                </div>
+                <button
+                  type="button"
+                  className="adm-secundario"
+                  onClick={cargarPagos}
+                  disabled={cargandoPagos}
+                >
+                  {cargandoPagos ? 'Consultando...' : '↻ Recargar pagos'}
+                </button>
+              </div>
+
+              <p className="adm-nota">
+                Las transferencias informadas requieren verificación
+                administrativa. Solo administradores autorizados pueden verificar transferencias tras comprobar la recepción efectiva del dinero. La contratación requiere además agendar la primera reunión.
+              </p>
+
+              {errorPagos && (
+                <div className="adm-error" role="alert">
+                  No se pudieron consultar los pagos: {errorPagos}
+                </div>
+              )}
+
+
+              <div className="adm-pestanas">
+                {[
+                  ['pendientes', 'Pendientes de verificación'],
+                  ['verificados', 'Verificados'],
+                  ['todos', 'Todos'],
+                ].map(([clave, titulo]) => (
+                  <button
+                    key={clave}
+                    type="button"
+                    className={filtroPagos === clave ? 'activa' : ''}
+                    onClick={() => setFiltroPagos(clave)}
+                  >
+                    {titulo}
+                  </button>
+                ))}
+              </div>
+
+              {!errorPagos && !cargandoPagos && pagosVisibles.length === 0 && (
+                <p className="adm-vacio">
+                  {filtroPagos === 'pendientes'
+                    ? 'No hay transferencias pendientes de verificación.'
+                    : filtroPagos === 'verificados'
+                      ? 'No hay pagos verificados.'
+                      : 'Todavía no existen pagos registrados.'}
+                </p>
+              )}
+
+              {!errorPagos && pagosVisibles.length > 0 && (
+                <div className="adm-lista">
+                  {pagosVisibles.map((pago) => (
+                    <article
+                      key={pago.id_pago}
+                      className="adm-item"
+                      style={{ cursor: 'default' }}
+                    >
+                      <span className="adm-item-cuerpo">
+                        <strong>
+                          Pago #{pago.id_pago} | Prestación #{pago.id_prestacion}
+                        </strong>
+
+                        <span>
+                          Total: {formatoMonto(pago.monto_total, pago.moneda)}
+                        </span>
+
+                        <span>
+                          Comisión: {formatoMonto(pago.monto_comision, pago.moneda)}
+                          {' | '}
+                          Neto profesional: {formatoMonto(
+                            pago.monto_neto_profesional,
+                            pago.moneda,
+                          )}
+                        </span>
+
+                        <span>
+                          Método: {pago.metodo_pago || 'No informado'}
+                          {' | '}
+                          Verificación: {pago.estado_verificacion || 'No informada'}
+                        </span>
+                      </span>
+
+                      <span className="adm-estado">
+                        {pago.estado_pago}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="adm-secundario"
+                        disabled={cargandoDetallePago}
+                        onClick={() => consultarDetallePago(pago.id_pago)}
+                      >
+                        Ver detalle
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              {(cargandoDetallePago || errorDetallePago || detallePago) && (
+                <VentanaAdministracion abierta titulo="Detalle e historial del pago"
+                  bloqueado={verificandoPago}
+                  onCerrar={() => { setDetallePago(null); setErrorDetallePago(''); setCargandoDetallePago(false) }}>
+                <div className="adm-detalle-pago">
+                  <div className="adm-panel-header">
+                    <h3>Detalle e historial del pago</h3>
+                    <button
+                      type="button"
+                      className="adm-secundario"
+                      onClick={() => {
+                        setDetallePago(null)
+                        setErrorDetallePago('')
+                      }}
+                    >
+                      Cerrar detalle
+                    </button>
+                  </div>
+
+                  {cargandoDetallePago && (
+                    <p>Consultando detalle del pago...</p>
+                  )}
+
+                  {errorDetallePago && (
+                    <div className="adm-error" role="alert">
+                      {errorDetallePago}
+                    </div>
+                  )}
+
+                  {detallePago && (
+                    <>
+                      <p>
+                        <strong>Pago #{detallePago.pago.id_pago}</strong>
+                        {' | '}
+                        Prestación #{detallePago.pago.id_prestacion}
+                      </p>
+                      <p>
+                        Estado: {detallePago.pago.estado_pago}
+                        {' | '}
+                        Verificación: {detallePago.pago.estado_verificacion}
+                      </p>
+                      <p>
+                        Total: {formatoMonto(
+                          detallePago.pago.monto_total,
+                          detallePago.pago.moneda,
+                        )}
+                      </p>
+                      <p>
+                        Comisión: {formatoMonto(
+                          detallePago.pago.monto_comision,
+                          detallePago.pago.moneda,
+                        )}
+                        {' | '}
+                        Neto profesional: {formatoMonto(
+                          detallePago.pago.monto_neto_profesional,
+                          detallePago.pago.moneda,
+                        )}
+                      </p>
+                      <p>
+                        Referencia: {
+                          detallePago.pago.referencia_transaccion || 'No informada'
+                        }
+                      </p>
+                      <p>
+                        Comprobante informado: {
+                          detallePago.pago.comprobante_transferencia ||
+                          'No informado'
+                        }
+                      </p>
+
+
+                      {detallePago.pago.metodo_pago === 'TRANSFERENCIA' &&
+                        detallePago.pago.estado_pago === 'PENDIENTE_VERIFICACION' &&
+                        detallePago.pago.estado_verificacion === 'PENDIENTE' && (
+                          <div className="adm-verificacion">
+                            <h4>Verificación administrativa</h4>
+
+                            <p className="adm-nota">
+                              El comprobante informado no acredita por sí solo
+                              la recepción del dinero. Confirma esta operación
+                              solamente después de verificar la transferencia
+                              mediante los registros financieros de Skilly.
+                            </p>
+
+                            <label>
+                              Observación administrativa
+                              <textarea
+                                value={observacionVerificacion}
+                                onChange={(evento) => setObservacionVerificacion(
+                                  evento.target.value
+                                )}
+                                rows={3}
+                                placeholder="Indica cómo se comprobó la recepción"
+                              />
+                            </label>
+
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={recepcionComprobada}
+                                onChange={(evento) => setRecepcionComprobada(
+                                  evento.target.checked
+                                )}
+                              />
+                              Confirmo que comprobé la recepción efectiva
+                              del dinero en los registros de Skilly.
+                            </label>
+
+                            <button
+                              type="button"
+                              className="adm-accion"
+                              onClick={verificarTransferencia}
+                              disabled={
+                                verificandoPago ||
+                                !recepcionComprobada ||
+                                !observacionVerificacion.trim()
+                              }
+                            >
+                              {verificandoPago
+                                ? 'Verificando...'
+                                : 'Verificar transferencia'}
+                            </button>
+                          </div>
+                        )}
+
+
+                      {avisoPago && (
+                        <div className="adm-aviso" role="status">
+                          {avisoPago}
+                        </div>
+                      )}
+
+                      <h4>Historial de estados</h4>
+                      {detallePago.historial.length === 0 ? (
+                        <p className="adm-vacio">
+                          No existen cambios de estado registrados.
+                        </p>
+                      ) : (
+                        <div className="adm-lista">
+                          {detallePago.historial.map((evento) => (
+                            <div
+                              key={evento.id_historial_pago}
+                              className="adm-item"
+                            >
+                              <span className="adm-item-cuerpo">
+                                <strong>
+                                  {evento.estado_anterior || 'INICIAL'}
+                                  {' | '}
+                                  {evento.estado_nuevo}
+                                </strong>
+                                <span>
+                                  {evento.fecha_cambio
+                                    ? new Date(
+                                      evento.fecha_cambio,
+                                    ).toLocaleString('es-CL')
+                                    : 'Sin fecha'}
+                                </span>
+                                <span>
+                                  {corregirTextoHistorico(evento.observacion) || 'Sin observaciones'}
+                                </span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                </VentanaAdministracion>
+              )}
+            </section>
+
+            <section className="adm-panel">
+              <div className="adm-panel-header">
+                <div>
+                  <span className="adm-eyebrow">BANDEJA ADMINISTRATIVA</span>
+                  <h2>Solicitudes empresariales</h2>
+                </div>
+                <button type="button" className="adm-secundario"
+                  onClick={cargar} disabled={cargando}>
+                  {cargando ? 'Consultando...' : '↻ Recargar bandeja'}
+                </button>
+              </div>
+
+              <div className="adm-pestanas">
+                {[
+                  ['sin', 'Sin asignar'],
+                  ['mias', 'Asignadas a mí'],
+                  ['gestion', 'En gestión'],
+                  ['cerradas', 'Resueltas / cerradas'],
+                  ['todas', 'Todas'],
+                ].map(([clave, titulo]) => (
+                  <button key={clave} type="button"
+                    className={pestana === clave ? 'activa' : ''}
+                    onClick={() => setPestana(clave)}>
+                    {titulo}
+                  </button>
+                ))}
+              </div>
+
+              <input className="adm-busqueda" value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar empresa, servicio, objetivo o estado..."
+                aria-label="Buscar solicitudes" />
+
+              {visibles.length === 0 ? (
+                <p className="adm-vacio">No hay solicitudes en esta vista.</p>
+              ) : (
+                <div className="adm-lista">
+                  {visibles.map((item) => (
+                    <button type="button" className="adm-item"
+                      key={item.id_solicitud}
+                      onClick={() => setSeleccion(item)}>
+                      <span className="adm-item-cuerpo">
+                        <strong>#{item.id_solicitud} · {item.empresa?.nombre_organizacion || 'Empresa'}</strong>
+                        <small>{item.servicio?.nombre || 'Servicio sin especificar'}</small>
+                        <small>{item.objetivo}</small>
+                        {asignaciones[item.id_solicitud]?.error
+                          ? <small>Asignación: no disponible</small>
+                          : <small>Responsable: {responsable(item)?.correo || 'Sin asignar'}</small>}
+                      </span>
+                      <span className="adm-estado">{item.estado}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {seleccion && (
+              <VentanaAdministracion abierta titulo={`Solicitud empresarial #${seleccion.id_solicitud}`}
+                bloqueado={asignando || proponiendo || confirmandoAsociacion || preparandoPrestacion || agendandoPrimeraReunion}
+                onCerrar={() => setSeleccion(null)}>
+              <section className="adm-panel adm-detalle">
+                <div className="adm-panel-header">
+                  <div>
+                    <span className="adm-eyebrow">DETALLE EMPRESARIAL</span>
+                    <h2>Solicitud #{seleccion.id_solicitud}</h2>
+                  </div>
+                  <button className="adm-secundario" type="button"
+                    onClick={() => setSeleccion(null)}>Cerrar detalle</button>
+                </div>
+                <div className="adm-datos">
+                  <div><small>Empresa</small><strong>{seleccion.empresa?.nombre_organizacion || 'No indicada'}</strong></div>
+                  <div><small>Servicio</small><strong>{seleccion.servicio?.nombre || 'No indicado'}</strong></div>
+                  <div><small>Contacto</small><strong>{seleccion.contacto?.nombre || 'No indicado'}</strong></div>
+                  <div><small>Correo</small><strong>{seleccion.contacto?.correo || 'No indicado'}</strong></div>
+                  <div><small>Estado</small><strong>{seleccion.estado}</strong></div>
+                  <div><small>Responsable interno</small><strong>{responsable(seleccion)?.correo || 'Sin asignar'}</strong></div>
+                </div>
+                <section className="adm-coordinacion">
+                  <h3>Coordinación y contratación</h3>
+                  <p>Consulta administrativa del avance de esta solicitud.</p>
+
+                  {cargandoCoordinacion && (
+                    <p>Consultando coordinación...</p>
+                  )}
+
+                  {errorCoordinacion && (
+                    <p role="alert">
+                      No se pudo consultar la coordinación: {errorCoordinacion}
+                    </p>
+                  )}
+
+                  {coordinacion && (
+                    <>
+                      <div className="adm-datos">
+                        <div>
+                          <small>Profesionales asociados</small>
+                          <strong>{coordinacion.asociaciones?.length ?? 0}</strong>
+                        </div>
+                        <div>
+                          <small>Reservas registradas</small>
+                          <strong>{coordinacion.reservas?.length ?? 0}</strong>
+                        </div>
+                        <div>
+                          <small>Reuniones registradas</small>
+                          <strong>{coordinacion.reuniones?.length ?? 0}</strong>
+                        </div>
+                        <div>
+                          <small>Eventos de coordinación</small>
+                          <strong>{coordinacion.historial_coordinacion?.length ?? 0}</strong>
+                        </div>
+                        <div>
+                          <small>Prestación</small>
+                          <strong>
+                            {coordinacion.prestacion?.estado || 'No preparada'}
+                          </strong>
+                        </div>
+                      </div>
+
+
+                      {seleccion.estado === 'RECIBIDA' &&
+                        (coordinacion.asociaciones?.length ?? 0) === 0 &&
+                        (coordinacion.reservas ?? []).some(
+                          (reserva) => (
+                            reserva.estado === 'PENDIENTE_PAGO' ||
+                            reserva.estado === 'ACTIVA'
+                          ),
+                        ) &&
+                        !coordinacion.prestacion && (
+                          <button
+                            type="button"
+                            className="adm-accion"
+                            disabled={proponiendo}
+                            onClick={proponerAsociacion}
+                          >
+                            {proponiendo
+                              ? 'Registrando propuesta...'
+                              : 'Proponer asociación'}
+                          </button>
+                        )}
+
+                      {(coordinacion.asociaciones ?? []).map(
+                        (asociacion, indice) => (
+                          <div key={indice}>
+                            <p>
+                              Profesional asociado:
+                              {' '}{asociacion.estado}
+                            </p>
+                            {asociacion.estado === 'ACEPTADO' &&
+                              !coordinacion.prestacion && (
+                                <button
+                                  type="button"
+                                  className="adm-accion"
+                                  disabled={preparandoPrestacion}
+                                  onClick={() => prepararPrestacion(
+                                    asociacion.profesional?.id_profesional,
+                                  )}
+                                >
+                                  {preparandoPrestacion
+                                    ? 'Preparando...'
+                                    : 'Preparar prestación'}
+                                </button>
+                              )}
+                            {asociacion.estado === 'PENDIENTE' &&
+                              asignaciones[seleccion.id_solicitud]?.actual &&
+                              !coordinacion.prestacion && (
+                                <button
+                                  type="button"
+                                  className="adm-accion"
+                                  disabled={confirmandoAsociacion}
+                                  onClick={() => confirmarAsociacion(
+                                    asociacion.profesional?.id_profesional,
+                                  )}
+                                >
+                                  {confirmandoAsociacion
+                                    ? 'Confirmando...'
+                                    : 'Confirmar asociación'}
+                                </button>
+                              )}
+                          </div>
+                        ),
+                      )}
+
+
+                      {coordinacion.prestacion && (
+                        <ComunicarCondicionesAdministracion
+                          key={coordinacion.prestacion.id_prestacion}
+                          idSolicitud={seleccion.id_solicitud}
+                          prestacion={coordinacion.prestacion}
+                          onRegistrado={(prestacionActualizada) => {
+                            setCoordinacion((anterior) =>
+                              anterior?.prestacion?.id_prestacion ===
+                              prestacionActualizada.id_prestacion
+                                ? {
+                                    ...anterior,
+                                    prestacion: prestacionActualizada,
+                                  }
+                                : anterior
+                            )
+                          }}
+                        />
+                      )}
+
+                      {coordinacion.prestacion?.estado ===
+                        'PENDIENTE_CONTRATACION' && (
+                          <div className="adm-detalle-pago">
+                            <h4>Estado del agendamiento inicial</h4>
+
+                            {(coordinacion.reservas ?? []).some(
+                              (reserva) =>
+                                reserva.estado === 'ACTIVA' &&
+                                reserva.disponibilidad?.estado === 'RESERVADA'
+                            ) ? (
+                              <p>
+                                Existe una reserva activa. Antes de agendar
+                                la primera reunión debe confirmarse que
+                                el pago de esta prestación esté RETENIDO.
+                                El backend verificará también el horario
+                                y las demás condiciones.
+                              </p>
+                            ) : (
+                              <p>
+                                La primera reunión no puede agendarse
+                                todavía. Se requiere pago verificado y
+                                retenido, con reserva ACTIVA y horario
+                                RESERVADA.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                      {coordinacion.prestacion?.estado === 'CONTRATADA' && (
+                        <div className="adm-detalle-pago">
+                          <h4>Contratación confirmada</h4>
+                          <p>
+                            La prestación figura CONTRATADA.
+                            Revisa las reuniones registradas para consultar
+                            su agendamiento.
+                          </p>
+                        </div>
+                      )}
+
+
+                      {coordinacion.prestacion?.estado ===
+                        'PENDIENTE_CONTRATACION' &&
+                        pagos.some((pago) =>
+                          Number(pago.id_prestacion) ===
+                            Number(coordinacion.prestacion.id_prestacion) &&
+                          pago.estado_pago === 'RETENIDO' &&
+                          pago.estado_verificacion === 'VERIFICADO'
+                        ) &&
+                        (coordinacion.reservas ?? []).some(
+                          (reserva) =>
+                            reserva.estado === 'ACTIVA' &&
+                            reserva.disponibilidad?.estado === 'RESERVADA'
+                        ) &&
+                        !(coordinacion.reuniones ?? []).some(
+                          (reunion) => reunion.estado === 'AGENDADA'
+                        ) && (
+                          <button
+                            type="button"
+                            className="adm-accion"
+                            disabled={agendandoPrimeraReunion}
+                            onClick={agendarPrimeraReunion}
+                          >
+                            {agendandoPrimeraReunion
+                              ? 'Agendando primera reunión...'
+                              : 'Agendar primera reunión'}
+                          </button>
+                        )}
+
+                      {(coordinacion.reservas ?? []).map((reserva) => (
+                        <p key={reserva.id_reserva}>
+                          Reserva #{reserva.id_reserva}:
+                          {' '}{reserva.estado}
+                        </p>
+                      ))}
+
+                      {coordinacion.prestacion?.id_prestacion != null && (
+                        <SeguimientoPrestacionAdministracion
+                          key={coordinacion.prestacion.id_prestacion}
+                          idPrestacion={coordinacion.prestacion.id_prestacion}
+                        />
+                      )}
+
+                      {!coordinacion.prestacion && (
+                        <p className="adm-nota">
+                          La solicitud todavía no posee una prestación
+                          preparada. No hay contratación confirmada.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </section>
+
+                <h3>Objetivo</h3>
+                <p>{seleccion.objetivo}</p>
+                <h3>Necesidad empresarial</h3>
+                <p>{seleccion.descripcion_necesidad}</p>
+                {!asignaciones[seleccion.id_solicitud]?.actual &&
+                  !asignaciones[seleccion.id_solicitud]?.error &&
+                  !cerrada(seleccion) && (
+                    <button
+                      type="button"
+                      className="adm-accion"
+                      disabled={asignando}
+                      onClick={() => autoasignar(seleccion)}
+                    >
+                      {asignando ? 'Asignando...' : 'Autoasignarme'}
+                    </button>
+                  )}
+                <p className="adm-nota">
+                  La autoasignación requiere confirmación y permisos
+                  administrativos. No confirma pagos ni contrataciones.
+                </p>
+              </section>
+              </VentanaAdministracion>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default Administracion

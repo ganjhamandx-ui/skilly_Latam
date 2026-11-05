@@ -1,0 +1,180 @@
+
+.ap-pagina {
+  min-height: 100vh;
+  background: #f7faf7;
+  color: #28433e;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+.ap-pagina * {
+  box-sizing: border-box;
+}
+
+.ap-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: white;
+  border-bottom: 1px solid #e0eae4;
+  padding: 22px max(24px, calc((100% - 1050px) / 2));
+}
+
+.ap-cabecera a {
+  text-decoration: none;
+  color: #355e58;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.ap-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px !important;
+  letter-spacing: 1px;
+  font-weight: 900 !important;
+}
+
+.ap-contenido {
+  width: min(100% - 36px, 500px);
+  margin: 65px auto 80px;
+}
+
+.ap-etiqueta {
+  color: #987347;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 2px;
+}
+
+.ap-presentacion {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.ap-presentacion h1 {
+  color: #274c44;
+  font-size: clamp(30px, 4vw, 43px);
+  margin: 14px 0;
+}
+
+.ap-presentacion p {
+  color: #70857b;
+  line-height: 1.8;
+}
+
+.ap-tarjeta {
+  background: white;
+  border: 1px solid #e1e9e4;
+  border-radius: 23px;
+  padding: 35px;
+  box-shadow: 0 18px 50px rgba(35, 69, 52, .055);
+}
+
+.ap-tarjeta h2 {
+  margin: 0 0 10px;
+  font-size: 24px;
+}
+
+.ap-ayuda {
+  color: #74887e;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 27px;
+}
+
+.ap-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ap-formulario label {
+  font-size: 13px;
+  font-weight: 750;
+  margin-top: 8px;
+}
+
+.ap-formulario input {
+  min-width: 0;
+  width: 100%;
+  padding: 15px;
+  border: 1px solid #d5e2d9;
+  border-radius: 11px;
+  background: white;
+  color: #29473e;
+  font-size: 14px;
+}
+
+.ap-formulario input:focus {
+  outline: 2px solid #90b4a2;
+  outline-offset: 1px;
+}
+
+.ap-contrasena-contenedor {
+  display: flex;
+  gap: 9px;
+}
+
+.ap-contrasena-contenedor input {
+  flex: 1;
+}
+
+.ap-formulario button,
+.ap-tarjeta button {
+  border-radius: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.ap-mostrar {
+  padding: 0 12px;
+  color: #356359;
+  background: #eff5f1;
+  border: 1px solid #d5e4da;
+}
+
+.ap-enviar {
+  background: #306257;
+  color: white;
+  border: none;
+  padding: 16px;
+  margin-top: 15px;
+}
+
+.ap-formulario button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.ap-error {
+  background: #fff1ef;
+  color: #973c33;
+  border: 1px solid #eecac5;
+  border-radius: 11px;
+  padding: 14px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.ap-nota {
+  margin: 24px 0 0;
+  color: #7b8c83;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+@media (max-width: 540px) {
+  .ap-cabecera {
+    padding: 18px;
+  }
+
+  .ap-contenido {
+    margin-top: 40px;
+  }
+
+  .ap-tarjeta {
+    padding: 23px;
+  }
+}

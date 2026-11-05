@@ -1,0 +1,89 @@
+
+.rp-panel {
+  margin-bottom: 26px;
+}
+
+.rp-encabezado,
+.rp-detalle-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rp-listado {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 290px), 1fr)
+  );
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.rp-tarjeta {
+  min-width: 0;
+  padding: 20px;
+  background: #f8fbf9;
+  border: 1px solid #dce8e0;
+  border-radius: 14px;
+}
+
+.rp-tarjeta h3,
+.rp-detalle h3 {
+  margin-top: 0;
+  color: #285d55;
+}
+
+.rp-tarjeta p {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.rp-detalle {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #dce8e0;
+  border-radius: 14px;
+}
+
+.rp-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.rp-dato {
+  min-width: 0;
+  padding: 13px;
+  border-radius: 10px;
+  background: #f8fbf9;
+  border: 1px solid #dce8e0;
+}
+
+.rp-dato dt {
+  margin-bottom: 8px;
+  color: #46695e;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rp-dato dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+  .rp-datos {
+    grid-template-columns: 1fr;
+  }
+
+  .rp-tarjeta,
+  .rp-detalle {
+    padding: 15px;
+  }
+}

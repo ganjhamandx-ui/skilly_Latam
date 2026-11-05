@@ -1,0 +1,29 @@
+/* SKILLY E3 - Unificacion visual del modulo de reagendamientos.
+   Alcance exclusivo: estilos .rea-*; sin afectar componentes ni procesos.
+   Paleta del proyecto: verde institucional, blancos y fondos neutros suaves. */
+.rea-panel { margin: 1.25rem 0; padding: 1.25rem; border: 1px solid #dce8e0; background: #ffffff; border-radius: 14px; color: #203a38; }
+.rea-panel h2, .rea-panel h3 { margin: 0; color: #224642; }
+.rea-panel p { line-height: 1.5; color: #52675b; }
+.rea-titulo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem; margin-bottom: .8rem; }
+.rea-estado, .rea-caso { border: 1px solid #dce8e0; border-radius: 10px; padding: 1rem; margin: 1rem 0; background: #f7faf7; }
+.rea-estado { margin: 0; }
+.rea-estado p { margin: .45rem 0; }
+.rea-panel label { display: flex; flex-direction: column; gap: .35rem; margin: .75rem 0; font-weight: 600; color: #395b51; }
+.rea-panel input, .rea-panel select, .rea-panel textarea { padding: .7rem; border: 1px solid #cbdad1; border-radius: 7px; background: #ffffff; color: #243f3b; width: 100%; box-sizing: border-box; font: inherit; }
+.rea-panel button { cursor: pointer; border: 1px solid #285d55; border-radius: 7px; background: #285d55; color: #ffffff; font: inherit; padding: .55rem .85rem; margin: .3rem .35rem .3rem 0; }
+.rea-panel button:hover:not(:disabled) { background: #224d45; border-color: #224d45; }
+.rea-panel .rea-titulo button { border-color: #b9ccc3; background: #ffffff; color: #285d55; }
+.rea-panel .rea-titulo button:hover:not(:disabled) { background: #edf5ef; border-color: #83aa95; }
+.rea-panel button:focus-visible, .rea-panel input:focus-visible, .rea-panel select:focus-visible, .rea-panel textarea:focus-visible { outline: 2px solid #40856d; outline-offset: 2px; }
+.rea-panel button:disabled { opacity: .55; cursor: not-allowed; }
+.rea-controles { margin-top: .75rem; }
+.rea-estado details { margin-top: .6rem; }
+.rea-estado ol { padding-left: 1.4rem; }
+.rea-panel .rea-exito { color: #276247; }
+.rea-panel .rea-error { color: #913b36; }
+@media(max-width:650px) { .rea-panel { padding: .85rem; } }
+
+/* Avisos coherentes con restricciones de agenda; sin sustituir el estado del backend. */
+.rea-panel .rea-advertencia { border-left: 3px solid #a47a38; background: #faf6ec; color: #71562d; padding: .75rem .9rem; border-radius: 5px; }
+.rea-cierre { margin-top: .85rem; padding: .6rem .2rem; }
+.rea-cierre summary { cursor: pointer; font-weight: 600; color: #395b51; }

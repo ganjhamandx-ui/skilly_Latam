@@ -1,0 +1,69 @@
+
+.dr-contenedor {
+  width: 100%;
+  min-width: 0;
+}
+
+.dr-aviso {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: #eef6f2;
+  border-left: 4px solid #317b64;
+  border-radius: 8px;
+  color: #285d55;
+  line-height: 1.6;
+}
+
+.dr-version {
+  font-weight: 700;
+}
+
+.dr-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.dr-dato {
+  padding: 14px;
+  border: 1px solid #dce8e0;
+  border-radius: 10px;
+  background: #fff;
+  min-width: 0;
+}
+
+.dr-dato dt {
+  color: #46695e;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 7px;
+  text-transform: capitalize;
+}
+
+.dr-dato dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.dr-precio {
+  border-color: #94cbb1;
+  background: #eff8f2;
+}
+
+.dr-observacion {
+  margin-top: 14px;
+  padding: 15px;
+  border-radius: 10px;
+  background: #fff8e8;
+  color: #725628;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .dr-datos {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,235 @@
+
+.dp-pagina {
+  min-height: 100vh;
+  background: #f7faf7;
+  color: #263e3a;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+.dp-pagina * { box-sizing: border-box; }
+
+.dp-cabecera {
+  background: white;
+  border-bottom: 1px solid #e0eae3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 22px max(24px, calc((100% - 1060px) / 2));
+}
+
+.dp-cabecera a {
+  text-decoration: none;
+  color: #355e58;
+  font-weight: 700;
+}
+
+.dp-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  letter-spacing: 1px;
+  font-weight: 900;
+}
+
+.dp-contenido {
+  max-width: 1060px;
+  margin: auto;
+  padding: 55px 22px 80px;
+}
+
+.dp-intro { margin-bottom: 30px; }
+.dp-intro h1 {
+  font-size: clamp(30px, 4vw, 46px);
+  margin: 8px 0 12px;
+  color: #234c45;
+}
+.dp-intro p { color: #688079; line-height: 1.8; }
+
+.dp-etiqueta {
+  color: #997448;
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 850;
+}
+
+.dp-tarjeta {
+  background: white;
+  border: 1px solid #e2ebe5;
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 24px;
+  box-shadow: 0 12px 40px rgba(35, 60, 50, .04);
+}
+
+.dp-tarjeta h2 { margin: 8px 0; font-size: 22px; }
+
+.dp-seccion {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.dp-formulario {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 13px;
+  align-items: end;
+}
+
+.dp-formulario label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #45665c;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.dp-formulario input {
+  width: 100%;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #d3e1da;
+  border-radius: 10px;
+  background: white;
+  color: #263e3a;
+}
+
+.dp-pagina button {
+  border-radius: 10px;
+  border: none;
+  background: #2c6559;
+  color: white;
+  cursor: pointer;
+  padding: 14px 18px;
+  font-weight: 750;
+}
+
+.dp-pagina button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.dp-pagina .dp-secundario {
+  color: #31675d;
+  background: #edf4ef;
+  border: 1px solid #d6e5dc;
+}
+
+.dp-pagina .dp-eliminar {
+  background: #fff0ec;
+  border: 1px solid #f0d5ce;
+  color: #a44736;
+}
+
+.dp-nota {
+  margin: 18px 0 0;
+  color: #7b8b84;
+  line-height: 1.7;
+  font-size: 12px;
+}
+
+.dp-error, .dp-exito {
+  padding: 15px 18px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow-wrap: anywhere;
+}
+
+.dp-error {
+  color: #962f2f;
+  background: #fff1ef;
+  border: 1px solid #edc9c5;
+}
+
+.dp-exito {
+  color: #2e714b;
+  background: #eaf6ee;
+  border: 1px solid #c7e4d1;
+}
+
+.dp-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dp-bloque {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 19px;
+  border: 1px solid #e6eee9;
+  border-radius: 13px;
+}
+
+.dp-bloque p {
+  margin: 8px 0;
+  color: #647a70;
+  font-size: 13px;
+}
+
+.dp-estado {
+  display: inline-block;
+  padding: 7px 11px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dp-disponible {
+  background: #e7f5eb;
+  color: #307249;
+}
+
+.dp-reservado {
+  background: #f7eee0;
+  color: #8c642b;
+}
+
+.dp-acciones { display: flex; gap: 9px; }
+
+@media (max-width: 800px) {
+  .dp-formulario { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 580px) {
+  .dp-cabecera { padding: 18px; }
+  .dp-contenido { padding: 35px 15px; }
+  .dp-tarjeta { padding: 18px; }
+  .dp-formulario { grid-template-columns: 1fr; }
+  .dp-seccion, .dp-bloque {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .dp-acciones { flex-wrap: wrap; }
+}
+
+.dp-navegacion {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dp-pagina .dp-enlace-acceso {
+  display: inline-block;
+  margin: 12px 15px 12px 0;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: #306257;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+@media (max-width: 580px) {
+  .dp-navegacion {
+    flex-direction: column;
+    align-items: end;
+  }
+}

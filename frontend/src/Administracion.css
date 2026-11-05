@@ -1,0 +1,152 @@
+.adm-pagina{min-height:100vh;background:#f6f8f5;color:#203a38;font-family:Inter,system-ui,sans-serif}
+.adm-header{background:#fff;border-bottom:1px solid #e4eae5;padding:18px max(24px,calc((100% - 1200px)/2));display:flex;align-items:center;justify-content:space-between;gap:20px}
+.adm-logo{text-decoration:none;color:#203a38;font-size:25px;font-weight:800}
+.adm-estrella{color:#40856d;margin-right:9px}
+.adm-header nav{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.adm-header nav a{color:#496561;text-decoration:none;font-weight:600}
+.adm-header button,.adm-secundario{background:#fff;color:#284a44;border:1px solid #b9ccc3;border-radius:11px;padding:12px 16px;cursor:pointer;font-weight:700}
+.adm-contenedor{max-width:1200px;margin:auto;padding:46px 24px 80px}
+.adm-eyebrow{font-size:12px;font-weight:800;color:#a47c3a;letter-spacing:2px}
+.adm-intro h1{font-size:clamp(30px,5vw,48px);margin:12px 0}
+.adm-intro p{color:#68817b;margin-bottom:30px}
+.adm-panel,.adm-login{background:#fff;border:1px solid #e4ebe6;border-radius:24px;padding:30px;margin-top:25px;box-shadow:0 12px 40px #18382c08}
+.adm-login{max-width:520px;margin:36px auto}
+.adm-login form{display:grid;gap:18px;margin-top:25px}
+.adm-login label{display:grid;gap:8px;font-weight:700}
+.adm-login input,.adm-busqueda{width:100%;box-sizing:border-box;border:1px solid #cbdad1;border-radius:12px;background:white;color:#203a38;padding:15px;font:inherit}
+.adm-login form button{border:0;border-radius:12px;background:#305b52;color:#fff;padding:15px;font-weight:800;cursor:pointer}
+.adm-resumen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.adm-resumen div{background:#fff;border:1px solid #e4ebe6;border-radius:20px;padding:25px;display:grid;gap:12px}
+.adm-resumen span{color:#6d817b}
+.adm-resumen strong{font-size:34px}
+.adm-panel-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.adm-panel h2{margin:8px 0 20px}
+.adm-pestanas{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0 22px}
+.adm-pestanas button{border:1px solid #d9e3db;background:#f7f9f6;color:#395851;border-radius:999px;padding:11px 16px;cursor:pointer;font-weight:700}
+.adm-pestanas button.activa{background:#305b52;color:#fff}
+.adm-busqueda{margin-bottom:20px}
+.adm-lista{display:grid;gap:11px}
+.adm-item{display:flex;justify-content:space-between;align-items:center;gap:16px;text-align:left;background:#fbfcfa;border:1px solid #e0e9e2;border-radius:16px;padding:19px;cursor:pointer;color:inherit}
+.adm-item:hover{border-color:#75a58d;background:#f0f7f2}
+.adm-item-cuerpo{display:grid;gap:7px;min-width:0}
+.adm-item-cuerpo strong{font-size:17px}
+.adm-item-cuerpo small{color:#67807a;font-size:13px;overflow-wrap:anywhere}
+.adm-estado{background:#e8f3ec;color:#276247;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+.adm-datos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:12px 0 24px}
+.adm-datos div{display:grid;gap:8px;padding:16px;background:#f7f9f6;border-radius:12px;overflow-wrap:anywhere}
+.adm-datos small{color:#70847b}
+.adm-detalle h3{margin:22px 0 7px}
+.adm-detalle p{line-height:1.65}
+.adm-nota{background:#f2f5ef;border-radius:12px;padding:16px;color:#5c7369}
+.adm-error,.adm-aviso{padding:16px;border-radius:12px;margin:20px 0}
+.adm-error{background:#fff1ef;color:#913b36}
+.adm-aviso{background:#ecf5ee;color:#276247}
+.adm-vacio{padding:32px;text-align:center;color:#77857e}
+@media(max-width:680px){.adm-header{padding:15px;align-items:flex-start}.adm-header nav{gap:10px;font-size:13px}.adm-contenedor{padding:25px 14px}.adm-panel,.adm-login{padding:20px}.adm-resumen{grid-template-columns:1fr}.adm-datos{grid-template-columns:1fr}.adm-item{align-items:flex-start;flex-direction:column}}
+.adm-coordinacion .adm-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 0 10px;
+  padding: 11px 18px;
+  border: 1px solid #315f50;
+  border-radius: 10px;
+  background: #315f50;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.adm-coordinacion .adm-accion:hover:not(:disabled) {
+  background: #254b3f;
+}
+
+.adm-coordinacion .adm-accion:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+/* Etapa administrativa 1: dos accesos de navegación, sin alterar operaciones. */
+.adm-accesos-gestion{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:26px}
+.adm-acceso-gestion{display:grid;justify-items:start;align-content:start;gap:10px;min-height:154px;text-align:left;border:1px solid #e4ebe6;border-radius:20px;background:#fff;color:#203a38;padding:23px;cursor:pointer;font:inherit;box-shadow:0 12px 40px #18382c08}
+.adm-acceso-gestion:hover,.adm-acceso-gestion:focus-visible{border-color:#608d79;background:#f2f7f3}
+.adm-acceso-gestion.activa{border:2px solid #305b52;background:#edf4ef;padding:22px}
+.adm-acceso-gestion strong{font-size:17px}
+.adm-acceso-gestion>span:last-child{color:#637b71;font-size:14px}
+.adm-acceso-icono{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#e5f0e8;color:#305b52;font-weight:800}
+.adm-panel[hidden]{display:none}
+@media(max-width:680px){.adm-accesos-gestion{grid-template-columns:1fr;gap:12px}.adm-acceso-gestion{min-height:0}}
+
+
+/* E3: Estilo común de acciones del back-office.
+   Antes solo existía ".adm-coordinacion .adm-accion"; los botones
+   de seguimiento, agenda y reversas quedaban con el estilo nativo. */
+.adm-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 18px;
+  border: 1px solid #315f50;
+  border-radius: 11px;
+  background: #315f50;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.adm-accion:hover:not(:disabled) {
+  background: #254b3f;
+  border-color: #254b3f;
+}
+
+.adm-accion:focus-visible {
+  outline: 3px solid #dfad64;
+  outline-offset: 3px;
+}
+
+.adm-accion:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Fila compacta del seguimiento; no modifica su acción de apertura. */
+.adm-seguimiento-accion-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.adm-seguimiento-accion-descripcion {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+  color: #596e64;
+  line-height: 1.55;
+}
+
+.adm-accion.adm-accion-seguimiento {
+  flex: 0 0 auto;
+  margin: 0;
+  min-width: 170px;
+}
+
+@media (max-width: 680px) {
+  .adm-seguimiento-accion-fila {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .adm-accion.adm-accion-seguimiento {
+    width: 100%;
+  }
+}

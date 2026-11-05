@@ -1,0 +1,66 @@
+
+.dv-contenedor {
+  margin: 16px 0;
+  min-width: 0;
+}
+
+.dv-contenedor h3 {
+  margin: 0 0 14px;
+  color: #285d55;
+}
+
+.dv-campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.dv-campo,
+.dv-elemento {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 14px;
+  background: #f8fbf9;
+  border: 1px solid #dce8e0;
+  border-radius: 10px;
+}
+
+.dv-campo dt {
+  font-size: 13px;
+  font-weight: 700;
+  color: #46695e;
+  margin-bottom: 8px;
+}
+
+.dv-campo dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.dv-grupo {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.dv-grupo h4 {
+  margin: 8px 0 12px;
+  color: #285d55;
+}
+
+.dv-elementos {
+  display: grid;
+  gap: 12px;
+}
+
+.dv-elemento .dv-campos {
+  margin: 0;
+}
+
+@media (max-width: 700px) {
+  .dv-campos {
+    grid-template-columns: 1fr;
+  }
+}

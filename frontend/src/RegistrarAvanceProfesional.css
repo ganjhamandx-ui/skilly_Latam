@@ -1,0 +1,90 @@
+
+.rap-panel {
+  margin-bottom: 26px;
+}
+
+.rap-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.rap-formulario {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #dce8e0;
+  border-radius: 14px;
+  background: #f8fbf9;
+}
+
+.rap-campo {
+  display: grid;
+  gap: 8px;
+}
+
+.rap-campo label {
+  font-weight: 700;
+  color: #285d55;
+}
+
+.rap-campo input,
+.rap-campo textarea,
+.rap-campo select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font: inherit;
+  border: 1px solid #cfddd3;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.rap-campo textarea {
+  resize: vertical;
+}
+
+.rap-campo small {
+  color: #617568;
+  line-height: 1.5;
+}
+
+.rap-formulario button {
+  justify-self: start;
+}
+
+.rap-aviso {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #fff5df;
+  color: #735321;
+}
+
+.rap-exito {
+  padding: 14px 16px;
+  margin-top: 16px;
+  border-radius: 10px;
+  background: #eaf5ee;
+  color: #276449;
+}
+
+.rap-aviso-profesional {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid #c8d8d0;
+  border-radius: 14px;
+  background: #f8faf9;
+}
+.rap-aviso-profesional h3 { margin: 0 0 8px; }
+.rap-aviso-profesional p { margin: 0; line-height: 1.5; }
+
+@media (max-width: 700px) {
+  .rap-formulario {
+    padding: 15px;
+  }
+}
