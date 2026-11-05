@@ -60,21 +60,10 @@ def texto_sospechoso(texto):
 
 
 def linea_sospechosa(linea):
-    if texto_sospechoso(linea):
-        return True
-
-    # Conservar la deteccion adicional del control original.
-    for indice in range(1, len(linea) - 1):
-        if linea[indice] != "?":
-            continue
-
-        anterior = linea[indice - 1]
-        siguiente = linea[indice + 1]
-
-        if anterior.isalpha() and siguiente.isalpha():
-            return True
-
-    return False
+    # Un signo ASCII '?' puede ser sintaxis valida (regex, ternarios o URLs).
+    # No permite distinguir texto danado de codigo; las senales de mojibake y
+    # el caracter de reemplazo se detectan aqui, y UTF-8 invalido al leer.
+    return texto_sospechoso(linea)
 
 
 def obtener_archivos():

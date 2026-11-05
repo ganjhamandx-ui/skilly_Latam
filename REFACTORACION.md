@@ -50,9 +50,20 @@ Evidencias adicionales en el mismo respaldo externo:
 
 Evidencia: `integracion_recuperacion_f0b144ac4d014d6587198ec447327f26/resultado.json` y script conservado, dentro del respaldo externo ya indicado.
 
-## En cierre
+## Completado: detector de codificación
 
-- Detector de codificación: falsos positivos de sintaxis corregidos, con pruebas de mojibake y UTF-8 inválido.
+- El signo ASCII `?` deja de tratarse como corrupción por estar entre letras: es sintaxis válida en expresiones regulares, ternarios y URLs.
+- Se conserva la detección de secuencias de mojibake, carácter Unicode de reemplazo y bytes UTF-8 inválidos al leer archivos. Un `?` ASCII aislado no permite inferir automáticamente que hubo pérdida de texto.
+- Cuatro pruebas nuevas cubren ambos falsos positivos, mojibake, reemplazo Unicode, UTF-8 inválido, acentos y BOM.
+- Revisión fuente: **264 archivos**, sin sospechosos ni inválidos. El chequeo no imprimió datos privados de PostgreSQL; las pruebas nuevas son offline.
+
+## Estado de cierre de esta tanda
+
+- CSRF: commit dedicado `e6c1f36`.
+- Frontend asíncrono: commit `114cd7e`.
+- Recuperación y sesiones: commit `1d0184e`.
+- Validación conjunta conservada: **153 pruebas backend**, **40 Node**, **ESLint 0/0**, compilación correcta; no se declara aprobación de pagos reales ni de todos los flujos E2E.
+- No se publicaron ni desplegaron cambios. El baseline sigue en el historial; las pruebas con escritura se ejecutaron únicamente en la copia aislada y todos sus servidores temporales quedaron apagados.
 
 ## Pendiente y límites
 
