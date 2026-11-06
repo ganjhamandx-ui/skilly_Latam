@@ -21,6 +21,15 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - **12 comprobaciones HTTP reales** en proceso aislado con LocMem propio y ventanas de prueba de 2/30 segundos: bloqueo, recuperación tras TTL, comportamiento homogéneo por existencia y validación de reset recuperada. Los límites operativos no se cambiaron.
 - Evidencias: `validacion_modulos_3f26bd7afe46432299e6b9d164f4fd98/backend_resultado.json` y `continuacion_ec5fd1bf356e455c80591b980d4dbc44/api_e2e_7030fc8998a348d394e315015578f882/limites_http.json`.
 
+## Completado: carga diferida por ruta
+
+- Las rutas y su normalización se conservan, incluidos el alias de entregables y el destino inicial para rutas desconocidas. Cada pantalla se importa cuando se necesita.
+- Suspense ofrece estado accesible de carga; el límite de errores ofrece recarga manual y regreso al inicio, sin bucles de reintento automático.
+- Comparación medida del build antes del rediseño visual: bloque principal **636302 → 225647 bytes**; gzip **159420 → 70154 bytes**. El JavaScript de inicio completo pasa a **253813 bytes**, acceso **240051**, administración **309848** y portal **357474**. No se oculta una advertencia subiendo el umbral; ya no hay bloques de más de 500 kB.
+- **43 pruebas Node aprobadas**, ESLint 0/0 y compilación correcta. Las métricas por chunk y dependencias se conservan en la evidencia del commit.
+- **9 comprobaciones de navegador aprobadas**: solicitud diferida, espera accesible, fallo de módulo inyectado, recuperación manual, ausencia de bucle, alias y ruta desconocida. Una lectura inicial del DOM anterior se corrigió en el test esperando la ruta nueva; no se modificó el producto para eludir la comprobación.
+- Evidencia: `continuacion_ec5fd1bf356e455c80591b980d4dbc44/carga_rutas_1793930378949/resultado.json`. Las capturas previas también recorrieron las 16 pantallas con módulos reales.
+
 Se conservan rutas, puertos configurados, contratos de API y reglas de negocio. Todo el trabajo es local; no se publica ni despliega.
 
 ## Completado: CSRF y recuperación aislada
