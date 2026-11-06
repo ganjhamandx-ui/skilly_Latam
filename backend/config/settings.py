@@ -222,6 +222,41 @@ RECUPERACION_MINUTOS = int(
 )
 
 
+# Cache separada: LocMem es local a un proceso. Para varios trabajadores,
+# configurar un backend atomico compartido (Redis o Memcached y su driver).
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "acceso_intentos": {
+        "BACKEND": os.getenv(
+            "ACCESO_CACHE_BACKEND", "django.core.cache.backends.locmem.LocMemCache",
+        ),
+        "LOCATION": os.getenv("ACCESO_CACHE_LOCATION", "skilly-acceso-local"),
+    },
+}
+ACCESO_CACHE_ALIAS = "acceso_intentos"
+ACCESO_PROXIES_CONFIABLES = obtener_lista("ACCESO_PROXIES_CONFIABLES")
+
+
+def limites_acceso(nombre, defecto):
+    return obtener_lista(nombre, defecto)
+
+
+ACCESO_LIMITES = {
+    "iniciar_sesion": {
+        "ip": limites_acceso("ACCESO_LOGIN_IP", "30/60,300/3600"),
+        "identidad_ip": limites_acceso("ACCESO_LOGIN_IDENTIDAD_IP", "8/60,40/3600"),
+    },
+    "recuperar": {
+        "ip": limites_acceso("ACCESO_RECUPERAR_IP", "8/600,40/3600"),
+        "identidad_ip": limites_acceso("ACCESO_RECUPERAR_IDENTIDAD_IP", "3/600,10/3600"),
+    },
+    "restablecer": {
+        "ip": limites_acceso("ACCESO_RESTABLECER_IP", "20/300,100/3600"),
+        "identidad_ip": limites_acceso("ACCESO_RESTABLECER_IDENTIDAD_IP", "8/300,20/3600"),
+    },
+}
+
+
 CORS_ALLOWED_ORIGINS = [
     FRONTEND_ORIGIN,
 ]

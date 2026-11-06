@@ -99,6 +99,9 @@ class InicioSesionSerializer(serializers.Serializer):
         ).first()
 
         if usuario is None:
+            # Mismo trabajo de hash que una clave fallida con el algoritmo
+            # actual; no revelar la ausencia de la cuenta por omitir ese coste.
+            make_password(contrasena)
             raise serializers.ValidationError(
                 "Credenciales inválidas o cuenta no disponible."
             )

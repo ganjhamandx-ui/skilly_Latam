@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from .authentication import SesionSkillyAuthentication
 from .sesiones import _vincular_sesion_con_contrasena
+from .intentos import ProteccionIntentosMixin
 from .models import Usuario
 from .permissions import EsUsuarioSkillyAutenticado
 from .recuperacion import (
@@ -78,7 +79,8 @@ class RegistroProfesionalView(APIView):
 
 
 @method_decorator(csrf_protect, name="dispatch")
-class InicioSesionView(APIView):
+class InicioSesionView(ProteccionIntentosMixin, APIView):
+    alcance_intentos = "iniciar_sesion"
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -123,7 +125,8 @@ class InicioSesionView(APIView):
 
 
 @method_decorator(csrf_protect, name="dispatch")
-class SolicitarRecuperacionView(APIView):
+class SolicitarRecuperacionView(ProteccionIntentosMixin, APIView):
+    alcance_intentos = "recuperar"
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -180,7 +183,8 @@ class SolicitarRecuperacionView(APIView):
 
 
 @method_decorator(csrf_protect, name="dispatch")
-class RestablecerContrasenaView(APIView):
+class RestablecerContrasenaView(ProteccionIntentosMixin, APIView):
+    alcance_intentos = "restablecer"
     permission_classes = [AllowAny]
     authentication_classes = []
 
