@@ -170,3 +170,11 @@ Evidencia: `integracion_recuperacion_f0b144ac4d014d6587198ec447327f26/resultado.
 - Se conserva SonarQube local 9000, los informes y los punteros ignorados necesarios para analizar después. No se retiene token en esos archivos. La configuración operativa y los archivos privados se recuperan desde el respaldo externo, no desde Git.
 - No se certifican pagos reales, entrevista humana, capacidad productiva, todos los recorridos mediante UI ni un gate verde. El intento de autorización independiente del proveedor sandbox quedó preparado sin ejecución confirmada; el checkout HTTPS sin tarjeta y las simulaciones/mocks ya descritos se distinguen de un pago autorizado.
 - Los 22 Word y 2 Excel siguen sin modificación; la auditoría documental final no se ha iniciado.
+
+### Auditoría final del repositorio y respaldos técnicos
+
+- Sobre `93b527d`, Gitleaks8.30.1 revisó todas las referencias y candidatos: **0 hallazgos**; comparación con secretos operativos: **0 coincidencias**; **0 archivos prohibidos**. Git limpio y SHA de master/refactor verificados contra GitHub.
+- `.env` operativo coincide con el respaldo; **18 archivos media y3entregas privadas** coinciden por hash. El dump fue leído completamente por pg_restore sin conectarse a una base; se conserva la restauración aislada comprobada anteriormente. No se alteró la base original.
+- Auxiliares y resultados se preservaron fuera del repositorio antes de retirar únicamente los temporales propios. La copia se adaptó a rutas largas de Windows sin cambiar permisos ni configuración global; el intento parcial también se conserva.
+- Evidencia sanitizada: `auditoria_final_1fc1754d1ee94cfead177eb0eb303519/resultado.json` bajo el respaldo externo. Los auxiliares del primer intento quedaron en `auditoria_final_ecb615766962494ea39af18cf78d2964/helpers_preservados`; los originales de la evidencia no se sobrescribieron.
+- Esta es la auditoría técnica del código y sus respaldos; no es la auditoría documental reservada de Word/Excel. El análisis autenticado de Sonar y sus hallazgos restantes siguen pendientes en los términos descritos.
