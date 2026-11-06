@@ -1,0 +1,3 @@
+# Desarrollo y medicion local; no altera dependencias de produccion.
+-r requirements.txt
+coverage==7.17.2

@@ -96,3 +96,7 @@ id_ed25519*
 /evidencias_entrega2/
 /backend/entregas_privadas_e3/
 /backend/archivos_privados/
+
+# Resultados locales de analisis, nunca credenciales ni artefactos en Git
+.scannerwork/
+.sonar/

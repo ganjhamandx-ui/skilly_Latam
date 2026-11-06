@@ -126,9 +126,18 @@ Evidencia: `integracion_recuperacion_f0b144ac4d014d6587198ec447327f26/resultado.
 
 ## Estado actual y pendientes verificables
 
-- Publicados en `refactor/skilly`: límites (`23841cc`), carga por ruta (`3bb6740`) y política TLS/formulario (`4beb4d7`), además de los commits anteriores. `master` conserva la referencia inicial.
+- Publicados en `refactor/skilly`: límites (`23841cc`), carga por ruta (`3bb6740`), política TLS/formulario (`4beb4d7`) y recorrido API aislado (`688b30f`), además de los commits anteriores. `master` conserva la referencia inicial.
 - En verificación: cambios visuales por módulo, foco de diálogos, enlace para saltar al contenido y consolidación de selectores CSS. Se conservan capturas antes/después y ensayos de teclado fuera del repositorio; sus resultados finales se incorporarán tras cerrar la consolidación.
 - Falta reanalizar el código actual con SonarQube y distinguir los hallazgos resueltos de la deuda restante. No se reducirá el umbral ni se suprimirán reglas para obtener aprobación.
 - Pendientes de cobertura: backend compartido de límites en varios trabajadores, recorrido completo de negocio mediante UI y validación humana/dispositivos adicionales. El recorrido API y los casos de navegador enumerados no acreditan esos alcances.
 - La continuación usa temporalmente React/Django y el cluster independiente en puertos de prueba; no se ha detenido el servidor original del puerto 8000 ni escrito en su base. El cierre de los procesos propios se registrará al finalizar los ensayos.
 - La auditoría definitiva de los 22 documentos y los 2 Excel continúa reservada a confirmación expresa del usuario.
+
+## Exportación de Sonar y bloqueo autenticado actual
+
+- Se volvió a leer la última exportación sanitizada. Gate **ERROR**: cobertura nueva0/mínimo80 e incidencias nuevas425/máximo0; duplicación nueva1,63251/máximo3 está OK. La muestra guardada es de100 sobre623, más un filtro prioritario independiente de3 hallazgos. No se presenta esa muestra como clasificación total.
+- El exportador se corrigió para paginar, clasificar, consultar advertencias/alcance/código nuevo e identificar el proyecto por API. El gate se solicita por `analysisId`; se registra si las medidas actuales pertenecen al mismo snapshot. No guarda contexto bruto ni secretos y rechaza tareas de otra clave. **11 comprobaciones con API simulada aprobadas**, sin atribuirlas a Sonar real.
+- La clave configurada y el informe del scanner son `Skilly`. El nombre «Habilidoso» no figura en la exportación disponible y aún no se ha confirmado mediante API; no se creó otro proyecto ni se cambió la clave.
+- La API local responde UP, pero componentes/incidencias/código nuevo requieren autenticación(401). El usuario indicó que ahora no puede ejecutar la exportación completa con entrada oculta. Quedan bloqueadas únicamente la clasificación de las623, las advertencias exactas, la definición efectiva de código nuevo y la importación/reanálisis autenticados. El resto del trabajo continúa.
+- Se separaron pruebas de producción en el alcance de Sonar y se excluyeron secretos/cargas privadas; no se añadió ninguna exclusión de cobertura de código productivo. Los patrones de pruebas se contrastaron con los29archivos de pruebas backend existentes. No se cambió el gate ni la referencia de código nuevo.
+- `tools/quality/RESULTADOS_LOCALES.md` conserva condiciones, clasificación parcial y límites; `README.md` describe el exportador y los informes reales. Ninguno constituye la auditoría documental final reservada.
