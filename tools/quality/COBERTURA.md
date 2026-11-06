@@ -20,7 +20,11 @@ Instrumentar el **cliente** `e2e_api_aislado.py` no mide el código Django ejecu
 
 El modo `servidor --context <contexto> --script <script-externo> --output <carpeta-nueva>` instrumenta un proceso nuevo. Exige contexto y script bajo el respaldo, fuera del repositorio, origen loopback y PostgreSQL diferente de 5432 que coincida con el entorno del proceso. El script de arranque sigue siendo responsable de verificar el cluster real y bloquear pagos/correos antes de abrir HTTP.
 
-Se guarda un checkpoint cada segundo. Tras las solicitudes, esperar un checkpoint y cerrar el proceso de forma controlada; un cierre forzado puede perder el último segundo. `informes --output <carpeta-existente>` convierte únicamente los datos registrados por ese proceso a XML/JSON. No añade cobertura de otros procesos, del cliente ni de respuestas simuladas. No se ha ejecutado ni acreditado todavía cobertura E2E de servidor con ese modo.
+Se guarda un checkpoint cada segundo. Tras las solicitudes, esperar un checkpoint y cerrar el proceso de forma controlada; un cierre forzado puede perder el último segundo. `informes --output <carpeta-existente>` convierte únicamente los datos registrados por ese proceso a XML/JSON. No añade cobertura de otros procesos, del cliente ni de respuestas simuladas.
+
+Se ejecutó después un **segundo servidor Django instrumentado**, sin reiniciar el de50144: validó `data_directory`, identidad y puerto del cluster independiente, usó archivos/reloj propios y bloqueó red saliente excepto PostgreSQL. El recorrido API aprobó **117 comprobaciones**, con reloj restablecido y cierre normal del servidor(código0). El recuento incluye un intento adicional de bloque de entrevista ocupado, previsto por el runner; no se omitió ninguna restricción.
+
+`coverage.py combine` combinó los datos unitarios con los de ese proceso servidor, conservando los originales. Resultado: **4690/7059 líneas y 683/1870 ramas**, los mismos139 archivos productivos en el denominador. Evidencia: `continuacion_c2998d287c4d4dd6a1900e8b0fdfad71/coverage_combined/coverage.xml` y `resultado.json` bajo el respaldo externo. El proceso servidor terminó con código0 y no se tocó el servidor original ni su base de datos. Esto mide la integración HTTP/Django/PostgreSQL, con entrevista/actividad económica simuladas como declara el runner.
 
 ## JavaScript
 
@@ -31,6 +35,10 @@ Ejecutar `node tools/quality/cobertura_node.mjs <carpeta-absoluta-nueva>`. Usa `
 Ejecución observada: **43 pruebas aprobadas**, ocho archivos de prueba y cinco módulos fuente instrumentados: aviso de política, control de consultas, condiciones, agenda y rutas. El reporte nativo mostró **97,33% de líneas y 91,58% de ramas en esos cinco módulos**; esos porcentajes no representan todo el frontend. No se cubrieron JSX ni rutas dinámicas no cargadas por estas pruebas.
 
 Evidencia final compatible con la raíz del proyecto: carpeta `coverage_node_root_final_a0edbb17c6bb4a168c3a9a11a080c7f8`, con `lcov.info`, log y resultado (43 pruebas, 43 aprobadas). `sonar.javascript.lcov.reportPaths` debe apuntar a ese LCOV. El primer ensayo `coverage_node_3fcd0e2142c346c3a4ebc1c969ca7229` se conserva, pero sus rutas estaban referidas a `frontend`; no se alteraron sus contadores para reutilizarlo.
+
+La continuación final añade siete pruebas significativas de adjuntos y formatos API: **50/50 aprobadas**, siete módulos, **97,58 % líneas y 92,86 % ramas solo de esos helpers**. LCOV final: `coverage_node_final_1f159d0de4e748f19ad1c8b10a851139/lcov.info`, dentro de la continuación externa original. Sustituye al informe Node43 para la importación siguiente; no se suman ambos como pruebas diferentes.
+
+La cobertura real de **44 comprobaciones de navegador y49 fuentes JSX** se describe en `COBERTURA_NAVEGADOR.md`. El ejecutor Sonar adjunta el LCOV Node50 y el LCOV del navegador como dos rutas estándar separadas por coma. No se mezclan contadores manualmente ni se atribuyen las cifras de los helpers a toda la interfaz. La importación efectiva en Sonar sigue pendiente de un análisis autenticado; disponer de los informes no aprueba el gate.
 
 ## Referencias primarias
 

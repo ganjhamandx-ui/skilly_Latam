@@ -49,8 +49,16 @@ La última exportación disponible corresponde al mismo análisis inicial: gate 
 | javascript:S3776 | 2 |
 | javascript:S3358 / S7786 / S6772 / S6848 | 1 cada una |
 
-La muestra contiene93MAJOR,5MINOR y2CRITICAL; estas dos últimas son observaciones de complejidad. Las dos vulnerabilidades CRITICAL y el bug MAJOR se consultaron mediante el filtro prioritario independiente, no están incluidos en esta clasificación de100. Los77S4666 de la muestra corresponden a Administracion(22), PortalProfesional(18), AccesoProfesional(16), CuentasBancariasAdministracion(9), Disponibilidad(8) y AvisoPoliticaCancelacionE3(4).
+La muestra contiene93 MAJOR,5 MINOR y2 CRITICAL; estas dos últimas son observaciones de complejidad. Las dos vulnerabilidades CRITICAL y el bug MAJOR se consultaron mediante el filtro prioritario independiente, no están incluidos en esta clasificación de100. Los77S4666 de la muestra corresponden a Administracion(22), PortalProfesional(18), AccesoProfesional(16), CuentasBancariasAdministracion(9), Disponibilidad(8) y AvisoPoliticaCancelacionE3(4).
 
 Se corrigió el exportador: identidad verificada, gate vinculado a analysisId, contexto permitido, advertencias, definición de código nuevo, paginación y clasificación completa. **11 pruebas con API simulada aprobadas**. La API real anónima sigue respondiendo401 en componentes/incidencias/código nuevo; el usuario indicó que ahora no puede repetir la exportación con entrada oculta. Por ello siguen pendientes las advertencias exactas, la definición efectiva de código nuevo y la clasificación de las623. No se infieren ni se cambian estos valores. El nombre visible «Habilidoso» tampoco se ha vinculado por API a la clave `Skilly`.
 
-La clasificación correcta de pruebas en `sonar.tests`/`sonar.test.inclusions` separa las29fuentes backend de pruebas y las pruebas frontend de producción; se comprobó que los patrones actuales no incluyen otros archivos productivos. Las exclusiones de `.env`, claves y cargas privadas evitan enviar secretos al analizador local. No se añadió `sonar.coverage.exclusions`, ni se movió la referencia de código nuevo ni se rebajó el gate. Los informes de cobertura posteriores aún necesitan un nuevo análisis autenticado para comprobar su importación efectiva.
+La clasificación correcta de pruebas en `sonar.tests`/`sonar.test.inclusions` separa las 29 fuentes backend de pruebas y las pruebas frontend de producción; se comprobó que los patrones actuales no incluyen otros archivos productivos. Las exclusiones de `.env`, claves y cargas privadas evitan enviar secretos al analizador local. No se añadió `sonar.coverage.exclusions`, ni se movió la referencia de código nuevo ni se rebajó el gate. Los informes de cobertura posteriores aún necesitan un nuevo análisis autenticado para comprobar su importación efectiva.
+
+### Informes preparados después del análisis fallido
+
+- Python: datos de172 unitarias y117 comprobaciones HTTP del servidor instrumentado, combinados con coverage.py:4690/7059 líneas y683/1870 ramas, sin cambiar139 archivos del denominador.
+- Node:50 pruebas aprobadas, siete helpers,97,58 % líneas y92,86 % ramas de esos módulos.
+- Navegador:44comprobaciones aprobadas,57 fuentes(49 JSX),10046/21995 líneas y423/668 ramas de ese conjunto. Solo el sourcemap intermedio de rutasPantalla se omite; se conserva su cobertura Node sin excluir el archivo de Sonar.
+
+Las rutas XML y LCOV reales quedaron en `.skilly-coverage-result.tmp`. El scanner recibirá el XML combinado y ambos LCOV mediante la propiedad estándar. **La importación efectiva y las nuevas condiciones del gate siguen bloqueadas por autenticación**, no se han observado todavía. `COBERTURA.md` y `COBERTURA_NAVEGADOR.md` conservan detalle, fuentes, evidencias y limitaciones.
