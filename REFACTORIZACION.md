@@ -2,6 +2,20 @@
 
 Este es el registro técnico de trabajo. La auditoría documental definitiva de los 22 documentos y los 2 Excel no se ha iniciado y queda reservada a confirmación expresa del usuario.
 
+## Prioridad vigente: reparación funcional y seguridad
+
+- SonarQube queda **pospuesto por indicación del usuario** hasta nueva solicitud expresa. No se ejecutan scanners, exportadores, solicitudes de token ni ajustes destinados exclusivamente al Quality Gate. Se preservan herramientas y resultados anteriores; el último gate conocido sigue ERROR, sin aprobación.
+- Las menciones posteriores a autenticación, importación y reanálisis describen pendientes históricos, no acciones previstas durante esta etapa. Las vulnerabilidades y errores reales identificados siguen dentro del alcance.
+- Se continúa con correcciones, recorridos completos mediante interfaz, permisos, estados de error y adaptación móvil, en la copia aislada. Se conserva `master`, se publican cambios verificados en `refactor/skilly` y no se modifican Word ni Excel.
+
+## Verificado: registros concurrentes y errores de recuperación
+
+- Dos registros simultáneos para el mismo correo conservan una cuenta y un perfil: 201/400 con el error de correo existente, en lugar de propagar la restricción SQL como 500. Un savepoint interior permite consultar el conflicto sin romper la transacción conjunta de cuenta/perfil; otros errores de integridad siguen propagándose.
+- Los fallos SMTP registran únicamente un evento fijo, sin contenido de la excepción ni traceback. La respuesta de recuperación sigue siendo genérica y el fallo revierte el token creado.
+- Cinco pruebas unitarias nuevas con ORM/SMTP simulados y **18 comprobaciones de integración Django/PostgreSQL reales dentro del proceso**, pasando por middleware/API. Incluyen concurrencia sincronizada, rollback de perfil y de token, restablecimiento de un solo uso, revocación de sesión, claves anterior/nueva, CSRF y cierre de sesión.
+- El correo exitoso usa memoria; se inyectan solo la barrera concurrente, el fallo de perfil y el fallo SMTP. No se atribuye esta prueba a navegador ni SMTP real. El rol de aplicación no permite leer `data_directory`; se verificó con el administrador de la copia, sin conceder permisos.
+- Evidencia: `continuacion_62fc2e44c9a5492c94d0206afe58cade/acceso_integracion_1f18f178baad436ea1b23c27daa134ee/resultado.json`; suite offline de 188 pruebas aprobada antes de añadir las siguientes regresiones de pagos/privacidad. El entorno operativo y la base original se conservan.
+
 ## Continuación y control de versiones
 
 - Destino comprobado mediante Git y conector GitHub: `https://github.com/ganjhamandx-ui/skilly`, privado y con permisos de publicación. La autenticación Git y los SHA de ambas ramas se verificaron contra el servidor.

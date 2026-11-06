@@ -166,7 +166,9 @@ class SolicitarRecuperacionView(ProteccionIntentosMixin, APIView):
                         )
 
             except (SMTPException, OSError):
-                logging.getLogger(__name__).exception(
+                # La respuesta SMTP puede contener datos de la cuenta o del
+                # mensaje. Registrar solo el evento, sin excepción ni traceback.
+                logging.getLogger(__name__).warning(
                     "Fallo el envio del correo de recuperacion."
                 )
 

@@ -1,6 +1,7 @@
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from rest_framework import serializers
@@ -66,16 +67,29 @@ class RegistroProfesionalSerializer(serializers.Serializer):
     def create(self, validated_data):
         ahora = timezone.now()
 
-        usuario = Usuario.objects.create(
-            correo=validated_data["correo"],
-            password_hash=make_password(
-                validated_data["contrasena"]
-            ),
-            rol="PROFESIONAL",
-            estado="ACTIVO",
-            fecha_creacion=ahora,
-            fecha_actualizacion=ahora,
-        )
+        try:
+            # La validación previa no serializa registros concurrentes. El
+            # savepoint permite consultar el conflicto sin romper la transacción
+            # exterior que crea conjuntamente la cuenta y su perfil.
+            with transaction.atomic():
+                usuario = Usuario.objects.create(
+                    correo=validated_data["correo"],
+                    password_hash=make_password(
+                        validated_data["contrasena"]
+                    ),
+                    rol="PROFESIONAL",
+                    estado="ACTIVO",
+                    fecha_creacion=ahora,
+                    fecha_actualizacion=ahora,
+                )
+        except IntegrityError:
+            if Usuario.objects.filter(
+                correo__iexact=validated_data["correo"]
+            ).exists():
+                raise serializers.ValidationError({
+                    "correo": ["Ya existe una cuenta registrada con este correo."]
+                }) from None
+            raise
 
         return usuario
 
