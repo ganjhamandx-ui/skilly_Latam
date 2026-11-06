@@ -1230,6 +1230,11 @@ class LiberarPagoAdministracionView(APIView):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
+            if pago.estado_verificacion != "VERIFICADO":
+                return Response(
+                    {"mensaje": "El pago debe estar VERIFICADO antes de liberarlo."},
+                    status=status.HTTP_409_CONFLICT,
+                )
             reversa_pendiente = ReversaPago.objects.filter(
                 id_pago=pago,
                 estado_reversa="SOLICITADA",

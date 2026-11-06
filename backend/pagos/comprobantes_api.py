@@ -16,9 +16,14 @@ class ComprobanteTransferenciaAdministracionView(APIView):
         if pago is None:
             raise Http404()
         ruta = pago.comprobante_transferencia or ""
+        # PurePosixPath no interpreta las barras de Windows. No permitir que
+        # una referencia antigua/invalida salga de la carpeta de comprobantes,
+        # ni abrir flujos alternativos NTFS mediante dos puntos.
+        if not isinstance(ruta, str) or any(c in ruta for c in ("\\", "\x00", ":")):
+            raise Http404()
         ruta_normalizada = PurePosixPath(ruta)
         if (not ruta.startswith("comprobantes_transferencia_privados/")
-                or ".." in ruta_normalizada.parts
+                or any(p in {"", ".", ".."} for p in ruta.split("/"))
                 or len(ruta_normalizada.parts) != 2):
             raise Http404()
         if not default_storage.exists(ruta):
@@ -27,5 +32,14 @@ class ComprobanteTransferenciaAdministracionView(APIView):
         if extension not in {".pdf", ".jpg", ".png"}:
             raise Http404()
         tipo = {".pdf": "application/pdf", ".jpg": "image/jpeg", ".png": "image/png"}[extension]
-        return FileResponse(default_storage.open(ruta, "rb"), as_attachment=True,
-                            filename=f"comprobante_pago_{id_pago}{extension}", content_type=tipo)
+        try:
+            archivo = default_storage.open(ruta, "rb")
+        except (FileNotFoundError, OSError):
+            # El almacenamiento puede cambiar entre exists() y open().
+            raise Http404() from None
+        respuesta = FileResponse(archivo, as_attachment=True,
+                                 filename=f"comprobante_pago_{id_pago}{extension}", content_type=tipo)
+        respuesta["Cache-Control"] = "private, no-store"
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        respuesta["Referrer-Policy"] = "no-referrer"
+        return respuesta

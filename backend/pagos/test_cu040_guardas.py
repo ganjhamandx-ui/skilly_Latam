@@ -16,6 +16,7 @@ class CU040ProteccionesEconomicasTests(SimpleTestCase):
         pago = MagicMock()
         pago.id_pago = 900801
         pago.estado_pago = "RETENIDO"
+        pago.estado_verificacion = "VERIFICADO"
 
         request = SimpleNamespace(
             data={"observacion": "Prueba CU040"},

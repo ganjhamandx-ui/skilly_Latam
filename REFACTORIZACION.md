@@ -16,6 +16,16 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - El correo exitoso usa memoria; se inyectan solo la barrera concurrente, el fallo de perfil y el fallo SMTP. No se atribuye esta prueba a navegador ni SMTP real. El rol de aplicación no permite leer `data_directory`; se verificó con el administrador de la copia, sin conceder permisos.
 - Evidencia: `continuacion_62fc2e44c9a5492c94d0206afe58cade/acceso_integracion_1f18f178baad436ea1b23c27daa134ee/resultado.json`; suite offline de 188 pruebas aprobada antes de añadir las siguientes regresiones de pagos/privacidad. El entorno operativo y la base original se conservan.
 
+## Verificado: permisos por objeto y privacidad de expedientes
+
+- Reparada la creación de perfil para cuentas profesionales existentes sin perfil: autenticación de sesión SKILLY y permiso de profesional, manteniendo URL, bloqueo de usuario y 409 para duplicados. La prueba roja reproducía 403 ante una sesión legítima.
+- Los comprobantes administrativos se entregan con `private, no-store`, `nosniff` y `no-referrer`; se rechazan separadores Windows, rutas ambiguas y flujos NTFS. La desaparición del archivo al abrir produce 404. No se demostró un IDOR remoto en esta ruta; se endurecen referencias heredadas y almacenamiento.
+- Los antecedentes internos `INCIDENCIA_PROFESIONAL` de cancelación ya no se filtran al enlace empresarial de avances; profesional y administración conservan el registro. La prueba roja demostraba la publicación del tercer avance interno.
+- Liberar exige también `VERIFICADO`, coherente con los flujos existentes que registran RETENIDO y VERIFICADO juntos. Estados inconsistentes o heredados reciben 409 sin movimiento. Se conservan entrega aceptada, bloqueos por reclamo/reversa, comisión y reintento idempotente.
+- **198 pruebas unitarias aprobadas** y comprobación Django correcta, con red/BD bloqueadas. Las nuevas pruebas de despacho DRF/ficheros usan ORM simulado; no se presentan como integración PostgreSQL.
+- **51 comprobaciones adicionales con Django/middleware/PostgreSQL y archivos reales**, dentro del proceso: perfil faltante, CSRF/roles, propietario/ajeno/anónimo, firma empresarial/otra solicitud, integridad y cabeceras privadas, cancelación/aviso internos, liberación/reversa inválidas y un único historial tras reintento. Fixtures nuevas por ORM únicamente en la copia, sin cambios de esquema, dinero ni correo externos.
+- Evidencia: `validacion_modulos_43463018b9c248d9a038692b0d37525b/backend_resultado.json` y `continuacion_c90c757328c546d5b46f34c9fe95b882/objetos_integracion_b404d356e0b54e55927e5beaa800e84e/resultado.json`. El contexto anterior se cerró normalmente y el nuevo servidor aislado incorpora estas correcciones.
+
 ## Continuación y control de versiones
 
 - Destino comprobado mediante Git y conector GitHub: `https://github.com/ganjhamandx-ui/skilly`, privado y con permisos de publicación. La autenticación Git y los SHA de ambas ramas se verificaron contra el servidor.

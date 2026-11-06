@@ -6,6 +6,10 @@ contratos, penalizaciones, reclamaciones ni movimientos de dinero.
 
 ESTADO_AVISO = 'INCIDENCIA_REPORTADA'  # varchar(30), tabla avance_servicio existente
 
+# Los expedientes de cancelacion conservan otro estado historico. Sus
+# antecedentes tambien son internos y no se publican mediante el enlace empresa.
+ESTADOS_AVANCE_PRIVADOS = (ESTADO_AVISO, 'INCIDENCIA_PROFESIONAL')
+
 MOTIVOS_PROFESIONAL = {
     'INASISTENCIA_ORGANIZACION': 'La organización no asistió a la reunión',
     'CANCELACION_PROFESIONAL': 'Solicito cancelar la reunión o prestación',

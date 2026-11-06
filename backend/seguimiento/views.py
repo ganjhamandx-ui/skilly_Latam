@@ -17,7 +17,7 @@ from pagos.models import Pago, ReversaPago
 from profesionales.models import Profesional
 from solicitudes.referencias import leer_referencia_seguimiento
 from .models import AvanceServicio, Entrega, ObservacionEntrega, ReclamoPrestacion, ResolucionReclamo
-from .politicas_reportes_profesional import ESTADO_AVISO
+from .politicas_reportes_profesional import ESTADOS_AVANCE_PRIVADOS
 from .serializers import AvanceServicioSerializer, EntregaSerializer, ObservacionEntregaSerializer, ReclamoPrestacionSerializer, RegistrarAvanceServicioSerializer, RegistrarEntregaSerializer, RevisarEntregaEmpresaSerializer, ResolverReclamoSerializer, ResolucionReclamoSerializer
 
 
@@ -74,7 +74,7 @@ class SeguimientoPrestacionEmpresaView(APIView):
         # Los avisos del profesional quedan disponibles solo en sus sesiones y
         # en administración; no se publican sin revisión al contacto empresarial.
         avances = (AvanceServicio.objects.filter(id_prestacion=prestacion)
-                   .exclude(estado=ESTADO_AVISO)
+                   .exclude(estado__in=ESTADOS_AVANCE_PRIVADOS)
                    .order_by('fecha_registro', 'id_avance'))
         serializer = AvanceServicioSerializer(avances, many=True)
         entregas = Entrega.objects.filter(id_prestacion=prestacion).order_by('fecha_entrega', 'id_entrega')

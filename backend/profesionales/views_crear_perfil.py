@@ -2,16 +2,18 @@
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from acceso.authentication import SesionSkillyAuthentication
+from acceso.permissions import EsProfesional
 from profesionales.models import Profesional
 from profesionales.serializers import PerfilProfesionalSerializer
 
 
 class CrearMiPerfilProfesionalView(APIView):
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [SesionSkillyAuthentication]
+    permission_classes = [EsProfesional]
     http_method_names = ["post", "options"]
 
     def post(self, request):
