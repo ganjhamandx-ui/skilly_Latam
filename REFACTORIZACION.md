@@ -30,6 +30,17 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - **9 comprobaciones de navegador aprobadas**: solicitud diferida, espera accesible, fallo de módulo inyectado, recuperación manual, ausencia de bucle, alias y ruta desconocida. Una lectura inicial del DOM anterior se corrigió en el test esperando la ruta nueva; no se modificó el producto para eludir la comprobación.
 - Evidencia: `continuacion_ec5fd1bf356e455c80591b980d4dbc44/carga_rutas_1793930378949/resultado.json`. Las capturas previas también recorrieron las 16 pantallas con módulos reales.
 
+## Hallazgos prioritarios del análisis local
+
+- El usuario ejecutó SonarQube local con autenticación oculta. El procesamiento terminó, pero el gate inicial fue **ERROR**, no aprobado: cobertura recibida 0 %, 425 incidencias nuevas; métricas totales 1 bug, 2 vulnerabilidades y 620 observaciones de mantenibilidad.
+- La exportación prioritaria identificó `python:S4830` y `python:S4423` en el contexto TLS de Webpay, y `javascript:S9011` en el botón de envío bancario. No son hallazgos de secretos del repositorio.
+- El cliente ya usaba `ssl.create_default_context`; se hicieron explícitos CA obligatoria, comprobación de hostname y mínimo TLS 1.2. Tres pruebas nuevas comprueban el contexto real, su entrega al transporte simulado y que un fallo de certificado no se reintenta sin verificación. El código de peticiones, endpoint y validación económica se conservan.
+- El botón bancario declara explícitamente `type="submit"`, conservando su operación de registro/edición.
+- **172 pruebas backend aprobadas**. Además, una petición HTTPS real creó un checkout en el sandbox oficial con la política TLS actual, sin enviar tarjetas ni autorizar dinero. No equivale a un pago completo ni a una prueba productiva.
+- La clasificación de Sonar tras las correcciones queda pendiente de repetir el análisis; no se silencian reglas ni se alteran umbrales para declarar aprobación.
+- Evidencias: `validacion_modulos_edd3995318814b3782475e7ec981da41/backend_resultado.json`, `continuacion_ec5fd1bf356e455c80591b980d4dbc44/sonar_analisis_d0fcb003da31497781e68de7874bbb78/resultado.json` y `sandbox_webpay_fc05c5c8d8a945238d3dec3d97b110ca/resultado.json`.
+- Referencia de política TLS: [documentación oficial de Python](https://docs.python.org/3.13/library/ssl.html#ssl.create_default_context).
+
 Se conservan rutas, puertos configurados, contratos de API y reglas de negocio. Todo el trabajo es local; no se publica ni despliega.
 
 ## Completado: CSRF y recuperación aislada

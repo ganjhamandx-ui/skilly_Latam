@@ -26,6 +26,15 @@ def url_pago_valida(url):
             and not partes.fragment and partes.path.startswith('/') and not partes.path.startswith('//'))
 
 
+def contexto_tls_webpay():
+    """Verificacion de CA/hostname y TLS >= 1.2 explicitos para el proveedor."""
+    contexto = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+    contexto.check_hostname = True
+    contexto.verify_mode = ssl.CERT_REQUIRED
+    contexto.minimum_version = ssl.TLSVersion.TLSv1_2
+    return contexto
+
+
 def peticion_webpay(metodo, token=None, datos=None):
     """Toda comunicación real utiliza TLS certificado, 12s máximo y endpoint fijo."""
     if token is not None and (not isinstance(token, str) or len(token) > 200
@@ -38,7 +47,7 @@ def peticion_webpay(metodo, token=None, datos=None):
         'Accept': 'application/json', 'Content-Type': 'application/json',
     })
     try:
-        with urlopen(req, timeout=12, context=ssl.create_default_context()) as r:
+        with urlopen(req, timeout=12, context=contexto_tls_webpay()) as r:
             payload = r.read(65536)
             respuesta = json.loads(payload)
     except (HTTPError, URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:

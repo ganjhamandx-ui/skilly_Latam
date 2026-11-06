@@ -69,7 +69,7 @@ export default function CuentasBancariasAdministracion() {
             <input required type={k==='correo'?'email':'text'} value={form[k]} maxLength={k==='numero_cuenta'?32:254}
               inputMode={k==='numero_cuenta'?'numeric':'text'} pattern={k==='numero_cuenta'?'[0-9]{5,32}':undefined}
               onChange={e=>setForm({...form,[k]:e.target.value})}/>}</label>)}
-        <div className="bancos-acciones"><button disabled={trabajando}>{editando?'Guardar cambios':'Registrar cuenta'}</button>
+        <div className="bancos-acciones"><button type="submit" disabled={trabajando}>{editando?'Guardar cambios':'Registrar cuenta'}</button>
           {editando && <button type="button" onClick={()=>{setEditando(null);setForm(vacio)}}>Cancelar</button>}</div>
       </form>
     </section>
