@@ -1,4 +1,5 @@
 
+import { useEffect, useRef } from 'react'
 import './AdminNavegacion.css'
 
 const modulos = [
@@ -93,6 +94,15 @@ const modulos = [
 ]
 
 export default function AdminNavegacion({ activo }) {
+  const activoRef = useRef(null)
+  useEffect(() => {
+    const enlace = activoRef.current
+    const fila = enlace?.parentElement
+    if (fila && fila.scrollWidth > fila.clientWidth) {
+      fila.scrollLeft = enlace.offsetLeft - fila.offsetLeft - (fila.clientWidth - enlace.offsetWidth) / 2
+    }
+  }, [activo])
+
   return (
     <nav
       className="sk-admin-menu sk-admin-menu--uniforme"
@@ -102,6 +112,7 @@ export default function AdminNavegacion({ activo }) {
       <div className="sk-admin-menu__grid">
         {modulos.map((modulo) => (
           <a
+            ref={activo === modulo.id ? activoRef : null}
             key={modulo.id}
             href={modulo.ruta}
             className={

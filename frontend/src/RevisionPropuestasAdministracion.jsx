@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import AdminNavegacion from './AdminNavegacion.jsx'
+import useDialogoAccesible from './useDialogoAccesible.js'
 import './RevisionPropuestasAdministracion.css'
 
 const API = '/api/marketplace/administracion'
@@ -170,26 +171,8 @@ export default function RevisionPropuestasAdministracion() {
     }
   }, [cargar])
 
-  // Controlar el desplazamiento y la tecla Esc.
-  useEffect(() => {
-    if (!seleccionado) return undefined
-
-    const anterior = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const cerrarTecla = (evento) => {
-      if (evento.key === 'Escape' && !guardando) {
-        setSeleccionado(null)
-      }
-    }
-
-    window.addEventListener('keydown', cerrarTecla)
-
-    return () => {
-      document.body.style.overflow = anterior
-      window.removeEventListener('keydown', cerrarTecla)
-    }
-  }, [seleccionado, guardando])
+  const detalleRef = useRef(null)
+  useDialogoAccesible(Boolean(seleccionado && formulario), detalleRef, () => setSeleccionado(null), guardando)
 
   function abrir(servicio) {
     setSeleccionado(servicio)
@@ -598,6 +581,7 @@ export default function RevisionPropuestasAdministracion() {
       {seleccionado && formulario && (
         <div className="rp-fondo">
           <section
+            ref={detalleRef}
             className="rp-modal"
             role="dialog"
             aria-modal="true"

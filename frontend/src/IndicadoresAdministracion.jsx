@@ -1,7 +1,8 @@
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import AdminNavegacion from './AdminNavegacion.jsx'
+import useDialogoAccesible from './useDialogoAccesible.js'
 import './Administracion.css'
 
 const TARJETAS = [
@@ -94,11 +95,11 @@ export default function IndicadoresAdministracion() {
         if (activo) {
           setDatos(contenido)
         }
-      } catch (fallo) {
+      } catch (error) {
         if (activo) {
           setError(
-            fallo instanceof Error
-              ? fallo.message
+            error instanceof Error
+              ? error.message
               : 'Error al consultar indicadores.',
           )
         }
@@ -122,30 +123,8 @@ export default function IndicadoresAdministracion() {
     setRevision((actual) => actual + 1)
   }
 
-  useEffect(() => {
-    if (!detalle) {
-      return undefined
-    }
-
-    const anterior = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const cerrarConEscape = (evento) => {
-      if (evento.key === 'Escape') {
-        setDetalle(null)
-      }
-    }
-
-    document.addEventListener('keydown', cerrarConEscape)
-
-    return () => {
-      document.body.style.overflow = anterior
-      document.removeEventListener(
-        'keydown',
-        cerrarConEscape,
-      )
-    }
-  }, [detalle])
+  const detalleRef = useRef(null)
+  useDialogoAccesible(Boolean(detalle), detalleRef, () => setDetalle(null))
 
   const finanzas = datos?.resumen_financiero
 
@@ -161,7 +140,7 @@ export default function IndicadoresAdministracion() {
     <div className="adm-pagina">
       <header className="adm-header">
         <a className="adm-logo" href="/administracion">
-          <span className="adm-estrella">✦</span>
+          <span className="adm-estrella">✦</span>{' '}
           Skilly
         </a>
 
@@ -213,8 +192,8 @@ export default function IndicadoresAdministracion() {
           )}
 
           {cargando && (
-            <p role="status">
-              Consultando información del servidor…
+            <p>
+              <output aria-live="polite" aria-atomic="true">Consultando información del servidor…</output>
             </p>
           )}
 
@@ -324,6 +303,8 @@ export default function IndicadoresAdministracion() {
             placeItems: 'center', padding: 18 }}
         >
           <section
+            ref={detalleRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="sk-retenciones-titulo"
@@ -398,6 +379,8 @@ export default function IndicadoresAdministracion() {
           }}
         >
           <section
+            ref={detalleRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="sk-indicadores-modal-titulo"

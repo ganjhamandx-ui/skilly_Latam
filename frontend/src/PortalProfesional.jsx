@@ -13,8 +13,11 @@ import DatosValidacion from './DatosValidacion'
 import DetalleRevision from './DetalleRevision'
 import EditarPropuesta from './EditarPropuesta'
 import NuevaPropuesta from './NuevaPropuesta'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import useDialogoAccesible from './useDialogoAccesible.js'
+import { serviciosCoordinadosDeRespuesta } from './serviciosCoordinadosApi.mjs'
+import { entregasDeRespuesta, excedeLimitesDeArchivosEntrega } from './entregasProfesional.mjs'
 import './PortalProfesional.css'
 import './EntregablesPorServicioAdministracionE3.css'
 
@@ -22,28 +25,17 @@ import './EntregablesPorServicioAdministracionE3.css'
 // Todas las consultas se presentan en una ventana centrada.
 // Las acciones y los formularios siguen usando sus componentes originales.
 function VentanaProfesional({ abierta, titulo, onCerrar, children }) {
-  useEffect(() => {
-    if (!abierta) return undefined
-    const overflowAnterior = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const cerrarConEscape = (evento) => {
-      if (evento.key === 'Escape') onCerrar()
-    }
-    document.addEventListener('keydown', cerrarConEscape)
-    return () => {
-      document.body.style.overflow = overflowAnterior
-      document.removeEventListener('keydown', cerrarConEscape)
-    }
-  }, [abierta, onCerrar])
+  const panelRef = useRef(null)
+  useDialogoAccesible(abierta, panelRef, onCerrar)
 
   if (!abierta) return null
 
   return createPortal(
-    <div className="pp-modal-fondo pp-modal-accion"
+    <div className="pp-modal-fondo pp-modal-accion" role="presentation"
       onMouseDown={(evento) => {
         if (evento.target === evento.currentTarget) onCerrar()
       }}>
-      <div className="pp-modal-accion-contenido" role="dialog"
+      <div ref={panelRef} tabIndex={-1} className="pp-modal-accion-contenido" role="dialog"
         aria-modal="true" aria-label={titulo}>
         <div className="pp-modal-accion-cabecera">
           <div>
@@ -51,7 +43,7 @@ function VentanaProfesional({ abierta, titulo, onCerrar, children }) {
             <h2>{titulo}</h2>
           </div>
           <button type="button" className="pp-modal-cerrar"
-            aria-label={`Cerrar ${titulo}`} onClick={onCerrar} autoFocus>
+            aria-label={`Cerrar ${titulo}`} onClick={onCerrar} data-dialogo-foco-inicial>
             &times;
           </button>
         </div>
@@ -181,24 +173,12 @@ function PortalProfesional() {
     setVersionRevisada(null)
   }
 
-  useEffect(() => {
-    if (!detalleServicio && !errorDetalleServicio && !cargandoDetalleServicio) return
-    const anterior = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const conEscape = (evento) => {
-      if (evento.key !== 'Escape' || cargandoDetalleServicio || accionServicio || cargandoVersion) return
-      setDetalleServicio(null)
-      setVentanaPortal('mis-servicios')
-      setErrorDetalleServicio('')
-      setIdServicioDetalle(null)
-      setVersionRevisada(null)
-    }
-    document.addEventListener('keydown', conEscape)
-    return () => {
-      document.body.style.overflow = anterior
-      document.removeEventListener('keydown', conEscape)
-    }
-  }, [detalleServicio, errorDetalleServicio, cargandoDetalleServicio, accionServicio, cargandoVersion])
+  const detalleRef = useRef(null)
+  useDialogoAccesible(
+    Boolean(detalleServicio || errorDetalleServicio || cargandoDetalleServicio),
+    detalleRef, cerrarDetalleServicio,
+    Boolean(cargandoDetalleServicio || accionServicio || cargandoVersion),
+  )
 
 
   useEffect(() => {
@@ -814,9 +794,7 @@ function PortalProfesional() {
       return
     }
 
-    if (archivosNuevaEntrega.length > 3 ||
-        archivosNuevaEntrega.some((f) => f.size > 10 * 1024 * 1024) ||
-        archivosNuevaEntrega.reduce((total, f) => total + f.size, 0) > 25 * 1024 * 1024) {
+    if (excedeLimitesDeArchivosEntrega(archivosNuevaEntrega)) {
       setErrorNuevaEntrega('Máximo 3 archivos, 10 MB cada uno y 25 MB en total.')
       return
     }
@@ -943,20 +921,14 @@ function PortalProfesional() {
         )
       }
 
-      const lista = Array.isArray(datos)
-        ? datos
-        : Array.isArray(datos.entregas)
-          ? datos.entregas
-          : Array.isArray(datos.resultados)
-            ? datos.resultados
-            : null
+      const lista = entregasDeRespuesta(datos)
 
       if (!lista) {
         throw new Error('Formato inesperado de entregas.')
       }
 
       if (!Array.isArray(datos.observaciones)) {
-        throw new Error('La API no devolvió las observaciones de las entregas.')
+        throw new TypeError('La API no devolvió las observaciones de las entregas.')
       }
 
       setEntregasProfesional(lista)
@@ -1110,17 +1082,7 @@ function PortalProfesional() {
         )
       }
 
-      const lista = Array.isArray(datos.servicios_coordinados)
-        ? datos.servicios_coordinados
-        : Array.isArray(datos)
-          ? datos
-          : Array.isArray(datos.prestaciones)
-            ? datos.prestaciones
-            : Array.isArray(datos.servicios)
-              ? datos.servicios
-              : Array.isArray(datos.resultados)
-                ? datos.resultados
-                : null
+      const lista = serviciosCoordinadosDeRespuesta(datos)
 
       if (!lista) {
         throw new Error('La API devolvió un formato inesperado.')
@@ -1178,8 +1140,8 @@ function PortalProfesional() {
       setMotivoCancelacion('')
       setAvisoEntrevista(datos.mensaje ?? 'Entrevista cancelada.')
       registrarConsulta('entrevista')
-    } catch (fallo) {
-      setErrorEntrevista(fallo instanceof Error ? fallo.message : 'No se pudo cancelar.')
+    } catch (error) {
+      setErrorEntrevista(error instanceof Error ? error.message : 'No se pudo cancelar.')
     } finally {
       setCancelandoEntrevista(false)
     }
@@ -1414,8 +1376,8 @@ return (
               </div>
 
               {ultimaConsulta.servicios && (
-                <p className="pp-ultima-consulta" role="status">
-                  Última consulta al servidor: {ultimaConsulta.servicios}.
+                <p className="pp-ultima-consulta">
+                  <output aria-live="polite" aria-atomic="true">Última consulta al servidor: {ultimaConsulta.servicios}.</output>
                 </p>
               )}
 
@@ -1506,8 +1468,8 @@ return (
               </div>
 
               {ultimaConsulta.perfil && (
-                <p className="pp-ultima-consulta" role="status">
-                  Última consulta al servidor: {ultimaConsulta.perfil}.
+                <p className="pp-ultima-consulta">
+                  <output aria-live="polite" aria-atomic="true">Última consulta al servidor: {ultimaConsulta.perfil}.</output>
                 </p>
               )}
 
@@ -1515,7 +1477,7 @@ return (
                 <p role="alert" className="pp-error">{errorPerfil}</p>
               )}
 
-              {cargandoPerfil && <p role="status">Cargando perfil...</p>}
+              {cargandoPerfil && <p><output aria-live="polite" aria-atomic="true">Cargando perfil...</output></p>}
 
               <button type="button" className="pp-boton pp-secundario"
                 disabled={cargandoPerfil}
@@ -1569,8 +1531,8 @@ return (
               </div>
 
               {ultimaConsulta.validacion && (
-                <p className="pp-ultima-consulta" role="status">
-                  Última consulta al servidor: {ultimaConsulta.validacion}.
+                <p className="pp-ultima-consulta">
+                  <output aria-live="polite" aria-atomic="true">Última consulta al servidor: {ultimaConsulta.validacion}.</output>
                 </p>
               )}
 
@@ -1580,7 +1542,7 @@ return (
                 </p>
               )}
 
-              {cargandoValidacion && <p role="status">Cargando validación...</p>}
+              {cargandoValidacion && <p><output aria-live="polite" aria-atomic="true">Cargando validación...</output></p>}
 
               {validacion && (
                 <div className="pp-resultado-validacion">
@@ -2202,14 +2164,14 @@ return (
 
             {(detalleServicio || errorDetalleServicio ||
               cargandoDetalleServicio) && createPortal(
-              <div className="pp-modal-fondo" onMouseDown={(e) => {
+              <div className="pp-modal-fondo" role="presentation" onMouseDown={(e) => {
                 if (e.target === e.currentTarget) cerrarDetalleServicio()
               }}>
-                <section className="pp-panel pp-detalle-servicio"
+                <section ref={detalleRef} tabIndex={-1} className="pp-panel pp-detalle-servicio"
                   role="dialog" aria-modal="true" aria-labelledby="pp-titulo-detalle">
                   <div className="pp-modal-cabecera">
                     <h2 id="pp-titulo-detalle">Detalle de mi servicio</h2>
-                    <button type="button" className="pp-modal-cerrar" autoFocus
+                    <button type="button" className="pp-modal-cerrar" data-dialogo-foco-inicial
                       aria-label="Cerrar ventana de detalle"
                       disabled={cargandoDetalleServicio || Boolean(accionServicio) || cargandoVersion}
                       onClick={cerrarDetalleServicio}>&times;</button>

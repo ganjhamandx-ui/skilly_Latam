@@ -1,6 +1,6 @@
 .rp-pagina {
   min-height: 100vh;
-  background: #f5f8f5;
+  background: linear-gradient(180deg, #edf4ee 0, #f5f8f5 380px);
   color: #243d36;
   font-family: Inter, system-ui, sans-serif;
 }
@@ -11,12 +11,13 @@
 
 .rp-cabecera {
   background: #fff;
-  border-bottom: 1px solid #e4ebe5;
+  border-bottom: 1px solid #d5e3d9;
   padding: 18px max(24px, calc((100% - 1200px) / 2));
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 15px;
+  min-height: 80px;
 }
 
 .rp-cabecera a {
@@ -26,16 +27,16 @@
 }
 
 .rp-contenido {
-  max-width: 1248px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 26px 24px 80px;
+  padding: 32px 24px 80px;
 }
 
 .rp-titulo {
   display: flex;
   gap: 20px;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 22px;
 }
 
@@ -43,19 +44,20 @@
   font-size: 11px;
   letter-spacing: .14em;
   font-weight: 800;
-  color: #9c7a41;
+  color: #795b2e;
 }
 
 .rp-titulo h1 {
   font-size: clamp(29px, 4vw, 42px);
   line-height: 1.2;
   margin: 9px 0;
+  letter-spacing: -.035em;
 }
 
 .rp-titulo p {
-  color: #657d74;
+  color: #526b5d;
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.65;
 }
 
 .rp-boton {
@@ -92,39 +94,43 @@
 .rp-metricas {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
   margin-bottom: 22px;
 }
 
 .rp-metricas article {
   background: white;
-  border: 1px solid #e2ebe5;
-  border-radius: 20px;
+  border: 1px solid #d3e2d8;
+  border-top: 3px solid #80a18d;
+  border-radius: 16px;
   padding: 22px;
   display: grid;
   gap: 9px;
+  box-shadow: 0 7px 22px rgba(20,67,45,.05);
 }
 
 .rp-metricas span {
-  color: #6c817a;
+  color: #526b5d;
+  font-weight: 650;
 }
 
 .rp-metricas strong {
-  font-size: 30px;
+  font-size: clamp(28px,3vw,36px);
+  color: #244f3e;
 }
 
 .rp-panel {
   background: white;
-  border: 1px solid #e2ebe5;
-  border-radius: 23px;
+  border: 1px solid #d3e2d8;
+  border-radius: 18px;
   padding: 25px;
-  box-shadow: 0 12px 38px #173b2509;
+  box-shadow: 0 10px 30px rgba(20,67,45,.05);
 }
 
 .rp-pestanas {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 10px;
   margin-bottom: 17px;
 }
 
@@ -136,6 +142,7 @@
   padding: 10px 15px;
   cursor: pointer;
   font-weight: 700;
+  min-height: 43px;
 }
 
 .rp-pestanas button.activo {
@@ -155,7 +162,6 @@
 
 .rp-busqueda input,
 .rp-formulario input:not([type=checkbox]),
-.rp-formulario textarea,
 .rp-formulario select {
   font: inherit;
   width: 100%;
@@ -167,7 +173,6 @@
   min-width: 0;
 }
 
-.rp-busqueda input:focus-visible,
 .rp-formulario :is(input, textarea, select):focus-visible {
   outline: 2px solid #477e64;
   outline-offset: 2px;
@@ -186,7 +191,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
+  overflow-wrap: anywhere;
 }
 
 .rp-referencia {
@@ -208,6 +214,8 @@
 
 .rp-tarjeta small {
   color: #728a80;
+  display: block;
+  margin-top: 8px;
 }
 
 .rp-insignia {
@@ -219,20 +227,19 @@
   white-space: nowrap;
 }
 
-.rp-error,
-.rp-aviso {
+.rp-error {
   border-radius: 12px;
   padding: 14px 16px;
   margin: 14px 0;
-}
-
-.rp-error {
   background: #fff0f0;
   color: #8d2929;
   border: 1px solid #f1d5d5;
 }
 
 .rp-aviso {
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 14px 0;
   background: #e7f5eb;
   color: #286243;
   border: 1px solid #cde5d2;
@@ -259,7 +266,7 @@
   background: #fff;
   border-radius: 20px;
   width: min(850px, 100%);
-  max-height: min(90vh, 950px);
+  max-height: min(90vh,900px);
   overflow-y: auto;
   padding: 26px;
   box-shadow: 0 22px 70px #0004;
@@ -272,6 +279,7 @@
   align-items: start;
   gap: 14px;
   margin-bottom: 22px;
+  border-bottom-color: #d3e2d8;
 }
 
 .rp-modal-cabecera h2 {
@@ -350,6 +358,14 @@
 }
 
 .rp-formulario textarea {
+  font: inherit;
+  width: 100%;
+  border: 1px solid #d4e2d8;
+  border-radius: 11px;
+  background: #fff;
+  color: #233f34;
+  padding: 12px;
+  min-width: 0;
   resize: vertical;
 }
 
@@ -405,72 +421,10 @@
   font-weight: 700;
 }
 
-@media (max-width: 700px) {
-  .rp-contenido {
-    padding: 24px 14px 60px;
-  }
-
-  .rp-titulo {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .rp-metricas,
-  .rp-datos,
-  .rp-fila,
-  .rp-competencias {
-    grid-template-columns: 1fr;
-  }
-
-  .rp-tarjeta {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .rp-panel {
-    padding: 16px;
-  }
-
-  .rp-modal {
-    padding: 18px;
-    max-height: 94vh;
-  }
-
-  .rp-fondo {
-    padding: 8px;
-  }
-
-  .rp-acciones .rp-boton {
-    flex: 1;
-  }
-}
-
 /* Etapa 2: refinamiento estrictamente visual de propuestas */
-.rp-contenido { padding-top: 32px; }
-.rp-titulo { align-items: flex-start; }
 .rp-titulo > div { max-width: 750px; }
-.rp-titulo h1 { letter-spacing: -.025em; }
-.rp-metricas { gap: 14px; }
-.rp-metricas article { border-color: #dce8df; border-radius: 16px; box-shadow: 0 7px 22px rgba(20,67,45,.05); }
-.rp-metricas span { font-weight: 650; }
-.rp-metricas strong { color: #244f3e; font-size: clamp(28px,3vw,36px); }
-.rp-panel { border-color: #dbe8df; border-radius: 18px; box-shadow: 0 10px 30px rgba(20,67,45,.05); }
-.rp-pestanas { gap: 10px; }
-.rp-pestanas button { min-height: 43px; }
 .rp-boton:focus-visible, .rp-pestanas button:focus-visible, .rp-cabecera a:focus-visible,
 .rp-busqueda input:focus-visible, .rp-cerrar:focus-visible { outline: 3px solid #3d8062; outline-offset: 3px; }
-.rp-tarjeta { overflow-wrap: anywhere; }
-.rp-modal { max-height: min(90vh,900px); overflow-y: auto; }
-@media (max-width: 700px) {
-  .rp-cabecera { padding: 16px; flex-wrap: wrap; }
-  .rp-contenido { padding: 24px 16px 60px; }
-  .rp-titulo { flex-wrap: wrap; gap: 14px; }
-  .rp-titulo > button { width: 100%; }
-  .rp-metricas { grid-template-columns: 1fr; gap: 10px; }
-  .rp-metricas article { padding: 18px; }
-  .rp-panel { padding: 18px 15px; }
-  .rp-pestanas button { flex: 1 1 auto; }
-}
 
 
 /* Etapa 2: claridad en estado de historial, sin transformar su valor. */
@@ -478,6 +432,26 @@
 .rp-estado-etiqueta--aprobada,.rp-estado-etiqueta--aprobado {background:#e2f0e8;color:#245b40;}
 .rp-estado-etiqueta--rechazada,.rp-estado-etiqueta--rechazado {background:#fbe7e5;color:#8f3530;}
 .rp-estado-etiqueta--pendiente {background:#fbf0d9;color:#77511d;}
-.rp-tarjeta {gap:16px;}
-.rp-tarjeta h3 {line-height:1.35;}
-.rp-tarjeta small {display:block;margin-top:8px;}
+
+/* Propuestas: separar estados, busqueda y decision de revision. */
+.rp-modal:focus-visible { outline: 3px solid #a76a14; outline-offset: -4px; }
+.rp-modal :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { min-height: 46px; }
+.rp-modal textarea { min-height: 110px; }
+@media (max-width: 700px) {
+  .rp-cabecera { padding: 16px; flex-wrap: wrap; }
+  .rp-contenido { padding: 24px 16px 60px; }
+  .rp-titulo { flex-direction: column; flex-wrap: wrap; gap: 14px; }
+  .rp-titulo > button { width: 100%; }
+  .rp-metricas { grid-template-columns: 1fr; gap: 10px; }
+  .rp-metricas article { padding: 18px; }
+  .rp-datos,
+  .rp-fila,
+  .rp-competencias { grid-template-columns: 1fr; }
+  .rp-tarjeta { flex-direction: column; align-items: flex-start; }
+  .rp-panel { padding: 18px 15px; }
+  .rp-fondo { padding: 10px; }
+  .rp-modal { padding: 18px; border-radius: 16px; max-height: calc(100dvh - 20px); }
+  .rp-pestanas { flex-wrap: nowrap; overflow-x: auto; padding: 4px 3px 10px; }
+  .rp-pestanas button { flex: 0 0 auto; }
+  .rp-acciones .rp-boton { flex: 1; }
+}

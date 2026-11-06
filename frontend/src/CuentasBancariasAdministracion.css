@@ -1,1 +1,28 @@
-.bancos-root{max-width:1100px;margin:0 auto;padding:24px;color:#263f35}.bancos-subtitulo{font-weight:700;letter-spacing:.1em;font-size:.75rem;color:#94773f}.bancos-root h1{font-size:2.2rem;margin:18px 0 8px}.bancos-root p{line-height:1.55}.bancos-panel{background:white;border:1px solid #e1e8e4;border-radius:20px;padding:26px;margin:24px 0}.bancos-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.bancos-form label{display:flex;flex-direction:column;gap:6px;font-weight:600}.bancos-form input,.bancos-form select{border:1px solid #cbd9d0;border-radius:9px;padding:12px;font:inherit;width:100%;box-sizing:border-box}.bancos-acciones{display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1}.bancos-root button{border:1px solid #bfcec4;background:#e9f1eb;color:#294a3e;border-radius:10px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}.bancos-root button:disabled{opacity:.5;cursor:default}.bancos-cuenta{padding:16px 0;border-top:1px solid #e6eae7}.bancos-titulo{display:flex;align-items:center;justify-content:space-between;gap:10px}.bancos-error{background:#fff0f0;color:#8c2525;padding:12px;border-radius:10px}@media(max-width:650px){.bancos-form{grid-template-columns:1fr}.bancos-panel{padding:16px}}
+.bancos-root { max-width: 1200px; margin: 0 auto; padding: 24px; color: #263f35; }
+.bancos-root .sk-admin-menu { padding-inline: 0; padding-top: 0; }
+.bancos-root > header { margin: 30px 0 26px; max-width: 850px; }
+.bancos-root h1 { font-size: clamp(30px,4vw,42px); margin: 18px 0 8px; letter-spacing: -.035em; line-height: 1.15; }
+.bancos-root p { line-height: 1.55; }
+.bancos-root > header p { color: #526b5d; }
+.bancos-subtitulo { font-weight: 700; letter-spacing: .1em; font-size: .75rem; color: #795b2e; }
+.bancos-panel { background: white; border: 1px solid #d1e0d6; border-radius: 17px; padding: 26px; margin: 24px 0; box-shadow: 0 8px 28px #254b3509; }
+.bancos-panel > p { color: #526b5d; }
+.bancos-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+.bancos-form label { display: flex; flex-direction: column; gap: 9px; font-weight: 600; color: #304e3c; }
+.bancos-form input, .bancos-form select { border: 1px solid #b9cec0; border-radius: 9px; padding: 12px; font: inherit; width: 100%; box-sizing: border-box; min-height: 48px; }
+.bancos-acciones { display: flex; gap: 8px; flex-wrap: wrap; grid-column: 1/-1; }
+.bancos-root button { border: 1px solid #bfcec4; background: #e9f1eb; color: #294a3e; border-radius: 10px; padding: 10px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.bancos-root button:disabled { opacity: .5; cursor: default; }
+.bancos-form .bancos-acciones > button:first-child { background: #285d50; border-color: #285d50; color: #fff; }
+.bancos-cuenta { padding: 22px 0; border-top: 1px solid #e6eae7; overflow-wrap: anywhere; }
+.bancos-cuenta h3 { font-size: 18px; color: #244d3b; }
+.bancos-cuenta p { color: #526b5d; }
+.bancos-titulo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.bancos-error { background: #fff0f0; color: #8c2525; padding: 12px; border-radius: 10px; }
+@media (max-width:650px) {
+  .bancos-root { padding: 16px; }
+  .bancos-panel { padding: 22px 18px; }
+  .bancos-form { grid-template-columns: 1fr; }
+  .bancos-root > header { margin-top: 25px; }
+  .bancos-form input, .bancos-form select { font-size: 16px; }
+}

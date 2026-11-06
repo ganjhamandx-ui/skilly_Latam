@@ -6,6 +6,7 @@
   border-top: 1px solid #e0e8e2;
 }
 
+
 .rp-enlace-acceso p {
   color: #617568;
   font-size: 14px;
@@ -24,9 +25,9 @@
 .rp-registro {
   margin-top: 18px;
   padding: 20px;
-  border: 1px solid #dce8e0;
+  border: 1px solid #cddfd2;
   border-radius: 14px;
-  background: #f8fbf9;
+  background: #f3f8f4;
 }
 
 .rp-registro h2 {
@@ -37,14 +38,15 @@
 
 .rp-formulario {
   display: grid;
-  gap: 13px;
+  gap: 15px;
   margin-top: 18px;
 }
 
 .rp-formulario h3 {
   margin: 20px 0 5px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #dce8e0;
+  border-bottom: 1px solid #cddfd2;
+  letter-spacing: -.01em;
   color: #285d55;
   font-size: 17px;
 }
@@ -57,15 +59,26 @@
 }
 
 .rp-formulario > input,
-.rp-formulario > textarea,
 .rp-campo input {
   box-sizing: border-box;
   width: 100%;
   padding: 12px;
-  border: 1px solid #cfddd3;
+  border: 1px solid #b9cec0;
   border-radius: 10px;
   font: inherit;
   background: #fff;
+  min-height: 48px;
+}
+
+.rp-formulario > textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #b9cec0;
+  border-radius: 10px;
+  font: inherit;
+  background: #fff;
+  min-height: 110px;
 }
 
 .rp-formulario textarea {
@@ -88,6 +101,8 @@
   align-items: center;
   gap: 9px;
   cursor: pointer;
+  min-height: 44px;
+  line-height: 1.5;
 }
 
 .rp-boton-principal {
@@ -108,20 +123,20 @@
   cursor: not-allowed;
 }
 
-.rp-error,
-.rp-exito {
+.rp-error {
   padding: 13px;
   margin-top: 16px;
   border-radius: 10px;
   overflow-wrap: anywhere;
-}
-
-.rp-error {
   background: #fff1f1;
   color: #913f3f;
 }
 
 .rp-exito {
+  padding: 13px;
+  margin-top: 16px;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
   background: #eaf5ee;
   color: #276449;
 }
@@ -140,3 +155,5 @@
     padding: 15px;
   }
 }
+
+.rp-formulario :is(input, textarea):focus-visible { outline: 3px solid #a76a14; outline-offset: 2px; }

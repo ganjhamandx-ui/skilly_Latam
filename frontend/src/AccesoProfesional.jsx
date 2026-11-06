@@ -140,11 +140,11 @@ export default function AccesoProfesional() {
       }
 
       window.location.assign(destino)
-    } catch (fallo) {
+    } catch (error) {
       setContrasena('')
       setError(
-        fallo instanceof Error
-          ? fallo.message
+        error instanceof Error
+          ? error.message
           : 'No fue posible iniciar sesión.',
       )
     } finally {
@@ -176,10 +176,10 @@ export default function AccesoProfesional() {
       )
 
       setVista('restablecer')
-    } catch (fallo) {
+    } catch (error) {
       setError(
-        fallo instanceof Error
-          ? fallo.message
+        error instanceof Error
+          ? error.message
           : 'No fue posible solicitar la recuperación.',
       )
     } finally {
@@ -230,13 +230,13 @@ export default function AccesoProfesional() {
         datos.mensaje ||
           'Contraseña actualizada. Ahora puedes iniciar sesión.',
       )
-    } catch (fallo) {
+    } catch (error) {
       setNuevaContrasena('')
       setConfirmarContrasena('')
 
       setError(
-        fallo instanceof Error
-          ? fallo.message
+        error instanceof Error
+          ? error.message
           : 'No fue posible cambiar la contraseña.',
       )
     } finally {
@@ -295,8 +295,8 @@ export default function AccesoProfesional() {
               </p>
 
               {mensaje && (
-                <div className="ap-nota" role="status">
-                  {mensaje}
+                <div className="ap-nota">
+                  <output aria-live="polite" aria-atomic="true">{mensaje}</output>
                 </div>
               )}
 
@@ -348,6 +348,9 @@ export default function AccesoProfesional() {
                   <button
                     type="button"
                     className="ap-mostrar"
+                    aria-pressed={mostrarContrasena}
+                    aria-controls="ap-contrasena"
+                    aria-label={mostrarContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                     onClick={() =>
                       setMostrarContrasena(
                         (actual) => !actual,
@@ -524,9 +527,8 @@ export default function AccesoProfesional() {
               {mensaje && (
                 <p
                   className="ap-nota"
-                  role="status"
                 >
-                  {mensaje}
+                  <output aria-live="polite" aria-atomic="true">{mensaje}</output>
                 </p>
               )}
 
@@ -604,6 +606,8 @@ export default function AccesoProfesional() {
                 <button
                   type="button"
                   className="ap-mostrar"
+                  aria-pressed={mostrarNuevaContrasena}
+                  aria-controls="ap-nueva-contrasena ap-confirmar-contrasena"
                   onClick={() =>
                     setMostrarNuevaContrasena(
                       (actual) => !actual,

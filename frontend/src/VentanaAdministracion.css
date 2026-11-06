@@ -23,20 +23,20 @@
   position: sticky;
   top: 0;
   z-index: 4;
-  background: #fff;
+  background: #f7faf7;
   padding: 19px 28px;
-  border-bottom: 1px solid #dce9e0;
+  border-bottom: 1px solid #d3e2d8;
   display: flex;
   gap: 20px;
   align-items: center;
   justify-content: space-between;
 }
 .vam-cabecera small { color: #45705b; font-weight: 800; letter-spacing: .08em; }
-.vam-cabecera h2 { color: #1e3d31; margin: 7px 0 0; font-size: 24px; }
+.vam-cabecera h2 { color: #1e3d31; margin: 7px 0 0; font-size: 24px; letter-spacing: -.02em; line-height: 1.25; }
 .vam-cabecera button {
   flex-shrink: 0;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 50%;
   background: #e8f2ea;
@@ -46,6 +46,7 @@
   cursor: pointer;
 }
 .vam-cabecera button:disabled { opacity: .55; cursor: wait; }
+.vam-ventana:focus-visible { outline: 3px solid #a76a14; outline-offset: -4px; }
 .vam-cuerpo { padding: 25px 28px 32px; }
 .vam-cuerpo > .adm-panel, .vam-cuerpo > .va-panel {
   margin: 0;

@@ -1,7 +1,7 @@
 
 .ap-pagina {
   min-height: 100vh;
-  background: #f7faf7;
+  background: radial-gradient(ellipse at 50% 0, #e6f0e8 0, transparent 58%), #f7faf7;
   color: #28433e;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
 }
@@ -11,6 +11,7 @@
 }
 
 .ap-cabecera {
+  min-height: 84px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -37,8 +38,8 @@
 }
 
 .ap-contenido {
-  width: min(100% - 36px, 500px);
-  margin: 65px auto 80px;
+  width: min(100% - 36px, 520px);
+  margin: 48px auto 80px;
 }
 
 .ap-etiqueta {
@@ -50,66 +51,73 @@
 
 .ap-presentacion {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
 .ap-presentacion h1 {
   color: #274c44;
   font-size: clamp(30px, 4vw, 43px);
   margin: 14px 0;
+  letter-spacing: -.035em;
+  line-height: 1.15;
 }
 
 .ap-presentacion p {
-  color: #70857b;
+  color: #526b5d;
   line-height: 1.8;
+  max-width: 390px;
+  margin-inline: auto;
 }
 
 .ap-tarjeta {
   background: white;
-  border: 1px solid #e1e9e4;
-  border-radius: 23px;
-  padding: 35px;
-  box-shadow: 0 18px 50px rgba(35, 69, 52, .055);
+  border: 1px solid #d5e4d9;
+  border-radius: 20px;
+  padding: 34px;
+  box-shadow: 0 18px 55px #254b3510;
 }
 
 .ap-tarjeta h2 {
   margin: 0 0 10px;
-  font-size: 24px;
+  font-size: 25px;
+  letter-spacing: -.02em;
 }
 
 .ap-ayuda {
-  color: #74887e;
-  font-size: 13px;
+  color: #526b5d;
+  font-size: 14px;
   line-height: 1.7;
-  margin-bottom: 27px;
+  margin: 8px 0 22px;
 }
 
 .ap-formulario {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ap-formulario label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 750;
   margin-top: 8px;
+  color: #304e3d;
 }
 
 .ap-formulario input {
   min-width: 0;
+  min-height: 50px;
   width: 100%;
   padding: 15px;
-  border: 1px solid #d5e2d9;
+  border: 1px solid #bdcfc1;
   border-radius: 11px;
-  background: white;
+  background: #fdfefd;
   color: #29473e;
   font-size: 14px;
 }
 
 .ap-formulario input:focus {
-  outline: 2px solid #90b4a2;
-  outline-offset: 1px;
+  outline: 3px solid #a76a14;
+  outline-offset: 2px;
 }
 
 .ap-contrasena-contenedor {
@@ -129,10 +137,17 @@
 }
 
 .ap-mostrar {
+  min-width: 78px;
+  min-height: 46px;
   padding: 0 12px;
   color: #356359;
   background: #eff5f1;
   border: 1px solid #d5e4da;
+}
+
+.ap-mostrar[aria-pressed="true"] {
+  background: #dcece1;
+  border-color: #759b82;
 }
 
 .ap-enviar {
@@ -141,7 +156,11 @@
   border: none;
   padding: 16px;
   margin-top: 15px;
+  min-height: 52px;
+  box-shadow: 0 4px 12px #285d501a;
 }
+
+.ap-enviar:hover:not(:disabled) { background: #214f42; }
 
 .ap-formulario button:disabled {
   opacity: .65;
@@ -160,21 +179,40 @@
 
 .ap-nota {
   margin: 24px 0 0;
-  color: #7b8c83;
-  font-size: 12px;
-  line-height: 1.8;
+  color: #526b5d;
+  font-size: 13px;
+  line-height: 1.65;
 }
 
 @media (max-width: 540px) {
   .ap-cabecera {
     padding: 18px;
+    min-height: 74px;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .ap-cabecera > a:last-child {
+    max-width: 130px;
+    text-align: right;
+    line-height: 1.4;
   }
 
   .ap-contenido {
-    margin-top: 40px;
+    width: calc(100% - 28px);
+    margin: 32px auto 44px;
+  }
+
+  .ap-presentacion h1 {
+    font-size: 34px;
   }
 
   .ap-tarjeta {
-    padding: 23px;
+    padding: 25px 21px;
+    border-radius: 18px;
+  }
+
+  .ap-formulario input {
+    font-size: 16px;
   }
 }

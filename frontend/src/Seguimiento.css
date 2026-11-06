@@ -1,7 +1,7 @@
 
 .sg-pagina {
   min-height: 100vh;
-  background: #f8faf7;
+  background: linear-gradient(180deg, #edf4ee 0, #f8faf7 370px);
   color: #253e3c;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
 }
@@ -16,8 +16,9 @@
   justify-content: space-between;
   gap: 20px;
   background: #ffffff;
-  border-bottom: 1px solid #e0e9e4;
+  border-bottom: 1px solid #d6e4da;
   padding: 21px max(24px, calc((100% - 1050px) / 2));
+  min-height: 82px;
 }
 
 .sg-marca {
@@ -36,18 +37,18 @@
 }
 
 .sg-contenido {
-  max-width: 890px;
+  max-width: 1060px;
   margin: 0 auto;
-  padding: 72px 22px 45px;
+  padding: 40px 22px 45px;
 }
 
 .sg-intro {
-  margin-bottom: 35px;
+  margin-bottom: 22px;
 }
 
 .sg-etiqueta {
   display: block;
-  color: #967446;
+  color: #795a2d;
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 2px;
@@ -59,26 +60,28 @@
   font-size: clamp(29px, 4vw, 46px);
   line-height: 1.2;
   color: #224642;
+  letter-spacing: -.035em;
 }
 
 .sg-intro p {
-  max-width: 660px;
-  color: #657b76;
-  line-height: 1.8;
+  max-width: 72ch;
+  color: #4f685d;
+  line-height: 1.6;
 }
 
 .sg-tarjeta {
   background: #fff;
-  border: 1px solid #e2ebe5;
-  box-shadow: 0 15px 55px rgba(32, 67, 56, .045);
-  border-radius: 22px;
-  padding: 34px;
+  border: 1px solid #d5e3d9;
+  box-shadow: 0 10px 34px #254b350b;
+  border-radius: 18px;
+  padding: 30px;
   margin-bottom: 23px;
 }
 
 .sg-tarjeta h2 {
   margin: 0 0 23px;
   font-size: 22px;
+  letter-spacing: -.02em;
 }
 
 .sg-tarjeta label {
@@ -96,12 +99,13 @@
 .sg-fila input {
   flex: 1;
   min-width: 0;
-  border: 1px solid #ceded5;
+  border: 1px solid #b9cec0;
   border-radius: 12px;
   padding: 15px;
   color: #243f3b;
   background: #fff;
   font-size: 14px;
+  min-height: 50px;
 }
 
 .sg-fila button {
@@ -112,6 +116,7 @@
   padding: 15px 25px;
   font-weight: 750;
   cursor: pointer;
+  min-height: 50px;
 }
 
 .sg-fila button:disabled {
@@ -143,6 +148,7 @@
   color: #286149;
   font-size: 12px;
   font-weight: 850;
+  border: 1px solid #c5ddce;
 }
 
 .sg-grilla {
@@ -160,8 +166,8 @@
 }
 
 .sg-grilla span {
-  color: #778983;
-  font-size: 12px;
+  color: #526b5e;
+  font-size: 13px;
 }
 
 .sg-grilla strong {
@@ -191,47 +197,21 @@
 }
 
 .sg-nota {
-  background: #f6f0e5;
+  background: #f7f0e4;
   border-radius: 12px;
   padding: 18px;
   margin-top: 24px;
   font-size: 13px;
   line-height: 1.8;
-  color: #846941;
+  color: #6c542e;
+  border: 1px solid #e9dcc5;
 }
 
 .sg-pie {
   padding: 32px 0;
   text-align: center;
-  color: #8c9e96;
+  color: #536e60;
   font-size: 12px;
-}
-
-@media (max-width: 620px) {
-  .sg-cabecera {
-    padding: 18px;
-  }
-
-  .sg-contenido {
-    padding-top: 42px;
-  }
-
-  .sg-tarjeta {
-    padding: 22px;
-  }
-
-  .sg-fila,
-  .sg-titulo-resultado {
-    flex-direction: column;
-  }
-
-  .sg-fila button {
-    width: 100%;
-  }
-
-  .sg-grilla {
-    grid-template-columns: 1fr;
-  }
 }
 
 .sg-panel-prestacion h3 {
@@ -291,8 +271,7 @@
   margin-top: 20px;
 }
 
-.sg-acciones-entrega button,
-.sg-formulario-observacion button {
+.sg-acciones-entrega button {
   border: none;
   border-radius: 10px;
   background: #285d55;
@@ -334,6 +313,13 @@
 }
 
 .sg-formulario-observacion button {
+  border: none;
+  border-radius: 10px;
+  background: #285d55;
+  color: #fff;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
   justify-self: start;
 }
 
@@ -347,16 +333,13 @@
 }
 
 /* SKILLY E3 · Navegación por secciones. No altera formularios ni endpoints. */
-.sg-contenido { max-width: 1060px; padding-top: 40px; }
-.sg-intro { margin-bottom: 22px; }
-.sg-intro p { line-height: 1.6; }
 .sg-navegacion-resumen { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin: 0 0 18px; }
-.sg-navegacion-resumen a { text-decoration: none; color: #28554c; background: #eaf2ed; border: 1px solid #d9e6dc; border-radius: 13px; padding: 13px 10px; font-size: 13px; text-align: center; font-weight: 750; }
+.sg-navegacion-resumen a { text-decoration: none; color: #28554c; background: #eaf2ed; border: 1px solid #cbded0; border-radius: 10px; padding: 13px 10px; font-size: 14px; text-align: center; font-weight: 750; display: flex; align-items: center; justify-content: center; min-height: 48px; }
 .sg-navegacion-resumen a:hover, .sg-navegacion-resumen a:focus-visible { background: #d4e8dc; outline-offset: 3px; }
-.sg-acordeon { margin: 0 0 17px; border: 1px solid #dce9e1; background: #fff; border-radius: 21px; box-shadow: 0 9px 32px rgba(32,67,56,.05); overflow: clip; scroll-margin-top: 25px; }
-.sg-acordeon > summary { cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; padding: 21px 26px; font-size: 18px; font-weight: 800; color: #294c43; background: #f1f7f2; }
+.sg-acordeon { margin: 0 0 17px; border: 1px solid #d1e2d6; background: #fff; border-radius: 17px; box-shadow: 0 9px 32px rgba(32,67,56,.05); overflow: clip; scroll-margin-top: 25px; }
+.sg-acordeon > summary { cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; padding: 21px 26px; font-size: 18px; font-weight: 800; color: #294c43; background: #edf5ef; min-height: 76px; }
 .sg-acordeon > summary::-webkit-details-marker { display: none; }
-.sg-acordeon > summary small { display: block; color: #9a7850; font-size: 10px; font-weight: 850; letter-spacing: 1.6px; margin-bottom: 4px; }
+.sg-acordeon > summary small { display: block; color: #795a2d; font-size: 10px; font-weight: 850; letter-spacing: 1.6px; margin-bottom: 4px; }
 .sg-acordeon[open] > summary { border-bottom: 1px solid #e0ebe3; }
 .sg-acordeon .sg-flecha { font-size: 26px; transition: transform .2s; }
 .sg-acordeon[open] .sg-flecha { transform: rotate(180deg); }
@@ -368,3 +351,19 @@
 .sg-codigo-seguro { color: #39775f; font-weight: 700; }
 #sg-solicitud { scroll-margin-top: 25px; }
 @media(max-width:700px) { .sg-navegacion-resumen { grid-template-columns: repeat(2,minmax(0,1fr)); } .sg-contenido{ padding: 26px 14px;} .sg-acordeon > summary { padding: 17px 18px; font-size: 16px;} .sg-acordeon > .sg-tarjeta { padding: 20px 18px;} }
+
+.sg-acordeon > summary:focus-visible { outline-offset: -4px; }
+
+@media (max-width: 620px) {
+  .sg-cabecera { min-height: 76px; padding: 16px; gap: 16px; }
+  .sg-volver { max-width: 130px; text-align: right; line-height: 1.4; }
+  .sg-contenido { padding: 30px 16px 40px; }
+  .sg-intro h1 { font-size: 33px; }
+  .sg-tarjeta { padding: 23px 19px; }
+  .sg-acordeon > summary { min-height: 72px; padding-inline: 19px; }
+  .sg-acordeon > .sg-tarjeta { padding: 22px 19px; }
+  .sg-fila,
+  .sg-titulo-resultado { flex-direction: column; }
+  .sg-fila button { width: 100%; }
+  .sg-grilla { grid-template-columns: 1fr; }
+}

@@ -1,4 +1,12 @@
 :root {
+  --sk-verde: #285d50;
+  --sk-verde-oscuro: #1e483d;
+  --sk-texto: #243e35;
+  --sk-texto-secundario: #526a5e;
+  --sk-borde: #d6e3da;
+  --sk-superficie: #ffffff;
+  --sk-fondo: #f5f8f5;
+  --sk-foco: #a76a14;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   color: #25343b;
   background: #faf9f6;
@@ -21,13 +29,35 @@ body {
   min-width: 320px;
 }
 
-button,
+button {
+  font: inherit;
+  min-height: 44px;
+  cursor: pointer;
+  min-inline-size: 44px;
+}
+
 input {
   font: inherit;
 }
 
-button {
-  cursor: pointer;
+select {
+  font: inherit;
+  min-height: 44px;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+  min-height: 44px;
+}
+
+textarea {
+  font: inherit;
+  min-height: 100px;
+  resize: vertical;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--sk-verde);
 }
 
 a {
@@ -38,8 +68,51 @@ a {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible {
-  outline: 3px solid #dfad64;
+  outline: 3px solid var(--sk-foco);
   outline-offset: 3px;
+}
+
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 3px solid var(--sk-foco);
+  outline-offset: 3px;
+}
+
+main {
+  scroll-margin-top: 20px;
+}
+
+.sk-salto-contenido {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20000;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--sk-verde-oscuro);
+  color: #fff;
+  font-weight: 750;
+  transform: translateY(calc(-100% - 24px));
+  box-shadow: 0 4px 18px #17382d33;
+}
+
+.sk-salto-contenido:focus {
+  transform: none;
+}
+
+@media (max-width: 600px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
 
 ::selection {

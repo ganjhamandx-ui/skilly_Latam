@@ -1,7 +1,7 @@
 
 .dp-pagina {
   min-height: 100vh;
-  background: #f7faf7;
+  background: linear-gradient(180deg, #edf4ee 0, #f7faf7 370px);
   color: #263e3a;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
 }
@@ -10,7 +10,8 @@
 
 .dp-cabecera {
   background: white;
-  border-bottom: 1px solid #e0eae3;
+  border-bottom: 1px solid #d4e3d8;
+  min-height: 82px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -36,7 +37,7 @@
 .dp-contenido {
   max-width: 1060px;
   margin: auto;
-  padding: 55px 22px 80px;
+  padding: 40px 22px 80px;
 }
 
 .dp-intro { margin-bottom: 30px; }
@@ -44,11 +45,12 @@
   font-size: clamp(30px, 4vw, 46px);
   margin: 8px 0 12px;
   color: #234c45;
+  letter-spacing: -.035em;
 }
-.dp-intro p { color: #688079; line-height: 1.8; }
+.dp-intro p { color: #526c5d; line-height: 1.8; }
 
 .dp-etiqueta {
-  color: #997448;
+  color: #795b2e;
   font-size: 11px;
   letter-spacing: 2px;
   font-weight: 850;
@@ -56,14 +58,14 @@
 
 .dp-tarjeta {
   background: white;
-  border: 1px solid #e2ebe5;
-  border-radius: 20px;
+  border: 1px solid #d2e1d7;
+  border-radius: 18px;
   padding: 30px;
   margin-bottom: 24px;
   box-shadow: 0 12px 40px rgba(35, 60, 50, .04);
 }
 
-.dp-tarjeta h2 { margin: 8px 0; font-size: 22px; }
+.dp-tarjeta h2 { margin: 8px 0; font-size: 22px; letter-spacing: -.02em; }
 
 .dp-seccion {
   display: flex;
@@ -133,20 +135,21 @@
   font-size: 12px;
 }
 
-.dp-error, .dp-exito {
+.dp-error {
   padding: 15px 18px;
   border-radius: 12px;
   margin-bottom: 20px;
   overflow-wrap: anywhere;
-}
-
-.dp-error {
   color: #962f2f;
   background: #fff1ef;
   border: 1px solid #edc9c5;
 }
 
 .dp-exito {
+  padding: 15px 18px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow-wrap: anywhere;
   color: #2e714b;
   background: #eaf6ee;
   border: 1px solid #c7e4d1;
@@ -199,9 +202,10 @@
 }
 
 @media (max-width: 580px) {
-  .dp-cabecera { padding: 18px; }
-  .dp-contenido { padding: 35px 15px; }
-  .dp-tarjeta { padding: 18px; }
+  .dp-cabecera { padding: 16px; gap: 14px; }
+  .dp-contenido { padding: 30px 16px 46px; }
+  .dp-tarjeta { padding: 22px 18px; }
+  .dp-intro h1 { font-size: 33px; }
   .dp-formulario { grid-template-columns: 1fr; }
   .dp-seccion, .dp-bloque {
     align-items: stretch;

@@ -1,17 +1,17 @@
 /* Modal aislado. No modifica estilos globales de SKILLY. */
 .ace3-capa{position:fixed;inset:0;z-index:11000;background:rgba(13,34,32,.72);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
 .ace3-dialogo{background:#fff;color:#253e3a;width:min(650px,100%);max-height:min(91vh,880px);display:flex;flex-direction:column;border-radius:18px;box-shadow:0 24px 85px rgba(0,0,0,.24);overflow:hidden;font-family:inherit}
-.ace3-cabecera{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:24px 26px 18px;border-bottom:1px solid #e3ebe7}
+.ace3-cabecera{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:24px 26px 18px;border-bottom:1px solid #e3ebe7;background:#f7faf7}
 .ace3-etiqueta{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:#8b693e;margin-bottom:8px}
-.ace3-cabecera h2{font-size:24px;line-height:1.25;margin:0;color:#233e38}
-.ace3-cerrar{width:36px;height:36px;border:0;border-radius:50%;background:#edf3ef;color:#294e46;cursor:pointer;flex-shrink:0;font-size:18px}
+.ace3-cabecera h2{font-size:24px;line-height:1.25;margin:0;color:#233e38;letter-spacing:-.02em}
+.ace3-cerrar{width:44px;height:44px;border:0;border-radius:50%;background:#edf3ef;color:#294e46;cursor:pointer;flex-shrink:0;font-size:18px}
 .ace3-cerrar:focus-visible,.ace3-dialogo button:focus-visible,.ace3-dialogo input:focus-visible{outline:3px solid #d5ad68;outline-offset:2px}
 .ace3-contenido{overflow-y:auto;overscroll-behavior:contain;padding:18px 26px 22px;line-height:1.55}
 .ace3-texto-breve{font-size:14px;line-height:1.65;margin:0;color:#415e55}
 .ace3-porcentaje{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#eaf3ed;border:1px solid #d3e5d9;border-radius:12px;padding:15px 18px;margin:0 0 16px}
 .ace3-porcentaje span{font-size:14px;font-weight:650}
 .ace3-porcentaje strong{font-size:32px;white-space:nowrap;color:#21564a}
-.ace3-aceptacion{display:flex;align-items:flex-start;gap:11px;padding:16px 3px 2px;font-size:14px;font-weight:600;cursor:pointer}
+.ace3-aceptacion{display:flex;align-items:flex-start;gap:11px;padding:16px 3px 2px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px}
 .ace3-aceptacion input{margin-top:4px;width:18px;height:18px;accent-color:#285d55;flex-shrink:0}
 .ace3-error{padding:12px;background:#fdf0ef;color:#8a241d;border-radius:8px;margin-top:12px!important}
 .ace3-pie{padding:17px 26px;border-top:1px solid #e3ebe7;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;background:#fff}
