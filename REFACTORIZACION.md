@@ -41,7 +41,7 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - Evidencias: `validacion_modulos_edd3995318814b3782475e7ec981da41/backend_resultado.json`, `continuacion_ec5fd1bf356e455c80591b980d4dbc44/sonar_analisis_d0fcb003da31497781e68de7874bbb78/resultado.json` y `sandbox_webpay_fc05c5c8d8a945238d3dec3d97b110ca/resultado.json`.
 - Referencia de política TLS: [documentación oficial de Python](https://docs.python.org/3.13/library/ssl.html#ssl.create_default_context).
 
-Se conservan rutas, puertos configurados, contratos de API y reglas de negocio. Todo el trabajo es local; no se publica ni despliega.
+Se conservan rutas, puertos configurados, contratos de API y reglas de negocio. Los commits revisados se publican únicamente en el repositorio privado GitHub autorizado; no se despliega.
 
 ## Completado: CSRF y recuperación aislada
 
@@ -98,17 +98,37 @@ Evidencia: `integracion_recuperacion_f0b144ac4d014d6587198ec447327f26/resultado.
 - Cuatro pruebas nuevas cubren ambos falsos positivos, mojibake, reemplazo Unicode, UTF-8 inválido, acentos y BOM.
 - Revisión fuente: **264 archivos**, sin sospechosos ni inválidos. El chequeo no imprimió datos privados de PostgreSQL; las pruebas nuevas son offline.
 
-## Estado de cierre de esta tanda
+## Estado histórico de la tanda anterior
 
 - CSRF: commit dedicado `e6c1f36`.
 - Frontend asíncrono: commit `114cd7e`.
 - Recuperación y sesiones: commit `1d0184e`.
 - Validación conjunta conservada: **153 pruebas backend**, **40 Node**, **ESLint 0/0**, compilación correcta; no se declara aprobación de pagos reales ni de todos los flujos E2E.
-- No se publicaron ni desplegaron cambios. El baseline sigue en el historial; las pruebas con escritura se ejecutaron únicamente en la copia aislada y todos sus servidores temporales quedaron apagados.
+- En esa tanda no se publicaron ni desplegaron cambios. El baseline sigue en el historial; las pruebas con escritura se ejecutaron únicamente en la copia aislada y los servidores de aquellos ensayos quedaron apagados. La continuación posterior usa otra instancia temporal independiente.
 
-## Pendiente y límites
+## Completado: recorrido API de negocio aislado
 
-- Revisar límites de intentos de autenticación/recuperación y comportamiento bajo carga antes de introducir controles adicionales.
-- Evaluar carga diferida por pantalla: el build aún advierte de un bloque JavaScript superior a 500 kB.
-- No se ejecutaron SonarQube ni JMeter. No se declara aprobación de esos controles ni de todos los flujos E2E del proyecto.
-- Los 23 casos de navegador cubren el alcance CSRF descrito; no equivalen a una certificación de pagos reales, flujos completos del negocio o compatibilidad visual en todos los dispositivos.
+- `tools/e2e_api_aislado.py` y `tools/e2e_ciclo_aislado.py` conservan un recorrido repetible de **116 comprobaciones aprobadas** mediante HTTP, sesiones, CSRF y PostgreSQL reales de la copia. No se parchean controladores ni modelos de negocio.
+- Incluye registro y validación profesional; documento inválido, descarga privada, rechazo y corrección; reserva de entrevista y rechazo de aprobación prematura; propuesta, corrección comercial, aceptación y publicación; solicitud empresarial, autoasignación y rechazo del duplicado; asociación, condiciones, contratación, reagendamiento, entregas observadas/corregidas/aceptadas, reclamo, cierre, retroalimentación privada y liberación. Un segundo contrato verifica cancelación y reversa.
+- Se usa un PDF sintético como comprobante de transferencia y verificación administrativa. La actividad económica y entrevista son simuladas; el reloj del servidor de prueba se adelanta para respetar las restricciones temporales y se restablece al finalizar. La reversa conserva el estado de negocio `SIMULADA`. No acredita transferencias, entrevistas humanas, reembolsos o envíos reales.
+- El runner exige origen loopback, puertos ajenos a 8000/5432, evidencia fuera del repositorio y guardia de instancia/puerto. No usa proxies ni sigue redirecciones. El servidor temporal valida además el directorio del cluster restaurado y bloquea red saliente, salvo su PostgreSQL independiente.
+- No es un recorrido completo de todas las acciones a través de la interfaz. Las verificaciones de navegador, CSRF, carga y teclado se registran por separado; no se presentan como cobertura visual de cada transición de negocio.
+- Evidencia: `continuacion_ec5fd1bf356e455c80591b980d4dbc44/api_e2e_7d09f243c08e407cb9cddbc5df71ce1e/resultado.json`. Los ensayos de desarrollo de 25 y 94 comprobaciones se conservan aparte y no se suman al recorrido repetible.
+
+## Completado: carga gradual y cobertura local
+
+- JMeter **5.6.3** ejecutado contra la copia: etapas de 1, 2 y 4 usuarios durante 8 segundos, con rampa de 3 segundos y pausa de 1 segundo. **38 muestras HTTP, 0 errores**; p95 por etapa: 33/134/135 ms. Solo GET de CSRF y marketplace, sin autenticación ni escrituras. Son muestras pequeñas de lectura, no una medición de capacidad productiva ni de concurrencia económica.
+- Evidencia JMeter: `continuacion_ec5fd1bf356e455c80591b980d4dbc44/quality_047b651fb75c4b0ca9be12f7ef0d5d72`, con JTL sin cuerpos/cabeceras, logs y resumen.
+- Cobertura Python real de las 172 pruebas unitarias: **3218/7059 líneas y 200/1870 ramas**, 139 archivos fuente; no incluye pruebas, migraciones ni archivos privados. El servidor HTTP de los recorridos previos no estaba instrumentado y no se le atribuye esa cobertura.
+- LCOV nativo de las 43 pruebas Node: cinco módulos de helpers/rutas, **97,33 % líneas y 91,58 % ramas de esos cinco módulos**. No representa toda la aplicación React ni cobertura JSX del navegador.
+- Informes externos: `coverage_python_unit_1e5e3e2d4ea84477a3fe5615c3ed079d/coverage.xml` y `coverage_node_root_final_a0edbb17c6bb4a168c3a9a11a080c7f8/lcov.info`, dentro de la continuación. `tools/quality/COBERTURA.md` explica su alcance y reproducción.
+- SonarQube sí se ejecutó localmente; el resultado inicial fue ERROR. El reanálisis de las correcciones y los informes nuevos sigue pendiente; no se declara un gate aprobado.
+
+## Estado actual y pendientes verificables
+
+- Publicados en `refactor/skilly`: límites (`23841cc`), carga por ruta (`3bb6740`) y política TLS/formulario (`4beb4d7`), además de los commits anteriores. `master` conserva la referencia inicial.
+- En verificación: cambios visuales por módulo, foco de diálogos, enlace para saltar al contenido y consolidación de selectores CSS. Se conservan capturas antes/después y ensayos de teclado fuera del repositorio; sus resultados finales se incorporarán tras cerrar la consolidación.
+- Falta reanalizar el código actual con SonarQube y distinguir los hallazgos resueltos de la deuda restante. No se reducirá el umbral ni se suprimirán reglas para obtener aprobación.
+- Pendientes de cobertura: backend compartido de límites en varios trabajadores, recorrido completo de negocio mediante UI y validación humana/dispositivos adicionales. El recorrido API y los casos de navegador enumerados no acreditan esos alcances.
+- La continuación usa temporalmente React/Django y el cluster independiente en puertos de prueba; no se ha detenido el servidor original del puerto 8000 ni escrito en su base. El cierre de los procesos propios se registrará al finalizar los ensayos.
+- La auditoría definitiva de los 22 documentos y los 2 Excel continúa reservada a confirmación expresa del usuario.
