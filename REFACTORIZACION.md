@@ -26,6 +26,15 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - **51 comprobaciones adicionales con Django/middleware/PostgreSQL y archivos reales**, dentro del proceso: perfil faltante, CSRF/roles, propietario/ajeno/anónimo, firma empresarial/otra solicitud, integridad y cabeceras privadas, cancelación/aviso internos, liberación/reversa inválidas y un único historial tras reintento. Fixtures nuevas por ORM únicamente en la copia, sin cambios de esquema, dinero ni correo externos.
 - Evidencia: `validacion_modulos_43463018b9c248d9a038692b0d37525b/backend_resultado.json` y `continuacion_c90c757328c546d5b46f34c9fe95b882/objetos_integracion_b404d356e0b54e55927e5beaa800e84e/resultado.json`. El contexto anterior se cerró normalmente y el nuevo servidor aislado incorpora estas correcciones.
 
+## Verificado: estados y reintentos de reagendamiento
+
+- Administración y profesional muestran vacío únicamente después de una consulta válida; carga y error tienen estados accesibles distintos. «Actualizar» permite recuperarse sin perder motivos escritos. Las acciones quedan bloqueadas cuando la lectura está pendiente o ha fallado.
+- Los tres roles impiden un segundo envío desde el primer evento, conservan CSRF y deshabilitan edición durante escritura; el sondeo se pausa durante la acción. Se valida el formato de listados y no se envía POST si la obtención de CSRF falla, aunque la respuesta contenga un token.
+- La introducción del portal precede a las notificaciones, especialmente útil en móvil. Se inspeccionaron capturas reales de escritorio y móvil; no hubo desborde en esas vistas. No se cambiaron endpoints, payloads ni decisiones de reagendamiento.
+- **58/58 pruebas Node**, ESLint completo 0/0 y compilación correctos. **35 comprobaciones en Edge aprobadas**, con fuente congelada: sesión y lecturas reales más un harness separado React/DOM con respuestas simuladas para carga/error/vacío/retry/doble envío en tres roles. Esas simulaciones no acreditan por sí mismas transiciones de negocio en PostgreSQL.
+- Cuatro capturas antes/después a 1366/390 px. El driver reproducible lee los dos componentes anteriores desde Git (`eb22b8c`) y los compila en memoria; sus dependencias y estilos son actuales. No sustituye archivos del árbol de trabajo ni pretende reconstruir todo el frontend histórico.
+- Evidencia: `continuacion_c90c757328c546d5b46f34c9fe95b882/ux_reagendamientos_4a2dac900e964580a2bb9170dc751c01/resultado.json`; la primera ejecución de 35 checks y las fuentes previas también se conservan. Los recorridos UI completos de negocio se verifican por separado.
+
 ## Continuación y control de versiones
 
 - Destino comprobado mediante Git y conector GitHub: `https://github.com/ganjhamandx-ui/skilly`, privado y con permisos de publicación. La autenticación Git y los SHA de ambas ramas se verificaron contra el servidor.

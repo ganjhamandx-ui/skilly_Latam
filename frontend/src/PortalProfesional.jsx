@@ -1281,7 +1281,6 @@ return (
 
         {estado === 'autorizado' && (
           <>
-            <ReagendamientosProfesional />
             <div className="pp-introduccion">
               <span className="pp-etiqueta">ESPACIO PROFESIONAL</span>
               <h1>Mi portal profesional</h1>
@@ -1293,6 +1292,7 @@ return (
               </p>
             </div>
 
+            <ReagendamientosProfesional />
             
             <nav className="pp-menu-modulos" aria-label="Módulos del portal profesional">
               {[
