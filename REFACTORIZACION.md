@@ -26,6 +26,36 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - Después del recorrido móvil completo se ejecutó, de forma secuencial, `--phase layout --mobile --assert-layout`: **11/11**, fuente sin cambios, reloj restaurado, documento y tres formularios a 390/390 px y sin recortes. No se guardan formularios ni se aplican estilos efímeros en ese modo. Evidencia: `continuacion_fc46b8bbcf6b4328a391a66a0af00cda/browser_e2e_3afeaa3be9464d1fa5fe5b3fc43c1519/resultado.json`.
 - Las capturas actuales ocultan datos mediante superposiciones sin sustituir el texto ni cambiar su geometría. El saneamiento anterior acortaba correos en el DOM: aquellas capturas no acreditaban el caso de identificadores largos, aunque se conservan sus resultados históricos. Se preservan las evidencias y los ensayos fallidos fuera de Git.
 
+## Herramientas y revisión de publicación de esta continuación
+
+- El ajuste móvil y la aclaración de Opinión privada se publicaron en `dce7fea3b47fa90255766865f578b18640ae50aa`, tras revisión del diff, comprobación frontend, recorrido móvil completo, layout secuencial y Gitleaks sin hallazgos. Evidencia del commit/push: `commit_revisado_0b3b53bb215c4d658c054079d98a78a8`.
+- Se conserva el recorrido de navegador en cinco módulos y `tools/E2E_NAVEGADOR.md`, con guardias del backend/proxy, capturas sin alterar geometría, manifiestos de fuentes, checkpoints, reloj restablecido y diferenciación entre operaciones UI, consultas auxiliares y actividades sintéticas.
+- Herramientas finales: **ocho módulos con sintaxis válida y 10/10 pruebas offline**. Incluyen JSON privado corrupto con canarios, párrafos oficiales multilínea, rechazo de datos de otra sección, formularios de tarjeta por etapas y diagnóstico limitado a metadatos. Evidencia: `verificacion_herramientas_0f7570f91d19424eab9a0881b1d4a863`.
+- Auditoría de todas las referencias Git y 389 archivos candidatos: **0 hallazgos**; comparación en memoria con secretos operativos: **0 coincidencias** en candidatos y 424 blobs históricos; **0 candidatos prohibidos**. El `.env` coincide con su respaldo. No se imprimieron valores ni se incorporaron informes privados. Evidencia: `auditoria_publicacion_dd97cef9158848b3b2af75ffaf4a3d45/resultado.json`; cada commit vuelve a examinar su selección con Gitleaks.
+
+## Webpay: integración real parcial y límite pendiente
+
+- Contexto dedicado con Django/React/PostgreSQL de copia, identidad backend/proxy/navegador verificada, TLS obligatorio y salida limitada al proveedor de integración. El conflicto de resolución IPv6 se evitó solo en el perfil temporal de Edge y en el transporte del ensayo; no se cambiaron DNS global, puertos del producto ni procesos ajenos.
+- Se corrigieron únicamente supuestos del driver: pulsar «Consultar estado» después de precargar la referencia, reconocer el párrafo oficial multilínea y seguir el formulario de tarjeta por etapas. No se modificaron controles del producto ni validaciones de pago.
+- Una creación HTTPS real de checkout, **POST=1, PUT=0**; los reintentos reutilizaron el mismo token privado. El primer checkout mostró el campo de número de tarjeta. En el último intento, antes de ingresar datos, el proveedor respondió HTTP 200 con página completa de 112 caracteres, cero controles visibles y cero iframes. No hubo fallos de red del origen oficial registrados; solo se bloquearon recursos externos de fuentes/analítica.
+- Ninguno de los seis indicadores confirmó expiración, rechazo, desafío humano o causa específica. No se atribuye el bloqueo a SKILLY ni se afirma que el token caducó. El último ensayo no envió PAN, CVV ni credenciales bancarias. Se conservan metadatos, etapas booleanas, categorías/estados de red y el checkout privado, sin cuerpos ni URL con token en el diagnóstico.
+- **No aprobados:** autorización sandbox, callback completo e idempotencia posterior a una confirmación real. La creación del checkout y las pruebas offline no equivalen a esos resultados. Queda por inspeccionar localmente la página del proveedor y determinar el estado de ese checkout antes de preparar otra prueba dedicada; no se crea otra transacción para ocultar el fallo.
+- Evidencia definitiva: `continuacion_c90c757328c546d5b46f34c9fe95b882/sandbox_runtime_1dc4a896c913400381b0234f1b27b045/sandbox_browser_fdefe880fbdc4c66b9fedd7a490bf34f/resultado.json`, `pagina_proveedor_metadatos.json`; checkout original en `sandbox_browser_e1cdd302db8a4f589890e0199b8f4d46/checkout_privado.json`. Todo permanece fuera de Git. No se realizaron pagos ni envíos reales.
+
+## Pendientes vigentes tras los recorridos completos
+
+- SonarQube **pospuesto expresamente**, con resultados y herramientas conservados; no se ejecutó durante esta continuación y no se declara gate aprobado.
+- Webpay: cerrar la autorización y el retorno sandbox descritos arriba. La transferencia/verificación, liberación y reversa de los recorridos generales son sintéticas; no acreditan operaciones bancarias ni liquidaciones reales.
+- Backend de límites compartido entre varios trabajadores no ejecutado; LocMem cubre un proceso y se conserva el aviso de despliegue. Faltan validación humana y dispositivos físicos adicionales; Edge móvil es emulación. La carga pequeña de lectura de JMeter registrada anteriormente no certifica capacidad productiva.
+- No quedan fallos abiertos en las pasadas completas de negocio registradas: escritorio 129/129 y móvil 130/130. Esto no constituye una garantía de ausencia de otros defectos ni de preparación productiva.
+- La auditoría documental de los 22 Word y los 2 Excel continúa reservada a la indicación expresa del usuario. Esos archivos no se modificaron; no se desplegó ni se hizo merge a `master`.
+
+## Conservación y cierre de los ensayos
+
+- Comprobación final por hash: `.env` original idéntico al respaldo, 18 archivos media y tres entregas privadas sin diferencias, ausencias ni archivos adicionales. No se conectó a la BD original. Evidencia: `preservacion_datos_4a6842de0e9a4ba28e278568389c41c9/resultado.json`.
+- El cierre por marcador no terminó los procesos huérfanos de la sesión interrumpida. Se identificaron nuevamente por sus rutas completas de script y se cerraron solo esos procesos. Después se verificaron por conexión de administrador el `data_directory` y puerto 57647 del clúster de copia antes de detenerlo. No se modificaron contraseñas, permisos globales ni el esquema operativo.
+- Comprobados cerrados los backends/Vite propios y PostgreSQL aislado; el puerto original 8000 estaba sin listener antes y después. El listener IPv6 ajeno no se tocó. Los auxiliares se copiaron fuera de Git y verificaron por hash, sin borrar archivos. Evidencia: `cierre_verificado_4279e11f4af848778083d16f1408b30b/resultado.json`.
+
 ## Verificado: registros concurrentes y errores de recuperación
 
 - Dos registros simultáneos para el mismo correo conservan una cuenta y un perfil: 201/400 con el error de correo existente, en lugar de propagar la restricción SQL como 500. Un savepoint interior permite consultar el conflicto sin romper la transacción conjunta de cuenta/perfil; otros errores de integridad siguen propagándose.
@@ -175,7 +205,9 @@ Evidencia: `integracion_recuperacion_f0b144ac4d014d6587198ec447327f26/resultado.
 - Informes externos: `coverage_python_unit_1e5e3e2d4ea84477a3fe5615c3ed079d/coverage.xml` y `coverage_node_root_final_a0edbb17c6bb4a168c3a9a11a080c7f8/lcov.info`, dentro de la continuación. `tools/quality/COBERTURA.md` explica su alcance y reproducción.
 - SonarQube sí se ejecutó localmente; el resultado inicial fue ERROR. El reanálisis de las correcciones y los informes nuevos sigue pendiente; no se declara un gate aprobado.
 
-## Estado actual y pendientes verificables
+## Estado de la tanda anterior (conservado)
+
+El estado vigente y las evidencias posteriores se registran al inicio de este documento; los pendientes de esta tanda no sustituyen esos resultados.
 
 - Publicados en `refactor/skilly`: límites (`23841cc`), carga por ruta (`3bb6740`), política TLS/formulario (`4beb4d7`) y recorrido API aislado (`688b30f`), además de los commits anteriores. `master` conserva la referencia inicial.
 - Verificadas las mejoras visuales, de navegación y foco descritas en el cierre de interfaz más abajo. Se conservan capturas antes/después y pruebas de navegador fuera de Git.
