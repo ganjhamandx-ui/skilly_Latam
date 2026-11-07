@@ -1213,7 +1213,7 @@ function Seguimiento() {
         {/* NUEVO: retroalimentación privada empresarial. */}
         {solicitud && prestacion && (
           <details className="sg-acordeon">
-            <summary><span><small>04 · OPINIÓN</small> Retroalimentación privada</span><span className="sg-flecha">⌄</span></summary>
+            <summary><span><small>OPINIÓN PRIVADA</small> Retroalimentación privada</span><span className="sg-flecha">⌄</span></summary>
           <section className="sg-tarjeta sg-panel-prestacion">
             <span className="sg-etiqueta">
               OPINIÓN PRIVADA

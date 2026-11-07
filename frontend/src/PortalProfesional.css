@@ -62,6 +62,7 @@
   line-height: 1.7;
   color: #4f6859;
   max-width: 72ch;
+  overflow-wrap: anywhere;
 }
 
 .pp-tarjetas {
