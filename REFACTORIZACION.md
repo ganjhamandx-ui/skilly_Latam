@@ -8,7 +8,14 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - Las menciones posteriores a autenticación, importación y reanálisis describen pendientes históricos, no acciones previstas durante esta etapa. Las vulnerabilidades y errores reales identificados siguen dentro del alcance.
 - Se continúa con correcciones, recorridos completos mediante interfaz, permisos, estados de error y adaptación móvil, en la copia aislada. Se conserva `master`, se publican cambios verificados en `refactor/skilly` y no se modifican Word ni Excel.
 
-## Cierre vigente: producto real y puertos alternativos
+## Continuación vigente: caché, teléfono, carga y limpieza
+
+- Nueva autorización: completar caché compartida real, acceso físico Android/Chrome en la misma Wi-Fi, carga gradual aislada y limpieza de residuos confirmados. Se conserva el entorno activo y sus dependencias hasta terminar las tareas que los necesiten. Los pendientes históricos de SonarQube siguen pospuestos.
+- Retirado del producto real únicamente el texto «Datos obtenidos de Django REST» (`frontend/src/App.jsx`). No se añadió un filtro del catálogo ni se cambiaron los textos, precios o profesionales de las tarjetas/detalles.
+- Verificación de esta retirada: frontend **65/65**, lint **0/0**, compilación correcta (`verificacion_frontend_14086ba2f8384a43937ef7c6bcf60691`); Edge contra React/HTTP/PostgreSQL de copia **7/7**, sin mocks ni escrituras (`ui_local_c1d07c2961514328b01b929ea02137fc`). Esta ventana de navegador no acredita la prueba en teléfono físico.
+- Caché, carga, teléfono y limpieza se registrarán con sus resultados reales conforme terminen; instalar una dependencia o preparar una herramienta no acredita su cierre.
+
+## Cierre anterior verificado: producto real y puertos alternativos
 
 - Ruta `C:\Users\felip\Downloads\skilly`, rama `refactor/skilly`. Al retomar, HEAD era `34a2834`; se conservaron App.jsx y los dos harness pendientes, sin descartar archivos. La auditoría inicial contrastó los 298 archivos del producto del manifiesto móvil con backend/frontend reales: ninguno faltaba ni difería antes de estas reparaciones nuevas. No se encontraron parches de producto olvidados en copias temporales ni controles de laboratorio infiltrados en la aplicación.
 - El puerto 8000 pertenece a Voltify, no a SKILLY. La mención histórica a «servidor original del puerto 8000» acreditaba su conservación, no la identidad de SKILLY. Por la nueva autorización se seleccionaron puertos libres alternativos; no se enviaron pruebas al 8000 ni se modificaron procesos, configuración, archivos o BD de Voltify. Sus cuatro PID de referencia conservan sus tiempos de creación.

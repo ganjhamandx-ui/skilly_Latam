@@ -778,7 +778,6 @@ function App() {
                       </>
                     )}
               </p>
-              <span>Datos obtenidos de Django REST</span>
             </div>
 
             {cargando ? (
