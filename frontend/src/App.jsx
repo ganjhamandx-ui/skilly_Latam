@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import useDialogoAccesible from './useDialogoAccesible.js'
 import './App.css'
 
 const API_SERVICIOS = '/api/marketplace/servicios/'
@@ -133,6 +134,11 @@ function App() {
   // SKILLY_SOLICITUDES_80D
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
+  const solicitudEnCurso = useRef(false)
+  const modalPanelRef = useRef(null)
+  const servicioDisparadorId = useRef(null)
+  const devolverFocoAlCerrar = useRef(false)
+  const busquedaRef = useRef(null)
   const [errorSolicitud, setErrorSolicitud] = useState('')
   const [solicitudCreada, setSolicitudCreada] = useState(null)
   const [datosSolicitud, setDatosSolicitud] = useState({
@@ -309,7 +315,7 @@ function App() {
   async function enviarSolicitud(evento) {
     evento.preventDefault()
 
-    if (!servicioActivo || enviandoSolicitud) return
+    if (!servicioActivo || enviandoSolicitud || solicitudEnCurso.current) return
 
     const bloques = servicioActivo.disponibilidad || []
     const idBloque = Number(datosSolicitud.id_disponibilidad)
@@ -325,6 +331,7 @@ function App() {
     }
 
     setErrorSolicitud('')
+    solicitudEnCurso.current = true
     setEnviandoSolicitud(true)
 
     try {
@@ -382,7 +389,7 @@ function App() {
 
       if (!referencia) {
         throw new Error(
-          'La API respondi?, pero no entreg? una referencia de seguimiento. ' +
+          'La API respondió, pero no entregó una referencia de seguimiento. ' +
           'Antes de reenviar, verifica si la solicitud fue registrada.',
         )
       }
@@ -409,11 +416,14 @@ function App() {
     } catch (error) {
       setErrorSolicitud(error.message)
     } finally {
+      solicitudEnCurso.current = false
       setEnviandoSolicitud(false)
     }
   }
 
   async function abrirDetalle(idServicio) {
+    servicioDisparadorId.current = idServicio
+    devolverFocoAlCerrar.current = false
     setMostrarFormulario(false)
     setSolicitudCreada(null)
     setErrorSolicitud('')
@@ -454,24 +464,29 @@ function App() {
   }
 
   function cerrarDetalle() {
+    if (enviandoSolicitud || solicitudEnCurso.current) return
+    devolverFocoAlCerrar.current = true
     setServicioActivo(null)
     setErrorDetalle('')
     setCargandoDetalle(false)
   }
 
-  useEffect(() => {
-    function cerrarConEscape(evento) {
-      if (evento.key === 'Escape') {
-        cerrarDetalle()
-      }
-    }
-
-    window.addEventListener('keydown', cerrarConEscape)
-    return () => window.removeEventListener('keydown', cerrarConEscape)
-  }, [])
-
   const modalVisible =
     servicioActivo !== null || cargandoDetalle || Boolean(errorDetalle)
+  useDialogoAccesible(modalVisible, modalPanelRef, cerrarDetalle, enviandoSolicitud)
+  useEffect(() => {
+    if (modalVisible || !devolverFocoAlCerrar.current) return
+    devolverFocoAlCerrar.current = false
+    const foco = document.activeElement
+    if (foco?.isConnected && foco !== document.body && foco !== document.documentElement) return
+    // Una actualizacion del catalogo puede haber sustituido el disparador
+    // mientras el dialogo estaba abierto. Buscar su equivalente, o el filtro
+    // estable si la rejilla sigue cargando, sin cambiar el foco valido del usuario.
+    const reemplazo = [...document.querySelectorAll('[data-servicio-detalle]')]
+      .find(elemento => elemento.dataset.servicioDetalle === String(servicioDisparadorId.current))
+    const destino = reemplazo || busquedaRef.current
+    destino?.focus({ preventScroll: true })
+  }, [modalVisible])
 
   return (
     <div className="app-shell">
@@ -668,6 +683,7 @@ function App() {
               <span className="icono-busqueda" aria-hidden="true">⌕</span>
               <input
                 type="search"
+                ref={busquedaRef}
                 aria-label="Buscar servicios"
                 placeholder="Busca servicios por nombre, descripción o competencia..."
                 value={busqueda}
@@ -862,6 +878,7 @@ function App() {
                         <button
                           type="button"
                           className="boton-detalle"
+                          data-servicio-detalle={servicio.id_servicio}
                           onClick={() => abrirDetalle(servicio.id_servicio)}
                           aria-label={`Ver detalle de ${servicio.nombre}`}
                         >
@@ -965,6 +982,8 @@ function App() {
         >
           <section
             className="modal-detalle"
+            ref={modalPanelRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="titulo-detalle"
@@ -972,6 +991,8 @@ function App() {
             <button
               className="modal-cerrar"
               type="button"
+              data-dialogo-foco-inicial
+              disabled={enviandoSolicitud}
               onClick={cerrarDetalle}
               aria-label="Cerrar detalle"
             >
@@ -991,6 +1012,7 @@ function App() {
                 <button
                   type="button"
                   className="boton boton-oscuro"
+                  disabled={enviandoSolicitud}
                   onClick={cerrarDetalle}
                 >
                   Volver al catálogo
@@ -1299,6 +1321,7 @@ function App() {
                   <button
                     type="button"
                     className="boton boton-primario modal-boton"
+                    disabled={enviandoSolicitud}
                     onClick={cerrarDetalle}
                   >
                     Volver al catálogo
