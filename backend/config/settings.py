@@ -2,7 +2,10 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
+
+from .origenes import normalizar_origen_frontend, ORIGEN_FRONTEND_POR_DEFECTO
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -208,10 +211,14 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-FRONTEND_ORIGIN = os.getenv(
-    "FRONTEND_ORIGIN",
-    "http://localhost:5173",
-)
+try:
+    FRONTEND_ORIGIN = normalizar_origen_frontend(os.getenv(
+        "FRONTEND_ORIGIN", ORIGEN_FRONTEND_POR_DEFECTO,
+    ))
+except ValueError:
+    raise ImproperlyConfigured(
+        "FRONTEND_ORIGIN debe ser un origen HTTP(S), sin credenciales ni ruta."
+    ) from None
 
 
 RECUPERACION_MINUTOS = int(

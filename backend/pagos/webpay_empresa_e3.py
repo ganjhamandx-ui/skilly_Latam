@@ -18,6 +18,7 @@ from rest_framework.exceptions import ValidationError
 
 from backoffice.models import ParametroSistema
 from backoffice.services import registrar_evento_trazabilidad
+from config.origenes import normalizar_origen_frontend
 from coordinacion.models import PrestacionServicio
 from marketplace.serializers import normalizar_precio_clp
 from solicitudes.models import ReservaDisponibilidad, Disponibilidad
@@ -25,14 +26,24 @@ from solicitudes.referencias import leer_referencia_seguimiento, crear_referenci
 from .models import Pago, HistorialEstadoPago
 from seguimiento.aceptacion_politica_e3 import bloquear_pago_sin_aceptacion
 from .serializers import PagoEstadoComunicableSerializer
-from .webpay_cliente_e3 import iniciar, confirmar, autorizacion_valida, ErrorWebpay
+from .webpay_cliente_e3 import iniciar, confirmar, autorizacion_valida, ErrorWebpay, RUTA_RETORNO_WEBPAY
 
 PENDIENTE='PENDIENTE_WEBPAY'
 RECHAZADO='WEBPAY_RECHAZADO'
 REVISION='WEBPAY_REVISION_MANUAL'
 ANULADO='WEBPAY_ANULADO'
 RETENIDO_REVISION='RETENIDO_REVISION_AGENDA'
-RETORNO='http://localhost:5173/api/pagos/webpay/retorno/'
+
+
+def origen_frontend():
+    try:
+        return normalizar_origen_frontend(settings.FRONTEND_ORIGIN)
+    except ValueError:
+        raise ErrorWebpay('El origen local del frontend no es válido.') from None
+
+
+def retorno_webpay():
+    return origen_frontend() + RUTA_RETORNO_WEBPAY
 
 
 def sesion_pago(id_pago):return f'SKSE3{id_pago}'
@@ -91,7 +102,7 @@ def redireccion(pago, resultado):
     solicitud=pago.id_prestacion.id_solicitud
     referencia=crear_referencia_seguimiento(solicitud)
     query=urlencode({'referencia':referencia,'webpay':resultado})
-    return HttpResponseRedirect('http://localhost:5173/seguimiento?'+query)
+    return HttpResponseRedirect(origen_frontend()+'/seguimiento?'+query)
 
 
 def ambiente_disponible():
@@ -141,7 +152,7 @@ class IniciarWebpayPlusEmpresaView(APIView):
                         fecha_liberacion=None,referencia_transaccion=None)
                 # Bloqueo de prestación y pago hasta obtener token para impedir inicios concurrentes.
                 resultado=iniciar(orden_pago(pago.id_pago),sesion_pago(pago.id_pago),
-                                  pago.monto_total,RETORNO)
+                                  pago.monto_total,retorno_webpay())
                 pago.referencia_transaccion=resultado['token']
                 pago.save(update_fields=['referencia_transaccion'])
                 HistorialEstadoPago.objects.create(id_pago=pago,id_usuario_skilly=None,

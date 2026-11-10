@@ -1,6 +1,7 @@
 """Cliente REST Webpay Plus exclusivo para integración académica.
 No contiene rutas ni credenciales de producción. No recibe datos de tarjetas.
 """
+import ipaddress
 import json
 import ssl
 from decimal import Decimal, InvalidOperation
@@ -24,6 +25,28 @@ def url_pago_valida(url):
     return (partes.scheme == 'https' and partes.hostname == 'webpay3gint.transbank.cl'
             and partes.port in (None, 443) and not partes.username and not partes.password
             and not partes.fragment and partes.path.startswith('/') and not partes.path.startswith('//'))
+
+
+RUTA_RETORNO_WEBPAY = '/api/pagos/webpay/retorno/'
+
+
+def url_retorno_webpay_valida(valor):
+    """Retorno académico exacto: loopback explícito, sin ambigüedades de URL."""
+    if (not isinstance(valor, str) or not valor
+            or any(ord(caracter) <= 32 or ord(caracter) == 127 for caracter in valor)
+            or any(caracter in valor for caracter in ('\\', '?', '#'))):
+        return False
+    try:
+        partes = urlsplit(valor)
+        host, puerto = partes.hostname, partes.port
+        if (partes.scheme not in {'http', 'https'} or not host or '%' in host
+                or partes.username is not None or partes.password is not None
+                or puerto is None or not 1 <= puerto <= 65535
+                or partes.path != RUTA_RETORNO_WEBPAY):
+            return False
+        return host == 'localhost' or ipaddress.ip_address(host).is_loopback
+    except (ValueError, TypeError):
+        return False
 
 
 def contexto_tls_webpay():
@@ -66,7 +89,7 @@ def iniciar(buy_order, session_id, monto, retorno):
         raise ErrorWebpay('Webpay solo acepta montos CLP enteros positivos.')
     if len(buy_order) > 26 or len(session_id) > 61:
         raise ErrorWebpay('Identificadores de pago demasiado largos.')
-    if not retorno.startswith('http://localhost:5173/api/pagos/webpay/retorno/'):
+    if not url_retorno_webpay_valida(retorno):
         raise ErrorWebpay('URL de retorno fuera del entorno académico habilitado.')
     respuesta = peticion_webpay('POST', datos={
         'buy_order': buy_order, 'session_id': session_id,

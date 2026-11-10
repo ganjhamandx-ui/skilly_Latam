@@ -8,7 +8,49 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - Las menciones posteriores a autenticación, importación y reanálisis describen pendientes históricos, no acciones previstas durante esta etapa. Las vulnerabilidades y errores reales identificados siguen dentro del alcance.
 - Se continúa con correcciones, recorridos completos mediante interfaz, permisos, estados de error y adaptación móvil, en la copia aislada. Se conserva `master`, se publican cambios verificados en `refactor/skilly` y no se modifican Word ni Excel.
 
-## Continuación vigente (9 y 10 de noviembre)
+## Cierre vigente: producto real y puertos alternativos
+
+- Ruta `C:\Users\felip\Downloads\skilly`, rama `refactor/skilly`. Al retomar, HEAD era `34a2834`; se conservaron App.jsx y los dos harness pendientes, sin descartar archivos. La auditoría inicial contrastó los 298 archivos del producto del manifiesto móvil con backend/frontend reales: ninguno faltaba ni difería antes de estas reparaciones nuevas. No se encontraron parches de producto olvidados en copias temporales ni controles de laboratorio infiltrados en la aplicación.
+- El puerto 8000 pertenece a Voltify, no a SKILLY. La mención histórica a «servidor original del puerto 8000» acreditaba su conservación, no la identidad de SKILLY. Por la nueva autorización se seleccionaron puertos libres alternativos; no se enviaron pruebas al 8000 ni se modificaron procesos, configuración, archivos o BD de Voltify. Sus cuatro PID de referencia conservan sus tiempos de creación.
+
+### Cambios del producto
+
+- `frontend/src/App.jsx` impide los cuatro cierres del modal mientras se envía la solicitud, conserva la referencia aun si falla el refresco posterior y bloquea envíos duplicados inmediatos. Integra el hook real de foco compartido, deshabilita los cierres durante escritura y corrige el mensaje con acentos perdidos.
+- La lectura del catálogo real detectó otro caso: al volver a la ventana, el refresco puede reemplazar el disparador del modal. App devuelve ahora el foco a su botón equivalente o al buscador estable mientras carga, sin desactivar el refresco ni robar un foco válido. El hook compartido y las reglas de solicitudes se conservan.
+- `frontend/vite.config.js` y `frontend/config/proxyApiLocal.mjs` exigen `SKILLY_API_PROXY_TARGET` explícito para servir `/api`, solo HTTP loopback canónico con puerto válido distinto de 8000. No existe fallback que envíe tráfico a Voltify. Build no necesita la variable; esta no se exporta al cliente.
+- `backend/config/settings.py`, `config/origenes.py` y los dos módulos Webpay usan `FRONTEND_ORIGIN` estructuralmente válido. CORS/CSRF confían en el origen configurado; retornos y redirecciones se calculan desde él. El cliente académico conserva TLS/DEBUG y exige loopback, puerto explícito y ruta exacta para el retorno. No se alteraron endpoints, contratos ni reglas económicas.
+
+### Ejecución actual verificada
+
+- Frontend: **http://127.0.0.2:53009/**. Backend: **http://127.0.0.2:53008/**; catálogo API en `/api/marketplace/servicios/`. El host separado conserva el nombre de cookie CSRF requerido por Disponibilidad sin compartir cookies con localhost/127.0.0.1.
+- `tools/entorno_local_skilly.py` comprobó la disponibilidad mediante bind y el arranque estricto. Backend PID **37200**, Vite PID **42184**. El WSGI importado es `backend/config/wsgi.py` de esta raíz; su manifiesto coincide con las fuentes actuales. Vite ejecuta el módulo instalado en `frontend/node_modules` y sirve el App real actualizado. No son las copias compiladas del harness.
+- Instancia de desarrollo sobre PostgreSQL **de copia**, puerto 57647, con directorio de clúster/base/esquema/rol verificados antes de usarlo. Configuración privada y 21 copias de archivos con hashes comprobados permanecen fuera de Git. Las cargas van al RUN; correo en memoria y salidas del backend limitadas al PostgreSQL de copia. La BD original, `skilly_cu040_pruebas`, `.env` operativo y archivos privados originales no se modificaron.
+- Contexto privado actual: `local_activo_bea5799c5ccc4e2c/contexto.json` bajo el respaldo externo ya identificado. Los procesos se dejan activos para abrir SKILLY. `tools/ENTORNO_LOCAL.md` documenta inicio, estado y cierre exclusivo; no instala infraestructura ni detiene servicios por puerto/nombre.
+
+### Pruebas de esta unidad y alcance
+
+- Backend: **214/214**, Django check correcto, 294 archivos de fuente sin corrupción; red y BD bloqueadas durante esas unitarias. Incluye 16 pruebas nuevas de configuración, CORS/CSRF, retornos y transporte simulado. Evidencia: `validacion_modulos_b858ca0650414d00810fc3afbc27140c`.
+- Frontend final: **65/65**, ESLint 0 errores/0 advertencias y build correcto. Incluye siete pruebas del proxy local. Evidencia: `verificacion_frontend_1bbcc1c5435a4895b5cb7ccc5b04b506`.
+- Modal: cuatro pasadas antes/después en 1366/390 px, **102/102 comprobaciones internas y siete guardias**, fuentes congeladas y cero API real. React/DOM reales, HTTP/datos/eventos sintéticos; no es E2E PostgreSQL ni teléfono físico. Casos: envío diferido y cuatro cierres, referencia tras POST201/GET503, doble envío, error/reintento, foco y catálogo reemplazado. Evidencia: `marketplace_modal_c2c25346a4cb40d590ba9872c77ac861`. Las capturas no muestran la referencia bajo el pliegue; esa conservación se acredita con DOM.
+- Navegador contra el producto activo: **7/7**, catálogo/detalle por proxy y PostgreSQL reales, Tab/Escape y retorno de foco, 390 px sin desborde; solo GET, sin mocks ni escrituras. Evidencia: `ui_local_da4f9b6e40d24d8b968b92e3d0a7d9f9`. Los intentos previos se conservan; distinguieron un selector del probe incorrecto del defecto real de foco posteriormente reparado.
+- Integración HTTP de puertos: **19/19**, login/logout y cookie de sesión reales en la copia, token ausente/incorrecto/origen ajeno rechazados, CORS exacto y App actual servido por Vite. Dos callbacks del checkout ya aprobado devolvieron 302 al nuevo frontend y conservaron el estado RETENIDO; no se creó otro pago ni se contactó al proveedor. Evidencia: `local_activo_bea5799c5ccc4e2c/verificacion_http_0a971cd40f6a46e39848961d8c94ba36`.
+- Herramientas: **15/15** pruebas offline del arrancador y **14/14** del consultor GET, sin arrancar otros servicios ni contactar proveedor/BD. La compilación por AST y el arranque real confirmaron que los generadores funcionan. Los harness, snapshots y ajustes privados permanecen separados del producto; no hay mocks ni rutas de control añadidas al funcionamiento normal.
+- Se conserva la evidencia Webpay anterior: **integración real sandbox asistida por el usuario en el banco**, 10/10, POST1/PUT1 y GET AUTHORIZED. No se repitió la compra: solo se verificó el callback ya confirmado por el cambio relacionado de puertos. Esto no acredita dinero, correo ni liquidaciones productivos.
+
+### Pendientes delimitados
+
+- Caché compartida: falta servidor y driver; no se instala infraestructura adicional por esta etapa.
+- Dispositivos físicos y capacidad productiva no certificados. SonarQube sigue pospuesto, sin scanner/exportador/token. Word/Excel y su auditoría documental siguen reservados.
+- Las pruebas previas no relacionadas se conservan. No se declara el sistema libre de defectos ni listo para producción.
+
+### Publicación y conservación de esta unidad
+
+- Modal y regresiones publicados en `80d596c11e508479d858e595beb2b6323056d51e`; el push se comprobó contra GitHub privado, con Gitleaks sin hallazgos. Evidencia: `commit_revisado_72500f4d06464aae8467e99e54743bdf`.
+- Auditoría de historial y 402 candidatos: cero hallazgos; comparación de valores operativos en memoria: cero coincidencias en candidatos y 438 blobs históricos; ningún archivo privado, dependencia o BD entre candidatos. Evidencia: `auditoria_publicacion_77f6173599a44d71b01d5183c1ad065c`. Cada selección vuelve a examinarse antes del commit.
+- Comprobación por hash del `.env` y de los 21 archivos privados originales: sin diferencias, ausencias ni archivos adicionales, sin conexión a la BD original. Evidencia: `preservacion_datos_a12b535155f14577a0c9c5d076e54598`.
+- Identidades finales, fuentes backend actuales y continuidad pasiva de los cuatro procesos de Voltify verificadas; seis auxiliares conservados por hash. SKILLY se deja en ejecución y no se sondearon servicios ajenos. Evidencia: `cierre_puertos_e5dc420e386148c8b2b1f16f311c3a78`.
+
+## Continuación del 9 y 10 de noviembre (histórico)
 
 - Revisión inicial: árbol limpio, sin archivos ni commits pendientes de publicación. Verificados los SHA contra GitHub: `refactor/skilly` en `d41dcdaa0aece469c0fa80871b3850503e1da2a0`, que ya incluye las herramientas del 7 de noviembre; `master` conserva `f9fdb9e9a8005cc000046b1b1a914825599a86bc`. Repositorio privado, no archivado y con permiso de push.
 - Se conserva el checkout anterior. Una consulta **GET HTTPS real** al sandbox, sin Django/BD ni POST/PUT, devolvió **HTTP 200 / INITIALIZED**. No confirma autorización ni demuestra expiración. Evidencia externa: checkout original `sandbox_browser_e1cdd302db8a4f589890e0199b8f4d46/estado_sandbox_f713ab6a154945d8933dc23edfd5b4b3/resultado.json`, bajo el runtime ya registrado.
