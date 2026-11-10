@@ -130,6 +130,30 @@ el recorrido funcional completo de `--phase all`.
 
 ## Webpay oficial en sandbox
 
+Antes de reanudar un checkout conservado se puede consultar su estado sin iniciar
+Django, PostgreSQL ni el navegador:
+
+```powershell
+& 'C:\Users\felip\Downloads\skilly\.venv\Scripts\python.exe' -B 'C:\Users\felip\Downloads\skilly\tools\webpay_estado_sandbox.py' 'C:\ruta\externa\checkout_privado.json'
+```
+
+La herramienta permite únicamente GET al endpoint oficial de integración, usa
+el contexto TLS verificado del cliente y bloquea proxies/redirecciones. No lee
+`.env` ni conecta a BD. Recibe el archivo privado, nunca el token por CLI. Guarda
+estado HTTP, estado de transacción reconocido y hash de respuesta; no conserva
+el cuerpo, identificadores de compra ni datos de tarjeta. Soporta rutas largas
+locales de Windows sin cambiar políticas globales y rechaza rutas de red.
+
+`INITIALIZED` no demuestra expiración ni autorización. Incluso un GET que devuelva
+`AUTHORIZED` no verifica por sí solo monto, orden, sesión o retorno de SKILLY.
+La [consulta de estado oficial](https://proyecto-ejemplo-node.transbankdevelopers.cl/api-reference/webpay-plus)
+es distinta del callback del comercio: **no usar `/api/pagos/webpay/retorno/`
+como diagnóstico de lectura**, porque ese endpoint puede confirmar mediante PUT.
+
+Sus pruebas offline se ejecutan con `python -B -m unittest discover -s tools/tests
+-p test_webpay_estado_sandbox.py -v`; el transporte está simulado. No se suman
+a las pruebas de integración real con Webpay.
+
 `e2e_webpay_sandbox_aislado.mjs` es un recorrido independiente. Requiere un
 contexto dedicado preparado fuera de Git; no inicia servidores ni crea fixtures.
 Comprueba `isolated: true`, `sandbox_transport: true`, PostgreSQL de copia en
