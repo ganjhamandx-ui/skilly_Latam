@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { createHash, randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { datosSandboxDesdeDocumentacion } from './webpay_datos_sandbox.mjs'
-import { camposFormularioSandbox, indicadoresPaginaSandbox } from './webpay_formulario_sandbox.mjs'
+import { camposFormularioSandbox, indicadoresPaginaSandbox, checkoutDesdeFormularioSandbox, descriptorSesionSandbox } from './webpay_formulario_sandbox.mjs'
 
 // Solo estos codigos controlados pueden salir a evidencia; nunca mensajes de
 // excepcion, snippets de JSON, respuestas del proveedor o valores de campos.
@@ -16,6 +16,8 @@ const ERROR_CODES = new Set([
   'OFFICIAL_DOCS_NETWORK_FAILED', 'OFFICIAL_DOCS_HTTP_FAILED', 'OFFICIAL_DOCS_TOO_LARGE',
   'OFFICIAL_DOCS_SECTION_MISSING', 'OFFICIAL_DOCS_VISA_ROW_INVALID', 'OFFICIAL_DOCS_CARD_FORMAT_INVALID', 'OFFICIAL_DOCS_AUTH_FORMAT_INVALID',
   'CDP_TARGET_MISSING', 'CDP_TIMEOUT', 'CDP_REJECTED', 'UI_EVALUATION_FAILED', 'UNEXPECTED_FAILURE', 'JSON_INVALID',
+  'CHECKOUT_CAPTURE_CONFLICT', 'CHECKOUT_CHECKPOINT_FAILED',
+  'RESUME_SESSION_INVALID', 'PROFILE_COPY_INVALID', 'sesion_sandbox_existente_reanudada_sin_reiniciar_checkout',
   'proxy_navegador_aislado_antes_de_referencia_privada', 'proxy_navegador_aislado_antes_de_reanudar', 'proxy_navegador_aislado_antes_de_iniciar',
   'datos_sinteticos_obtenidos_de_fuente_oficial', 'edge_no_iniciado', 'origen_local_no_preparado',
   'pagina_local_no_lista_para_reanudar', 'checkout_previo_no_reanudado', 'checkout_pendiente_reanudado_sin_crear_otro_pago',
@@ -39,6 +41,7 @@ function errorInfo(error) {
 
 async function main() {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const interactive = process.argv.includes('--interactive')
 const contextPath = process.argv[2]
 if (!contextPath || !path.isAbsolute(contextPath)) throw controlError('CONTEXT_REQUIRED')
 const ctx = JSON.parse(await fs.readFile(contextPath, 'utf8'))
@@ -59,6 +62,21 @@ if (resumeIndex > 2) {
   if (!resumePath || !path.isAbsolute(resumePath) || !inside(run, await fs.realpath(resumePath))) throw controlError('RESUME_INVALID')
   resumePayment = JSON.parse(await fs.readFile(resumePath, 'utf8'))
   if (typeof resumePayment.token !== 'string' || !/^[A-Za-z0-9_-]{5,200}$/.test(resumePayment.token) || new URL(resumePayment.url).origin !== provider || resumePayment.ambiente !== 'TRANSBANK_INTEGRACION') throw controlError('CHECKOUT_INVALID')
+}
+const sessionIndex = process.argv.indexOf('--resume-session')
+let resumeSession
+if (sessionIndex > 2) {
+  const sessionPath = process.argv[sessionIndex + 1]
+  if (!resumePayment || !sessionPath || !path.isAbsolute(sessionPath)) throw controlError('RESUME_SESSION_INVALID')
+  const actualSessionPath = await fs.realpath(sessionPath)
+  if (actualSessionPath === root || inside(root, actualSessionPath)) throw controlError('RESUME_SESSION_INVALID')
+  const descriptor = JSON.parse(await fs.readFile(actualSessionPath, 'utf8'))
+  resumeSession = descriptorSesionSandbox(descriptor, { contextPath: path.join(run, 'contexto.json'), runDir: run })
+  if (!resumeSession) throw controlError('RESUME_SESSION_INVALID')
+  const actualProfile = await fs.realpath(resumeSession.original_profile)
+  if (!inside(run, actualProfile) || !(await fs.stat(actualProfile)).isDirectory()
+      || await fs.realpath(resumeSession.context_path) !== await fs.realpath(path.join(run, 'contexto.json'))) throw controlError('RESUME_SESSION_INVALID')
+  resumeSession.original_profile = actualProfile
 }
 const privateFixture = JSON.parse(await fs.readFile(path.join(run, 'fixture_privado.json'), 'utf8'))
 if (privateFixture.origin !== origin || privateFixture.run_id !== ctx.run_id || typeof privateFixture.reference !== 'string' || !privateFixture.reference || !Number.isInteger(privateFixture.prestacion_id)) throw controlError('FIXTURE_INVALID')
@@ -95,6 +113,10 @@ const out = path.join(run, 'sandbox_browser_' + randomUUID().replaceAll('-', '')
 await fs.mkdir(out)
 const checks = [], blocked = [], errors = [], screenshots = []
 let stage = 'datos_oficiales', browser, ws, port, call, evaluate, payment, official, authorizationVerified = false
+let localStart201 = false, checkoutCaptureError, checkoutWrite
+const startRequests = new Set()
+const localStartPath = '/api/pagos/empresa/' + encodeURIComponent(privateFixture.reference) + '/webpay/iniciar/'
+const checkoutCapture = { local_start_response_201: false, provider_form_post_observed: false, private_checkpoint_written: false }
 const authorizationSteps = { card_number_entered: false, card_details_entered: false,
   number_submitted: false, details_submitted: false, bank_credentials_entered: false, bank_submitted: false }
 const httpSummary = new Map(), networkFailureSummary = new Map(), networkRequests = new Map()
@@ -109,6 +131,38 @@ function networkCategory(url) {
 function countNetwork(map, item) { const key = JSON.stringify(item); map.set(key, (map.get(key) || 0) + 1) }
 function networkSummary(map) { return [...map].map(([key, count]) => ({ ...JSON.parse(key), count })) }
 const secrets = [privateFixture.control, privateFixture.reference, privateFixture.admin?.password, privateFixture.admin?.email, privateFixture.professional?.email, privateFixture.professional?.password].filter(Boolean)
+let operatorStateCreated = false, lastOperatorState
+let humanChallengeObserved = false
+async function saveOperatorState() {
+  if (!interactive || !official) return
+  const state = JSON.stringify({ interactive: true, sandbox_only: true, stage,
+    allowed_origin: provider, datos_sinteticos_file: path.join(out, 'datos_sandbox_privados.json'),
+    authorization_steps: { ...authorizationSteps }, human_challenge_observed: humanChallengeObserved, authorization_timeout_seconds: 180,
+    instructions: ['Utilizar exclusivamente los datos sinteticos oficiales del archivo privado local.',
+      'No crear otra operacion ni abrir otro checkout. Conservar esta ventana y esta sesion.',
+      'Un desafio humano requiere intervencion local; no se eluden controles.',
+      'La confirmacion exige la respuesta real del proveedor y la comprobacion de SKILLY; una accion manual no equivale a aprobacion.'],
+  }, null, 2)
+  if (state !== lastOperatorState) {
+    await fs.writeFile(path.join(out, 'operador_privado.json'), state, { flag: operatorStateCreated ? 'w' : 'wx' })
+    operatorStateCreated = true
+    lastOperatorState = state
+  }
+}
+function recordPayment(candidate) {
+  if (payment && (payment.token !== candidate.token || payment.url !== candidate.url)) {
+    checkoutCaptureError = controlError('CHECKOUT_CAPTURE_CONFLICT')
+    return
+  }
+  if (payment) return
+  payment = { token: candidate.token, url: candidate.url, ambiente: 'TRANSBANK_INTEGRACION' }
+  secrets.push(payment.token)
+  // Guardar una sola vez tan pronto se observa el token, incluso si la
+  // navegacion destruye el cuerpo de la respuesta 201 en el buffer de CDP.
+  checkoutWrite = fs.writeFile(path.join(out, 'checkout_privado.json'), JSON.stringify(payment), { flag: 'wx' })
+    .then(() => { checkoutCapture.private_checkpoint_written = true })
+    .catch(() => { checkoutCaptureError = controlError('CHECKOUT_CHECKPOINT_FAILED') })
+}
 function redact(value) {
   let text = String(value)
   for (const secret of secrets) if (secret.length >= 3) text = text.replaceAll(secret, '<oculto>')
@@ -173,7 +227,22 @@ try {
   await fs.writeFile(path.join(out, 'datos_sandbox_privados.json'), JSON.stringify(official), { flag: 'wx' })
   check('datos_sinteticos_obtenidos_de_fuente_oficial', true)
   stage = 'inicio_navegador'
-  browser = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--disable-background-networking', '--disable-sync', '--disable-extensions', '--host-resolver-rules=MAP localhost 127.0.0.1', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', '--user-data-dir=' + path.join(out, 'profile'), 'about:blank'], { stdio: 'ignore', windowsHide: true })
+  if (resumeSession) {
+    const copiedProfile = path.join(out, 'profile')
+    await fs.cp(resumeSession.original_profile, copiedProfile, { recursive: true, force: false, errorOnExist: true, verbatimSymlinks: true })
+    // Solo retirar el puerto CDP obsoleto de la COPIA exclusiva, nunca del
+    // perfil original ni de otro navegador. No hay borrado recursivo.
+    const copiedPort = path.join(copiedProfile, 'DevToolsActivePort')
+    try {
+      const portFile = await fs.lstat(copiedPort)
+      const actualOut = await fs.realpath(out), actualPort = await fs.realpath(copiedPort)
+      if (!portFile.isFile() || portFile.isSymbolicLink() || !inside(actualOut, actualPort)) throw controlError('PROFILE_COPY_INVALID')
+      await fs.unlink(copiedPort)
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw controlError('PROFILE_COPY_INVALID')
+    }
+  }
+  browser = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', [...(interactive ? [] : ['--headless=new']), '--disable-gpu', '--no-first-run', '--disable-background-networking', '--disable-sync', '--disable-extensions', '--host-resolver-rules=MAP localhost 127.0.0.1', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', '--user-data-dir=' + path.join(out, 'profile'), 'about:blank'], { stdio: 'ignore', windowsHide: !interactive })
   await until(async () => { try { port = Number((await fs.readFile(path.join(out, 'profile/DevToolsActivePort'), 'utf8')).split('\n')[0]); return !!port } catch { return false } }, 'edge_no_iniciado')
   const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`, { redirect: 'error' })).json()
   const target = targets.find(t => t.type === 'page')
@@ -189,6 +258,15 @@ try {
   ws.addEventListener('message', event => {
     const m = JSON.parse(event.data)
     if (m.id) { const p = pending.get(m.id); if (p) { pending.delete(m.id); clearTimeout(p.timer); m.error ? p.reject(controlError('CDP_REJECTED')) : p.resolve(m.result) } }
+    if (m.method === 'Network.requestWillBeSent') {
+      try {
+        const source = new URL(m.params.request.url)
+        if (m.params.request.method === 'POST' && source.origin === origin && source.pathname === localStartPath
+            && !source.search && !source.hash && !source.username && !source.password) startRequests.add(m.params.requestId)
+      } catch { /* No URL privada ni fragmento en el diagnostico. */ }
+      const candidate = checkoutDesdeFormularioSandbox(m.params.request, { inicioLocal201: localStart201 })
+      if (candidate) { checkoutCapture.provider_form_post_observed = true; recordPayment(candidate) }
+    }
     if (m.method === 'Network.requestWillBeSent' && networkRequests.size < 2000) {
       networkRequests.set(m.params.requestId, { origin: networkCategory(m.params.request.url),
         type: resourceTypes.has(m.params.type) ? m.params.type : 'Other' })
@@ -213,14 +291,24 @@ try {
       op.catch(() => {})
     }
     if (m.method === 'Network.responseReceived') {
-      const u = new URL(m.params.response.url)
-      if (u.origin === origin && u.pathname.endsWith('/webpay/iniciar/')) responses.set(m.params.requestId, { status: m.params.response.status })
+      if (startRequests.has(m.params.requestId)) {
+        const u = new URL(m.params.response.url)
+        if (u.origin === origin && u.pathname === localStartPath && !u.search && !u.hash) {
+          const status = m.params.response.status
+          responses.set(m.params.requestId, { status })
+          if (status === 201) { localStart201 = true; checkoutCapture.local_start_response_201 = true }
+        }
+      }
     }
     if (m.method === 'Network.loadingFinished' && responses.has(m.params.requestId)) {
       const status = responses.get(m.params.requestId).status
       call('Network.getResponseBody', { requestId: m.params.requestId }).then(r => {
         const body = JSON.parse(r.base64Encoded ? Buffer.from(r.body, 'base64').toString('utf8') : r.body)
-        if (status === 201 && body.ambiente === 'TRANSBANK_INTEGRACION' && typeof body.token === 'string' && typeof body.url === 'string' && new URL(body.url).origin === provider) { payment = body; secrets.push(body.token) }
+        if (status === 201 && body.ambiente === 'TRANSBANK_INTEGRACION' && typeof body.token === 'string' && typeof body.url === 'string') {
+          const candidate = checkoutDesdeFormularioSandbox({ method: 'POST', url: body.url,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, postData: new URLSearchParams({ token_ws: body.token }).toString() }, { inicioLocal201: localStart201 })
+          if (candidate) recordPayment(candidate)
+        }
       }).catch(() => {})
     }
   })
@@ -234,14 +322,21 @@ try {
   await browserFrontendHealth('proxy_navegador_aislado_antes_de_referencia_privada')
   stage = 'seguimiento_empresa_sintetica'
   if (resumePayment) {
-    payment = resumePayment; secrets.push(payment.token)
+    recordPayment(resumePayment)
+    await checkoutWrite
+    if (checkoutCaptureError) throw checkoutCaptureError
     await call('Page.navigate', { url: origin + '/acceso-profesional' })
     await until(() => evaluate("document.readyState==='complete'&&!!document.querySelector('main')"), 'pagina_local_no_lista_para_reanudar')
     await frontendHealth()
     await browserFrontendHealth('proxy_navegador_aislado_antes_de_reanudar')
-    await evaluate(`(()=>{const f=document.createElement('form');f.method='POST';f.action=${JSON.stringify(payment.url)};const t=document.createElement('input');t.type='hidden';t.name='token_ws';t.value=${JSON.stringify(payment.token)};f.append(t);document.body.append(f);f.submit()})()`)
+    if (resumeSession) {
+      await call('Page.navigate', { url: resumeSession.location })
+    } else {
+      await evaluate(`(()=>{const f=document.createElement('form');f.method='POST';f.action=${JSON.stringify(payment.url)};const t=document.createElement('input');t.type='hidden';t.name='token_ws';t.value=${JSON.stringify(payment.token)};f.append(t);document.body.append(f);f.submit()})()`)
+    }
     await until(() => evaluate("location.origin==='https://webpay3gint.transbank.cl'"), 'checkout_previo_no_reanudado')
     check('checkout_pendiente_reanudado_sin_crear_otro_pago', true)
+    if (resumeSession) check('sesion_sandbox_existente_reanudada_sin_reiniciar_checkout', true)
   } else {
   await call('Page.navigate', { url: origin + '/seguimiento?referencia=' + encodeURIComponent(privateFixture.reference) })
   // La referencia en la URL solo precarga el formulario y se retira del
@@ -255,20 +350,34 @@ try {
   await frontendHealth()
   await browserFrontendHealth('proxy_navegador_aislado_antes_de_iniciar')
   await clickText('pagar mediante webpay')
-  await until(() => payment && evaluate("location.origin==='https://webpay3gint.transbank.cl'"), 'checkout_no_iniciado_en_sandbox', 30000)
+  await until(() => { if (checkoutCaptureError) throw checkoutCaptureError; return payment && evaluate("location.origin==='https://webpay3gint.transbank.cl'") }, 'checkout_no_iniciado_en_sandbox', 30000)
   }
-  await fs.writeFile(path.join(out, 'checkout_privado.json'), JSON.stringify(payment), { flag: 'wx' })
+  await checkoutWrite
+  if (checkoutCaptureError) throw checkoutCaptureError
   check('checkout_skilly_http_y_proveedor_sandbox_reales', true)
   stage = 'autorizacion_sandbox'
-  const end = Date.now() + 90000
+  await saveOperatorState()
+  const end = Date.now() + (interactive ? 180000 : 90000)
   let cardEntered = false, cardDetailsEntered = false, bankEntered = false, creditChosen = false
   let submittedNumber = false, submittedCard = false, submittedBank = false
+  let challengePending = false
   while (Date.now() < end) {
     const where = await evaluate("({origin:location.origin,path:location.pathname,returned:location.origin==='http://localhost:5173'&&location.pathname==='/seguimiento'})")
     if (where.returned) break
     if (where.origin !== provider) throw controlError('destino_de_autenticacion_fuera_del_sandbox_permitido')
     const form = await evaluate(`(()=>{const docs=[document];for(const f of document.querySelectorAll('iframe')){try{if(f.contentDocument)docs.push(f.contentDocument)}catch{}}const fields=[];for(let d=0;d<docs.length;d++)for(const e of docs[d].querySelectorAll('input,select')){if(e.getClientRects().length&&!e.disabled&&e.type!=='hidden'){const key=[e.id,e.name,e.placeholder,e.autocomplete,e.labels?.[0]?.innerText||''].join(' ');e.dataset.sandboxField=String(fields.length);fields.push({key,type:e.type,tag:e.tagName,index:fields.length,doc:d,max:e.maxLength,options:e.tagName==='SELECT'?[...e.options].map(o=>({value:o.value,text:o.textContent})):[]})}}return{fields,challenge:[...document.querySelectorAll('iframe')].some(f=>/captcha|challenge/i.test(f.title+' '+f.src))}})()`)
-    if (form.challenge) throw controlError('desafio_humano_del_proveedor_requiere_interaccion_local')
+    challengePending = form.challenge
+    if (form.challenge) {
+      humanChallengeObserved = true
+      if (!interactive) throw controlError('desafio_humano_del_proveedor_requiere_interaccion_local')
+      // Conservar la ventana para intervencion humana, sin resolver ni pulsar
+      // automaticamente un desafio y sin ampliar la lista de origenes.
+      stage = 'desafio_humano_sandbox'
+      await saveOperatorState()
+      await delay(400)
+      continue
+    }
+    stage = 'autorizacion_sandbox'
     const recognized = camposFormularioSandbox(form.fields)
     const { card, cvv: cvvField, month, year, expiry, rut: rutField, password: passwordField } = recognized
     const fill = async (f, value) => {
@@ -300,12 +409,17 @@ try {
     if (bankEntered && !submittedBank) submittedBank = await clickText('^(aceptar|autorizar|autenticar|continuar|pagar|ingresar)(\\b|$)')
     else if (cardDetailsEntered && !submittedCard) submittedCard = await clickText('^(pagar|continuar|aceptar)(\\b|$)')
     else if (cardEntered && !submittedNumber && !recognized.cardDetailsPresent) submittedNumber = await clickText('^continuar(\\b|$)')
-    else if (!cardEntered && !creditChosen) creditChosen = await clickText('credito|credit card')
+    else if (!cardEntered && !creditChosen) {
+      creditChosen = await evaluate("(()=>{const e=document.querySelector('button#tarjetas');if(e&&e.getClientRects().length&&!e.disabled){e.click();return true}return false})()")
+      if (!creditChosen) creditChosen = await clickText('tarjetas|credito|credit card')
+    }
     authorizationSteps.number_submitted = submittedNumber
     authorizationSteps.details_submitted = submittedCard
     authorizationSteps.bank_submitted = submittedBank
+    await saveOperatorState()
     await delay(400)
   }
+  if (challengePending) throw controlError('desafio_humano_del_proveedor_requiere_interaccion_local')
   await until(() => evaluate("location.origin==='http://localhost:5173'&&location.pathname==='/seguimiento'"), 'retorno_del_proveedor_no_completado', 1000)
   check('datos_oficiales_ingresados_en_sandbox', cardEntered && cardDetailsEntered)
   check('retorno_local_real_sin_sustituir_respuesta', true)
@@ -339,11 +453,18 @@ try {
     } catch { /* Nunca recopilar el texto bruto de una pagina del proveedor. */ }
   }
 } finally {
+  if (checkoutWrite) await checkoutWrite
+  await saveOperatorState().catch(() => {})
   try { ws?.close() } catch { /* Own context only. */ }
   if (browser) { browser.kill(); await delay(200) }
   const finalHealth = await health().catch(() => null)
   const result = { completed: !errors.length, authorization_verified: authorizationVerified, resumed_checkout: !!resumePayment, real_money: false, production_provider: false, run_id: ctx.run_id, frontend_transport: 'ipv4_host_localhost', browser_dns_scope: 'private_profile_only', stage, checks, passed: checks.filter(c => c.passed).length, failed: checks.filter(c => !c.passed).length, errors, blocked_requests: blocked, screenshots, provider_calls: finalHealth?.provider_calls || null, real: ['React', 'Django/HTTP/PostgreSQL de copia', 'Webpay integración HTTPS y UI si los checks correspondientes pasan'], mocks: false, limitations: ['Un contrato sandbox dedicado; no acredita pagos, reembolsos ni liquidaciones productivos.'] }
   result.authorization_steps = authorizationSteps
+  result.checkout_capture = checkoutCapture
+  result.resumed_browser_session = !!resumeSession
+  result.interactive = interactive
+  result.human_challenge_observed = humanChallengeObserved
+  result.browser_profile_mode = resumeSession ? 'exclusive_copy_of_existing_session' : 'fresh_private_profile'
   result.network_summary = { http: networkSummary(httpSummary), failures: networkSummary(networkFailureSummary) }
   await fs.writeFile(path.join(out, 'resultado.json'), JSON.stringify(result, null, 2), { flag: 'wx' })
   console.log(JSON.stringify({ output: out, completed: result.completed, authorization_verified: authorizationVerified, passed: result.passed, stage, errors }))

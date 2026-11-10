@@ -188,6 +188,31 @@ pago RETENIDO en la copia, un POST y un PUT HTTPS, y callback duplicado sin una
 segunda confirmación. Un checkout creado o una prueba de parser no acreditan
 autorización. Un desafío humano o destino no permitido detiene el recorrido.
 
+El checkpoint se conserva en cuanto se observa el token real que React envía
+al formulario oficial, después del HTTP 201 local. Así no depende únicamente de
+que CDP conserve el cuerpo de la respuesta al navegar. El cuerpo del formulario
+solo se procesa en memoria; el checkpoint privado no se publica.
+
+`--resume-session C:\ruta\externa\sesion_privada.json`, junto con
+`--resume-checkout`, admite un descriptor privado con `location`,
+`original_profile` y `context_path`. Debe pertenecer al mismo contexto; solo
+acepta ubicación HTTPS oficial y un perfil dentro del RUN. Clona el perfil a
+un directorio nuevo y retira únicamente el marcador de puerto copiado. Admite
+rutas internas SPA válidas, conserva el original y no reenvía initTransaction.
+La reanudación no garantiza que el proveedor conserve una sesión: una respuesta
+404 o Error 21 no acredita expiración, rechazo ni autorización por sí sola.
+
+Para un recorrido visible continuo se añade `--interactive`. El navegador
+permanece en la misma sesión durante la espera de hasta 180 segundos; al terminar
+el driver cierra su propio proceso. El operador puede completar el simulador
+bancario utilizando exclusivamente los ejemplos oficiales del archivo privado
+señalado en `operador_privado.json`, sin pegarlos en chat ni usar datos reales.
+No resuelve desafíos humanos automáticamente ni amplía los orígenes permitidos.
+Si el operador completa ese paso, el resultado es **integración real asistida**,
+no automatización completa: se conservan fielmente los indicadores de acciones
+del driver aunque sean falsos. La autorización y la idempotencia siguen
+dependiendo de las respuestas y estados reales, sin mocks.
+
 Las pruebas offline de privacidad, parseo y reconocimiento de formularios usan
 datos ficticios y metadatos; se ejecutan con `node --test tools/tests/*.test.mjs`
 (en PowerShell se pueden pasar explícitamente los tres archivos). No equivalen

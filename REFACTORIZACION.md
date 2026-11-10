@@ -8,13 +8,39 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - Las menciones posteriores a autenticación, importación y reanálisis describen pendientes históricos, no acciones previstas durante esta etapa. Las vulnerabilidades y errores reales identificados siguen dentro del alcance.
 - Se continúa con correcciones, recorridos completos mediante interfaz, permisos, estados de error y adaptación móvil, en la copia aislada. Se conserva `master`, se publican cambios verificados en `refactor/skilly` y no se modifican Word ni Excel.
 
-## Continuación vigente (9 de noviembre)
+## Continuación vigente (9 y 10 de noviembre)
 
 - Revisión inicial: árbol limpio, sin archivos ni commits pendientes de publicación. Verificados los SHA contra GitHub: `refactor/skilly` en `d41dcdaa0aece469c0fa80871b3850503e1da2a0`, que ya incluye las herramientas del 7 de noviembre; `master` conserva `f9fdb9e9a8005cc000046b1b1a914825599a86bc`. Repositorio privado, no archivado y con permiso de push.
 - Se conserva el checkout anterior. Una consulta **GET HTTPS real** al sandbox, sin Django/BD ni POST/PUT, devolvió **HTTP 200 / INITIALIZED**. No confirma autorización ni demuestra expiración. Evidencia externa: checkout original `sandbox_browser_e1cdd302db8a4f589890e0199b8f4d46/estado_sandbox_f713ab6a154945d8933dc23edfd5b4b3/resultado.json`, bajo el runtime ya registrado.
 - Se inspeccionó el mismo checkout con una copia única del perfil Edge original: página del proveedor con **Error 21**, sin formulario. No se ingresaron datos ni se crearon/confirmaron pagos durante esa inspección; el perfil original no se modificó. No se deduce una causa específica del código visual. Captura saneada y metadatos: `inspeccion_webpay_7ca70c0961d04f59b32309e76669ab1d` en el respaldo externo.
 - Nueva herramienta `tools/webpay_estado_sandbox.py`: consulta exclusivamente GET, TLS verificado, sin proxies ni redirecciones, lectura acotada y salida de metadatos. No carga `.env`, no conecta a BD ni imprime el cuerpo del proveedor. Resuelve las rutas largas locales por operación, sin cambiar permisos o políticas de Windows. **14 pruebas offline aprobadas**, con cliente/transporte simulados y canarios de privacidad; no se presentan como 14 peticiones reales.
 - Se conservan las verificaciones anteriores de negocio, seguridad y UX. Sonar sigue pospuesto. El inventario de caché compartida no encontró servidor Redis/Memcached, drivers Python, Docker ni WSL instalado: sigue pendiente una prueba real entre trabajadores; no se sustituye por una simulación para declararla aprobada.
+- Publicado `6fe78705a54b8ff50858aa89923ba45e638b13cd`: consulta GET, 14 pruebas offline y documentación, después de Gitleaks sin hallazgos y comprobación del remoto. Evidencia: `commit_revisado_d4d91d0b874c4ce89bfe57919fb5e786`.
+
+### Webpay cerrado: integración real asistida, sin dinero real
+
+- El checkout conservado del 7 de noviembre no se autorizó ni se alteró. Se guardaron por lectura estado, verificación, hash del token e historial y se compararon al finalizar: **sin diferencias**. Su diagnóstico sigue siendo GET INITIALIZED y pantalla Error 21; no se le atribuye el éxito del ensayo nuevo.
+- Se prepararon prestaciones sintéticas independientes únicamente en el clúster de copia verificado. El primer ensayo nuevo llegó a Webpay, pero el driver perdió el cuerpo 201 durante la navegación; se conservó con POST=1/PUT=0. La reanudación de su última ruta respondió 404, sin ingresar tarjeta. Estos intentos parciales no se suman a la pasada exitosa.
+- Se reparó la captura del token real del formulario saliente, condicionada al inicio local 201, con checkpoint privado inmediato y validación estricta. Se añadió selección del paso Tarjetas, reanudación por copia de perfil y modo visible de una sola sesión. Se conservaron orígenes, rutas, CSRF y reglas del producto; no se cambió lógica del backend/frontend para hacer pasar el ensayo.
+- **Pasada continua nueva: 10/10, completed=true y authorization_verified=true**, con React, Django HTTP, PostgreSQL de copia y Webpay oficial de integración reales, sin respuestas simuladas. Creación POST=1 y confirmación PUT=1. El callback real dejó el pago RETENIDO en la prestación correcta; repetir el callback produjo 302 sin otro PUT. Una consulta GET independiente posterior devolvió **HTTP 200 / AUTHORIZED**.
+- El usuario confirmó que completó RUT y clave ficticios en el simulador bancario de la ventana visible. Se clasifica **integración real asistida por el usuario**, no automatización completa. Se conservan `bank_credentials_entered=false` y `bank_submitted=false`, porque el driver no realizó esas acciones. La asistencia automatizada adicional no llegó a ejecutarse. No hubo desafíos humanos observados, tarjetas/credenciales bancarias reales, cargos reales ni correo externo.
+- Evidencia de éxito: `continuacion_7104ca3157d44bc1be9be634da7ce20e/sandbox_runtime_1e4edcbc8c684f3e941508c5de5c1c40/sandbox_browser_69549c8d3dd44700b82de68aef8b0ef3/resultado.json`; GET posterior en su subdirectorio `estado_sandbox_ae454e0148824cafa6e06d94dc419198`. Incluye dos capturas locales; los archivos privados y perfiles permanecen fuera de Git.
+- Preservación del pago antiguo: `continuacion_7104ca3157d44bc1be9be634da7ce20e/preservacion_webpay_a0a0b8995991/antes.json` y `despues_a793fff23746.json`. Herramientas finales: **17/17 Node y 14/14 Python offline**, ocho módulos con sintaxis válida, fuentes conservadas por hash en `verificacion_herramientas_269ad69143a94703a574ffc3d61e60a3`. Las 31 pruebas offline no equivalen a 31 pagos ni sustituyen las 10 comprobaciones reales.
+
+### Pendientes actuales
+
+- SonarQube continúa pospuesto, sin scanner/exportador/API ni cambios destinados al gate.
+- Caché compartida entre trabajadores: falta servidor y driver local; LocMem y sus pruebas anteriores no acreditan ese alcance.
+- Dispositivos físicos y capacidad productiva siguen sin certificarse. Los recorridos generales anteriores de 129/130, las 198 pruebas backend, 58 frontend y lint/build se conservan; no se repitieron por estos cambios de herramientas.
+- Automatizar el paso bancario humano es opcional y no se presenta como cerrado. Tampoco se acreditan pagos, reversas, conciliación o liquidaciones productivas. Los checkouts parciales anteriores permanecen como evidencia, sin forzar sus estados.
+- La auditoría de Word/Excel sigue reservada; no se modificaron esos documentos ni se desplegó.
+
+### Conservación y cierre de esta continuación
+
+- `.env` operativo y 21 archivos privados originales conservan sus hashes: 18 media y tres entregas, sin ausencias, diferencias ni archivos adicionales. No se conectó a la BD original. Evidencia: `preservacion_datos_62385601e7264b79860965bd51d16b87/resultado.json`.
+- El sandbox exitoso cerró con POST=1/PUT=1; se preservó su guardia en `cierre_sandbox_fab7662725104fba8313b471fa87af1c`. Se cerraron padre, backends/Vite y PostgreSQL de copia tras verificar el directorio del clúster. El servidor original del puerto 8000 estaba activo antes y después, sin intervención sobre él.
+- Se preservaron por hash 14 auxiliares locales fuera de Git, sin borrar archivos ni tocar el listener IPv6 ajeno. Evidencia de cierre: `cierre_webpay_ef0a8f3b4dec47d5abf3c7247a795856/resultado.json`.
+- Revisión previa a publicación: Gitleaks sin hallazgos en historial y 391 candidatos; comparación en memoria sin coincidencias operativas en candidatos y 430 blobs históricos; ningún archivo prohibido. Evidencia: `auditoria_publicacion_dab7f58f8d0f4afd841ff40c950ae2d1/resultado.json`. Se vuelve a revisar la selección exacta antes de cada commit.
 
 ## Recuperación del trabajo interrumpido (7 de noviembre, histórico)
 
@@ -41,7 +67,9 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - Herramientas finales: **ocho módulos con sintaxis válida y 10/10 pruebas offline**. Incluyen JSON privado corrupto con canarios, párrafos oficiales multilínea, rechazo de datos de otra sección, formularios de tarjeta por etapas y diagnóstico limitado a metadatos. Evidencia: `verificacion_herramientas_0f7570f91d19424eab9a0881b1d4a863`.
 - Auditoría de todas las referencias Git y 389 archivos candidatos: **0 hallazgos**; comparación en memoria con secretos operativos: **0 coincidencias** en candidatos y 424 blobs históricos; **0 candidatos prohibidos**. El `.env` coincide con su respaldo. No se imprimieron valores ni se incorporaron informes privados. Evidencia: `auditoria_publicacion_dd97cef9158848b3b2af75ffaf4a3d45/resultado.json`; cada commit vuelve a examinar su selección con Gitleaks.
 
-## Webpay: integración real parcial y límite pendiente
+## Webpay: integración parcial del 7 de noviembre (histórico)
+
+El recorrido real asistido posterior, registrado arriba, cierra la comprobación de autorización, retorno e idempotencia; se conservan a continuación los límites y evidencias del ensayo anterior.
 
 - Contexto dedicado con Django/React/PostgreSQL de copia, identidad backend/proxy/navegador verificada, TLS obligatorio y salida limitada al proveedor de integración. El conflicto de resolución IPv6 se evitó solo en el perfil temporal de Edge y en el transporte del ensayo; no se cambiaron DNS global, puertos del producto ni procesos ajenos.
 - Se corrigieron únicamente supuestos del driver: pulsar «Consultar estado» después de precargar la referencia, reconocer el párrafo oficial multilínea y seguir el formulario de tarjeta por etapas. No se modificaron controles del producto ni validaciones de pago.
@@ -50,7 +78,7 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - **No aprobados:** autorización sandbox, callback completo e idempotencia posterior a una confirmación real. La creación del checkout y las pruebas offline no equivalen a esos resultados. Queda por inspeccionar localmente la página del proveedor y determinar el estado de ese checkout antes de preparar otra prueba dedicada; no se crea otra transacción para ocultar el fallo.
 - Evidencia definitiva: `continuacion_c90c757328c546d5b46f34c9fe95b882/sandbox_runtime_1dc4a896c913400381b0234f1b27b045/sandbox_browser_fdefe880fbdc4c66b9fedd7a490bf34f/resultado.json`, `pagina_proveedor_metadatos.json`; checkout original en `sandbox_browser_e1cdd302db8a4f589890e0199b8f4d46/checkout_privado.json`. Todo permanece fuera de Git. No se realizaron pagos ni envíos reales.
 
-## Pendientes vigentes tras los recorridos completos
+## Pendientes al 7 de noviembre (histórico)
 
 - SonarQube **pospuesto expresamente**, con resultados y herramientas conservados; no se ejecutó durante esta continuación y no se declara gate aprobado.
 - Webpay: cerrar la autorización y el retorno sandbox descritos arriba. La transferencia/verificación, liberación y reversa de los recorridos generales son sintéticas; no acreditan operaciones bancarias ni liquidaciones reales.
@@ -58,7 +86,7 @@ Este es el registro técnico de trabajo. La auditoría documental definitiva de 
 - No quedan fallos abiertos en las pasadas completas de negocio registradas: escritorio 129/129 y móvil 130/130. Esto no constituye una garantía de ausencia de otros defectos ni de preparación productiva.
 - La auditoría documental de los 22 Word y los 2 Excel continúa reservada a la indicación expresa del usuario. Esos archivos no se modificaron; no se desplegó ni se hizo merge a `master`.
 
-## Conservación y cierre de los ensayos
+## Conservación y cierre de los ensayos del 7 de noviembre
 
 - Comprobación final por hash: `.env` original idéntico al respaldo, 18 archivos media y tres entregas privadas sin diferencias, ausencias ni archivos adicionales. No se conectó a la BD original. Evidencia: `preservacion_datos_4a6842de0e9a4ba28e278568389c41c9/resultado.json`.
 - El cierre por marcador no terminó los procesos huérfanos de la sesión interrumpida. Se identificaron nuevamente por sus rutas completas de script y se cerraron solo esos procesos. Después se verificaron por conexión de administrador el `data_directory` y puerto 57647 del clúster de copia antes de detenerlo. No se modificaron contraseñas, permisos globales ni el esquema operativo.
