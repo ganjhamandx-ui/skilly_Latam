@@ -307,29 +307,146 @@ class EntornoLocalTest(unittest.TestCase):
         self.assert_sources_unchanged(original, expected)
 
     def test_generated_settings_and_runner_compile_without_running_services(self):
-        syntax = ast.parse(TOOL_PATH.read_text(encoding='utf-8'))
-        start = next(node for node in syntax.body if isinstance(node, ast.FunctionDef) and node.name == 'start')
-        values = {'runtime': self.runtime, 'database_port': 57647, 'ROOT': TOOL.ROOT, 'HOST': TOOL.HOST, 'backend_port': 49123}
-        restricted = {'__builtins__': {'repr': repr, 'str': str}}
-        found_settings, found_runner = False, False
-        assignments = sorted((node for node in ast.walk(start) if isinstance(node, ast.Assign)), key=lambda node: node.lineno)
-        for assignment in assignments:
-            names = [target.id for target in assignment.targets if isinstance(target, ast.Name)]
-            if 'settings' in names or 'runner' in names:
-                value = eval(compile(ast.Expression(assignment.value), 'launcher_expression_only', 'eval'), restricted, values)
-                name = 'settings' if 'settings' in names else 'runner'
-                values[name] = value
-                generated = ast.parse(value, filename='generated_' + name)
-                compile(generated, 'generated_' + name, 'exec')
-                if name == 'settings':
-                    found_settings = True
-                    email = next(node for node in generated.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'EMAIL_BACKEND' for target in node.targets))
-                    self.assertEqual(email.value.value, 'django.core.mail.backends.locmem.EmailBackend')
-                else:
-                    found_runner = True
-                    self.assertIn('from config.wsgi import application', value)
-                    self.assertNotIn('/__isolated/', value)
-        self.assertTrue(found_settings and found_runner)
+        origins = ['http://127.0.0.2:49124', 'http://192.168.100.19:49125']
+        settings = TOOL.generated_settings(self.runtime / 'backend_files', 57647, origins, 'skilly-fixture')
+        generated = ast.parse(settings)
+        compile(generated, 'generated_settings', 'exec')
+        assignments = {node.targets[0].id: node.value for node in generated.body if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)}
+        self.assertEqual(assignments['EMAIL_BACKEND'].value, 'django.core.mail.backends.locmem.EmailBackend')
+        for name in ('CORS_ALLOWED_ORIGINS', 'CSRF_TRUSTED_ORIGINS'):
+            self.assertEqual(ast.literal_eval(assignments[name]), origins)
+        self.assertNotIn(self.canary, settings)
+        for port, identity_name in [(49123, 'backend_ready.json'), (49126, 'backend_ready_2.json')]:
+            runner = TOOL.generated_runner(port, identity_name, [('127.0.0.1', 57647), ('127.0.0.1', 52893)])
+            compile(ast.parse(runner), 'generated_runner', 'exec')
+            self.assertIn('from config.wsgi import application', runner)
+            self.assertNotIn('/__isolated/', runner)
+            self.assertNotIn(self.canary, runner)
+
+    def test_lan_host_accepts_only_exact_private_ipv4_interface(self):
+        for host in ('192.168.100.19', '10.1.2.3', '172.16.1.2'):
+            self.assertEqual(TOOL.lan_host(host), host)
+        for host in ('0.0.0.0', '127.0.0.2', '8.8.8.8', '169.254.1.2', '192.168.100.019', 'localhost', '::1', '192.168.1.2.example.invalid'):
+            with self.subTest(kind='invalid_lan'), self.assertRaises(ValueError):
+                TOOL.lan_host(host)
+        calls = []
+        with patch.object(TOOL.socket, 'socket', return_value=BoundSocket(calls, 49125)):
+            self.assertEqual(TOOL.free_port(49125, host='192.168.100.19'), 49125)
+        self.assertEqual([value for kind, value in calls if kind == 'bind'], [('192.168.100.19', 49125)])
+
+    def test_cache_private_context_preserves_secret_and_uses_unique_shared_namespace(self):
+        file = self.backup / 'conexion_cache_privada.json'
+        self.write_json(file, {'host': '127.0.0.1', 'port': 52893, 'password': self.canary, 'prefix': 'skilly-fixture'})
+        cache = TOOL.cache_configuration(str(file), self.backup, self.runtime, 57647)
+        self.assertEqual(cache['host'], '127.0.0.1')
+        self.assertEqual(cache['port'], 52893)
+        self.assertEqual(cache['database'], 15)
+        self.assertTrue(cache['key_prefix'].startswith('skilly-local-'))
+        self.assertLessEqual(len(cache['key_prefix']), 64)
+        other = self.directory(self.backup / 'local_activo_other')
+        other_cache = TOOL.cache_configuration(str(file), self.backup, other, 57647)
+        self.assertNotEqual(cache['key_prefix'], other_cache['key_prefix'])
+        self.assertEqual(json.loads(file.read_text())['password'], self.canary)
+
+    def test_realistic_cache_prefix_and_runtime_produce_namespace_within_64_characters(self):
+        file = self.backup / 'cache_namespace.json'
+        self.write_json(file, {'host': '127.0.0.1', 'port': 52893, 'password': self.canary, 'prefix': 'skilly-lab-' + 'a' * 32})
+        cache = TOOL.cache_configuration(str(file), self.backup, self.runtime, 57647)
+        self.assertLessEqual(len(cache['key_prefix']), 64)
+        self.assertEqual(cache['key_prefix'], TOOL.cache_configuration(str(file), self.backup, self.runtime, 57647)['key_prefix'])
+
+    def test_two_workers_require_shared_cache_and_reject_local_memory(self):
+        self.assertEqual(TOOL.validate_worker_count(1, None), 1)
+        self.assertEqual(TOOL.validate_worker_count(2, {'location': 'redis://127.0.0.1:52893/15'}), 2)
+        for count, cache in [(2, None), (2, {'location': 'locmem'}), (2, {}), (3, {'location': 'redis://127.0.0.1:52893/15'}), (True, None)]:
+            with self.subTest(count=count), self.assertRaises(ValueError):
+                TOOL.validate_worker_count(count, cache)
+
+    def test_cache_rejects_remote_host_original_ports_foreign_file_and_invalid_password(self):
+        file = self.backup / 'cache_privada.json'
+        baseline = {'host': '127.0.0.1', 'port': 52893, 'password': self.canary, 'prefix': 'skilly-fixture'}
+        for change in ({'host': '192.168.100.19'}, {'host': 'localhost'}, {'port': 8000}, {'port': 5432}, {'port': 57647},
+                       {'password': ''}, {'password': self.canary + '\n'}, {'prefix': 'invalid/prefix'}):
+            self.write_json(file, {**baseline, **change})
+            with self.subTest(fields=list(change)), self.assertRaises(ValueError):
+                TOOL.cache_configuration(str(file), self.backup, self.runtime, 57647)
+        foreign = self.scratch / 'outside_cache.json'
+        self.write_json(foreign, baseline)
+        with self.assertRaises(ValueError):
+            TOOL.cache_configuration(str(foreign), self.backup, self.runtime, 57647)
+
+    def test_generated_guard_permits_only_copy_database_and_exact_loopback_cache(self):
+        allowed = [('127.0.0.1', 57647), ('127.0.0.1', 52893)]
+        syntax = ast.parse(TOOL.generated_runner(49123, 'backend_ready.json', allowed))
+        guard = next(node for node in syntax.body if isinstance(node, ast.FunctionDef) and node.name == 'guarded')
+        calls = []
+        namespace = {'ALLOWED_OUTBOUND': allowed, 'original_connect': lambda sock, address: calls.append(address)}
+        exec(compile(ast.Module(body=[guard], type_ignores=[]), 'network_guard_only', 'exec'), namespace)
+        for address in allowed:
+            namespace['guarded'](None, address)
+        self.assertEqual(calls, allowed)
+        for address in [('127.0.0.1', 5432), ('127.0.0.1', 8000), ('127.0.0.1', 52894), ('192.168.100.19', 52893), ('webpay3gint.transbank.cl', 443)]:
+            with self.subTest(kind='blocked_destination'), self.assertRaises(OSError):
+                namespace['guarded'](None, address)
+        self.assertEqual(calls, allowed)
+
+    def test_reuse_private_runtime_does_not_copy_or_replace_files(self):
+        self.write(self.runtime / 'backend_files/media/new-upload.bin', self.canary.encode())
+        self.write(self.runtime / 'backend_files/entregas_privadas_e3/new-delivery.bin', self.canary.encode())
+        target = self.directory(self.backup / 'local_activo_replacement')
+        with patch.object(TOOL, 'copy_private_files', side_effect=AssertionError('No recopy expected')):
+            private, report, previous = TOOL.private_root_for(self.backup, target, str(self.context_path), 57647)
+        self.assertEqual(private, self.runtime / 'backend_files')
+        self.assertEqual(report[0]['files_copied'], 0)
+        self.assertEqual(previous['run_dir'], str(self.runtime))
+        self.assertFalse((target / 'backend_files').exists())
+        self.assertEqual((private / 'media/new-upload.bin').read_bytes(), self.canary.encode())
+
+    def test_closed_context_reuses_private_files_after_explicit_owned_shutdown(self):
+        self.write(self.runtime / 'backend_files/media/new-upload.bin', self.canary.encode())
+        self.write(self.runtime / 'backend_files/entregas_privadas_e3/new-delivery.bin', self.canary.encode())
+        self.write(self.runtime / 'stop.flag', b'Owned stop')
+        self.write_json(self.runtime / 'cierre.json', {'own_children_closed': True, 'own_cluster_stopped': True, 'other_processes_touched': False})
+        target = self.directory(self.backup / 'local_activo_after_shutdown')
+        context, closed = TOOL.reuse_context_details(str(self.context_path))
+        self.assertTrue(closed)
+        self.assertEqual(context['run_dir'], str(self.runtime))
+        with patch.object(TOOL, 'copy_private_files', side_effect=AssertionError('No recopy expected')):
+            private, report, _previous = TOOL.private_root_for(self.backup, target, str(self.context_path), 57647)
+        self.assertEqual(private, self.runtime / 'backend_files')
+        self.assertEqual(report[0]['files_copied'], 0)
+        self.assertEqual((private / 'media/new-upload.bin').read_bytes(), self.canary.encode())
+
+    def test_closed_context_requires_both_marker_and_successful_owned_closure(self):
+        self.write(self.runtime / 'stop.flag', b'Owned stop')
+        with self.assertRaises(ValueError):
+            TOOL.reuse_context_details(str(self.context_path))
+        for closure in ({'own_children_closed': False, 'other_processes_touched': False},
+                        {'own_children_closed': True, 'other_processes_touched': True}):
+            self.write_json(self.runtime / 'cierre.json', closure)
+            with self.subTest(kind='incomplete_shutdown'), self.assertRaises(ValueError):
+                TOOL.reuse_context_details(str(self.context_path))
+
+    def test_two_workers_have_distinct_process_identities_and_public_cache_metadata(self):
+        secondary = self.runtime / 'backend_ready_2.json'
+        self.context['backend_workers'] = [
+            {'origin': self.context['backend_origin'], 'pid': self.context['backend_pid'], 'source_identity_file': str(self.identity_path)},
+            {'origin': 'http://127.0.0.2:49126', 'pid': 12126, 'source_identity_file': str(secondary)},
+        ]
+        self.context['access_cache'] = {'host': '127.0.0.1', 'port': 52893, 'database': 15, 'key_prefix': 'skilly-fixture:local_activo'}
+        self.context.update(frontend_lan_host='192.168.100.19', frontend_lan_origin='http://192.168.100.19:49125')
+        self.write_json(secondary, {**self.identity, 'pid': 12126})
+        self.save_context()
+        result = self.invoke()
+        self.assertEqual(len(result['backend_workers']), 2)
+        self.assertTrue(all(item['product_sources_current'] for item in result['backend_workers']))
+        self.assertEqual(result['frontend_lan'], self.context['frontend_lan_origin'])
+        self.assertNotIn('password', json.dumps(result))
+        self.assertNotIn(self.canary, json.dumps(result))
+        self.context['access_cache']['password'] = self.canary
+        self.save_context()
+        with self.assertRaises(ValueError):
+            TOOL.context_from(self.context_path)
 
     def test_cli_corrupt_private_json_never_prints_canary_fragment_or_stack(self):
         self.write(self.context_path, ('{"password":"' + self.canary).encode())
