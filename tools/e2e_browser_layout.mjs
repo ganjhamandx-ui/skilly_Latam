@@ -13,6 +13,7 @@ export async function layout(h) {
   await fs.writeFile(pdf, await fs.readFile(h.pdf), { flag: 'wx' })
   h.layoutResults = []
   for (const panel of ['documentos', 'propuesta', 'entregas']) {
+    if (h.assertLayout && h.completed('layout_producto_sin_desborde_ni_controles_recortados_' + panel)) continue
     for (const { name, rule } of h.assertLayout ? variants.slice(0, 1) : variants) {
       h.stage('layout_ab_' + panel + '_' + name)
       await p.navigate('/portal-profesional')
@@ -35,8 +36,14 @@ export async function layout(h) {
       } else {
         await p.click('Servicios coordinados', '[role=dialog]', false); await p.ready()
         await p.click('Ver entregas', '.pp-coordinados .pp-servicio'); await p.ready()
-        await p.fill('#pp-descripcion-entrega', 'Borrador sintetico de prueba visual; no registrar la entrega.')
-        if (await p.evaluate("!!document.querySelector('#pp-archivos-entrega-e3')")) await p.file('#pp-archivos-entrega-e3', [pdf])
+        if (await p.evaluate("!!document.querySelector('#pp-descripcion-entrega:not(:disabled)')")) {
+          await p.fill('#pp-descripcion-entrega', 'Borrador sintetico de prueba visual; no registrar la entrega.')
+          if (await p.evaluate("!!document.querySelector('#pp-archivos-entrega-e3:not(:disabled)')")) await p.file('#pp-archivos-entrega-e3', [pdf])
+        } else {
+          h.check('entrega_cerrada_no_ofrece_formulario_nuevo', h.state.cycles_complete === true,
+            { source: 'interfaz_real_despues_de_cierre_y_cancelacion', form_tested: false })
+          h.interventions.push({ kind: 'layout_entregas_solo_lectura', reason: 'Los ciclos ya finalizaron; no se habilita ni fuerza un formulario cerrado.' })
+        }
       }
       const geometry = await p.screenshot('layout_' + panel + '_' + name)
       const clipped = await p.evaluate("[...document.querySelectorAll('[role=dialog] input,[role=dialog] select,[role=dialog] textarea,[role=dialog] button')].filter(e=>e.getClientRects().length).map(e=>{const d=e.closest('[role=dialog]').getBoundingClientRect(),r=e.getBoundingClientRect();return{tag:e.tagName,id:e.id||'',left:r.left,right:r.right,dialog_left:d.left,dialog_right:d.right}}).filter(e=>e.left<e.dialog_left-1||e.right>e.dialog_right+1)")

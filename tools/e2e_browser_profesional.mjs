@@ -46,9 +46,12 @@ export async function onboarding(h) {
   if (!h.completed('finalizar_revision_documental_ui')) {
   h.stage('documentos_ui')
   await portal(p, 'Perfil y validacion', 'Documentos y validacion', 'Adjuntar documentos')
-  await p.fill('#dc-tipo', 'TITULO'); await p.file('#dc-archivo', [badFile])
+  await p.fill('#dc-tipo', 'TITULO')
+  if (!h.android) {
+  await p.file('#dc-archivo', [badFile])
   await p.action('archivo_invalido_rechazado_ui_backend', () => p.click('Adjuntar documento'), '/api/profesionales/mis-documentos/subir/', 'POST', [400])
   check('error_de_documento_visible_ui', await p.evaluate("!!document.querySelector('.dc-panel [role=alert]')"))
+  } else h.interventions.push({ kind: 'archivo_invalido_no_repetido_android', reason: 'No se altera el filtro accept nativo para introducir un ejecutable; rechazo backend y escritorio conservados en evidencia previa.' })
   await p.file('#dc-archivo', [pdf])
   const doc = await p.action('carga_documento_ui', () => p.click('Adjuntar documento'), '/api/profesionales/mis-documentos/subir/', 'POST', [201])
   s.document_id = ident(doc, 'id_documento')
@@ -105,6 +108,8 @@ export async function onboarding(h) {
   }
   if (!h.completed('confirmar_contacto_entrevista_sintetico_ui')) {
   await a.navigate('/administracion/validaciones'); await a.click('Gestionar entrevistas', 'main', false)
+  await a.ready()
+  await a.wait(`!![...document.querySelectorAll('.va-item')].find(e=>e.innerText.includes('Bloque #${s.interview_block_id}'))`, 'bloque_reservado_no_cargado')
   await a.evaluate(`(()=>{const e=[...document.querySelectorAll('.va-item')].find(e=>e.innerText.includes('Bloque #${s.interview_block_id}'));if(e)e.dataset.e2eInterview='true'})()`)
   h.interventions.push({ kind: 'contacto_humano_simulado', operation: 'confirmacion_mediante_ui_sin_envio_real' })
   await a.action('confirmar_contacto_entrevista_sintetico_ui', () => a.click('Marcar como contactado', '[data-e2e-interview=true]'), `/api/profesionales/administracion/entrevistas/${s.interview_id}/contacto/`)
