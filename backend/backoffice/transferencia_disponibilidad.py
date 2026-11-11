@@ -1,15 +1,15 @@
 """Consulta limitada de habilitación bancaria para el flujo empresarial.
 
-No revela cuentas, no crea pagos, no registra comprobantes.
-La referencia firmada debe corresponder a la prestación consultada.
+No crea pagos ni registra comprobantes. La cuenta principal solo se entrega
+si la referencia firmada corresponde a una prestación habilitada para contratar.
 """
 from django.db import connection
-from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from coordinacion.models import PrestacionServicio
+from config.identidad_bancaria import identidad_bancaria_autorizada
 from solicitudes.referencias import leer_referencia_seguimiento
 from pagos.models import Pago
 
@@ -42,7 +42,7 @@ class DisponibilidadTransferenciaEmpresaView(APIView):
         with connection.cursor() as cursor:
             cursor.execute('SELECT current_database(), current_schema(), current_user')
             identidad = cursor.fetchone()
-            if identidad != ('skilly', 'skilly', 'skilly_app'):
+            if not identidad_bancaria_autorizada(connection, identidad):
                 return Response({'disponible': False,
                     'mensaje': 'Transferencia no disponible en esta instalación.'}, status=503)
             cursor.execute("""SELECT EXISTS (

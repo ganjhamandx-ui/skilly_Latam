@@ -2,7 +2,6 @@ from seguimiento.aceptacion_politica_e3 import bloquear_pago_sin_aceptacion
 from datetime import datetime
 from uuid import uuid4
 from django.core.files.storage import default_storage
-from django.db import connection
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from django.db import transaction, connection
 from django.utils import timezone
@@ -21,6 +20,7 @@ from backoffice.models import (
     ParametroSistema,
 )
 from backoffice.services import registrar_evento_trazabilidad
+from config.identidad_bancaria import identidad_bancaria_autorizada
 from coordinacion.models import PrestacionServicio
 from marketplace.serializers import normalizar_precio_clp
 from profesionales.models import Profesional
@@ -465,7 +465,7 @@ class IniciarPagoTransferenciaEmpresaView(APIView):
                 )
             with connection.cursor() as cursor:
                 cursor.execute('SELECT current_database(), current_schema(), current_user')
-                if cursor.fetchone() != ('skilly', 'skilly', 'skilly_app'):
+                if not identidad_bancaria_autorizada(connection, cursor.fetchone()):
                     return Response({'mensaje': 'Transferencias bancarias no disponibles en esta instalación.'}, status=503)
                 cursor.execute(
                     'LOCK TABLE skilly.cuenta_bancaria_skilly IN SHARE ROW EXCLUSIVE MODE'

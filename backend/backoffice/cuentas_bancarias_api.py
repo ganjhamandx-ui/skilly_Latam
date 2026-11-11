@@ -1,5 +1,4 @@
 """API administrativa bancaria, protegida por sesion y base de datos SKILLY."""
-from django.conf import settings
 from django.db import connections, transaction, IntegrityError
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -8,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from acceso.authentication import SesionSkillyAuthentication
 from acceso.permissions import EsAdministracionSkilly
+from config.identidad_bancaria import identidad_bancaria_autorizada
 from .validacion_bancaria import validar_cuenta, DatosBancariosInvalidos
 from .cuentas_bancarias_models import CuentaBancariaSkilly as Cuenta, HistorialCuentaBancariaSkilly as Cambio
 
@@ -15,14 +15,16 @@ CAMPOS = ('titular', 'rut_titular', 'banco', 'tipo_cuenta', 'numero_cuenta', 'co
 
 
 def base_ensayo():
-    """Permite solamente el esquema productivo esperado; fallo cerrado."""
+    """Exige la base configurada, esquema/rol autorizados y tablas bancarias."""
     alias = 'default'
-    with connections[alias].cursor() as cursor:
+    conexion = connections[alias]
+    with conexion.cursor() as cursor:
         cursor.execute('SELECT current_database(), current_schema(), current_user')
-        base, esquema, usuario = cursor.fetchone()
+        if not identidad_bancaria_autorizada(conexion, cursor.fetchone()):
+            return None
         cursor.execute("SELECT to_regclass('skilly.cuenta_bancaria_skilly') IS NOT NULL AND to_regclass('skilly.cuenta_bancaria_skilly_historial') IS NOT NULL")
         tablas = cursor.fetchone()[0]
-    if (base, esquema, usuario) != ('skilly', 'skilly', 'skilly_app') or not tablas:
+    if not tablas:
         return None
     return alias
 
