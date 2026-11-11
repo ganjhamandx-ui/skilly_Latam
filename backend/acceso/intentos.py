@@ -10,6 +10,8 @@ from django.utils.crypto import salted_hmac
 from rest_framework.exceptions import APIException, Throttled
 from rest_framework.throttling import BaseThrottle
 
+from .cache import RedisIntentosCache
+
 
 class IntentosExcesivos(Throttled):
     default_detail = "Demasiados intentos. Espera antes de volver a intentarlo."
@@ -86,21 +88,36 @@ class LimiteIntentosAcceso(BaseThrottle):
         campo = "token" if alcance == "restablecer" else "correo"
         valor = request.data.get(campo, "") if isinstance(request.data, dict) else ""
         identidad = str(valor).strip().casefold() if campo == "correo" else str(valor)
-        ahora = time.time()
         try:
             cache = caches[settings.ACCESO_CACHE_ALIAS]
         except Exception:
             raise ControlIntentosNoDisponible() from None
-        esperas = []
+        reglas_cache = []
         for tipo, dato in (("ip", ip), ("identidad_ip", f"{ip}\0{identidad}")):
             huella = salted_hmac(
                 f"skilly.acceso.intentos.{alcance}.{tipo}", dato, algorithm="sha256",
             ).hexdigest()
             for limite, ventana in _reglas(configuracion[tipo]):
+                clave_base = f"skilly:intentos:{alcance}:{tipo}:{huella}:{ventana}"
+                reglas_cache.append((clave_base, limite, ventana))
+        esperas = []
+        if isinstance(cache, RedisIntentosCache):
+            try:
+                resultados = cache.incrementar_ventanas([
+                    (clave, ventana) for clave, _limite, ventana in reglas_cache
+                ])
+                for (_clave, limite, _ventana), (cuenta, espera) in zip(reglas_cache, resultados, strict=True):
+                    if cuenta > limite:
+                        esperas.append(espera)
+            except Exception:
+                raise ControlIntentosNoDisponible() from None
+        else:
+            ahora = time.time()
+            for clave_base, limite, ventana in reglas_cache:
                 cubeta = math.floor(ahora / ventana)
                 vence = (cubeta + 1) * ventana
                 ttl = max(1, math.ceil(vence - ahora))
-                clave = f"skilly:intentos:{alcance}:{tipo}:{huella}:{ventana}:{cubeta}"
+                clave = f"{clave_base}:{cubeta}"
                 try:
                     if cache.add(clave, 1, timeout=ttl):
                         cuenta = 1

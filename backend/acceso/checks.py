@@ -1,19 +1,20 @@
 """Validacion local de limites; nunca abre conexiones al backend de cache."""
 import ipaddress
+from importlib.util import find_spec
 
 from django.conf import settings
 from django.core.checks import Error, Tags, Warning, register
 from django.core.exceptions import ImproperlyConfigured
 
 from .intentos import _reglas
+from config.cache_acceso import LOCAL, REDIS_ATOMICO, timeout_redis, ubicacion_redis_valida
 
 
 ATOMICO_COMPARTIDO = {
-    "django.core.cache.backends.redis.RedisCache",
+    REDIS_ATOMICO,
     "django.core.cache.backends.memcached.PyMemcacheCache",
     "django.core.cache.backends.memcached.PyLibMCCache",
 }
-LOCAL = "django.core.cache.backends.locmem.LocMemCache"
 
 
 @register(Tags.security)
@@ -35,9 +36,28 @@ def configuracion_limites_acceso(app_configs, **kwargs):
     if configuracion.get("BACKEND") not in ATOMICO_COMPARTIDO | {LOCAL}:
         errores.append(Error(
             "El control de acceso necesita un backend con add/incr atomicos.",
-            hint="Usar LocMem solo localmente, o Redis/Memcached compartido.",
+            hint="Usar LocMem localmente, RedisIntentosCache o Memcached compartido.",
             id="acceso.E002",
         ))
+    if configuracion.get('BACKEND') == REDIS_ATOMICO:
+        try:
+            opciones = configuracion.get('OPTIONS', {})
+            if not ubicacion_redis_valida(configuracion.get('LOCATION')):
+                raise ImproperlyConfigured('Endpoint invalido.')
+            for nombre in ('socket_timeout', 'socket_connect_timeout'):
+                timeout_redis(opciones.get(nombre, 1))
+        except (ImproperlyConfigured, TypeError, AttributeError):
+            errores.append(Error(
+                'Configuracion invalida del contador Redis de acceso.',
+                hint='Usar un endpoint unico y timeouts acotados; no incluir opciones en la URL.',
+                id='acceso.E003',
+            ))
+        if find_spec('redis') is None:
+            errores.append(Error(
+                'Falta el driver del backend Redis de acceso.',
+                hint='Instalar las dependencias declaradas antes de habilitar Redis.',
+                id='acceso.E004',
+            ))
     return errores
 
 
@@ -46,7 +66,7 @@ def cache_acceso_compartida(app_configs, **kwargs):
     configuracion = settings.CACHES.get(settings.ACCESO_CACHE_ALIAS, {})
     if configuracion.get("BACKEND") not in ATOMICO_COMPARTIDO:
         return [Warning(
-            "Los limites de acceso usan memoria local y no se comparten entre procesos.",
+            "Los limites de acceso no tienen un backend compartido validado.",
             hint="Configurar Redis o Memcached compartido y su driver antes de varios trabajadores.",
             id="acceso.W001",
         )]

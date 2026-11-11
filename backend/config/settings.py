@@ -6,6 +6,7 @@ from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 from .origenes import normalizar_origen_frontend, ORIGEN_FRONTEND_POR_DEFECTO
+from .cache_acceso import configurar_cache_acceso
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -233,12 +234,7 @@ RECUPERACION_MINUTOS = int(
 # configurar un backend atomico compartido (Redis o Memcached y su driver).
 CACHES = {
     "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
-    "acceso_intentos": {
-        "BACKEND": os.getenv(
-            "ACCESO_CACHE_BACKEND", "django.core.cache.backends.locmem.LocMemCache",
-        ),
-        "LOCATION": os.getenv("ACCESO_CACHE_LOCATION", "skilly-acceso-local"),
-    },
+    "acceso_intentos": configurar_cache_acceso(os.environ),
 }
 ACCESO_CACHE_ALIAS = "acceso_intentos"
 ACCESO_PROXIES_CONFIABLES = obtener_lista("ACCESO_PROXIES_CONFIABLES")
