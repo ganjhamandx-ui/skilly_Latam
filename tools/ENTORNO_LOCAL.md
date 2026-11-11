@@ -130,6 +130,57 @@ los archivos se conserva en `reused_context`; no implica dependencia de un
 supervisor ya cerrado. No se transfieren propiedades ni se detienen otros
 supervisores o Memurai de forma implícita.
 
+## Reanudar después de reiniciar el equipo
+
+No iniciar una segunda instancia mientras siga activo el entorno actual. Tras
+un cierre controlado, `--reutilizar-contexto` conserva el clúster y los archivos
+privados del último contexto; el launcher puede arrancar de nuevo ese clúster.
+No restaurar un dump ni omitir la reutilización para resolver un arranque: esto
+podría sustituir las cargas posteriores por los archivos del respaldo inicial.
+
+Si el reinicio interrumpió al supervisor y no existe un cierre completo, añadir
+`--reanudar-tras-reinicio` al mismo comando de arranque. Esta opción exige también
+`--reutilizar-contexto`:
+
+```powershell
+& 'C:\ruta\skilly\.venv\Scripts\python.exe' -B 'C:\ruta\skilly\tools\entorno_local_skilly.py' iniciar --respaldo 'C:\ruta\SKILLY_recuperacion_identificador' --cluster 'C:\ruta\SKILLY_recuperacion_identificador\ensayo_aislado_identificador\cluster' --conexion 'C:\ruta\SKILLY_recuperacion_identificador\conexion_privada.env' --admin 'C:\ruta\SKILLY_recuperacion_identificador\ensayo_aislado_identificador\conexion_aislada.env' --reutilizar-contexto 'C:\ruta\SKILLY_recuperacion_identificador\local_activo_anterior\contexto.json' --reanudar-tras-reinicio --workers 2 --cache-contexto 'C:\ruta\SKILLY_recuperacion_identificador\cache_activa_nueva\conexion_privada.json' --backend-port 49123 --backend2-port 49124 --frontend-port 49125
+```
+
+Los puertos son ejemplos: comprobar que estén libres y conservar los elegidos
+para ese entorno cuando sea posible. Un conflicto falla sin detener el proceso
+que lo ocupa. La opción de recuperación prueba un nuevo arranque del sistema
+frente al `system_boot_time` guardado en el contexto anterior. Para contextos
+antiguos comprueba que la fecha del `contexto.json` original sea anterior al
+arranque actual; no utiliza el puntero del repositorio. Si no puede confirmar
+el reinicio, devuelve `system_restart_not_confirmed` sin iniciar PostgreSQL.
+
+Se revisan los PID anteriores del supervisor, backends, frontends y launchers.
+Los PID ausentes se registran como tales. Si Windows reutilizó uno, su fecha de
+creación debe ser posterior al nuevo arranque: se deja intacto y no se leen sus
+argumentos. Si la identidad resulta inaccesible o contradice el arranque, la
+recuperación se bloquea. No se termina ningún proceso anterior ni se fabrican
+`stop.flag` o `cierre.json`; la evidencia previa de un cierre incompleto se
+conserva. El contexto nuevo registra la recuperación, sin presentar al antiguo
+supervisor como una dependencia todavía viva.
+
+Después se mantienen las verificaciones habituales de directorio de PostgreSQL,
+base/esquema/rol de copia y puertos propios. Se reutiliza exactamente el
+`private_root` anterior, incluidas las cargas nuevas; no se copian medios ni se
+modifica la base durante la preparación. `owns_cluster` indica si el supervisor
+nuevo inició PostgreSQL y lo cerrará al terminar.
+
+La caché dedicada es volátil: después de reiniciar el equipo, iniciar una RUN
+nueva mediante `cache_local_skilly.py iniciar` con el binario y SHA256 ya
+verificados y pasar su nueva `conexion_privada.json`. `iniciar --contexto` solo
+reutiliza una instancia cuyo PID sigue vivo; no reinicia un PID antiguo. No
+imprimir el contexto privado ni incluir su contraseña en comandos. El nuevo
+inicio pierde contadores de acceso, sin restaurar ni borrar datos PostgreSQL.
+La conexión privada, la caché y los medios deben permanecer fuera de Git.
+
+El emulador de `ANDROID_NAVEGADOR.md` es independiente y no hace falta iniciarlo
+para usar SKILLY en escritorio. Estos pasos no repiten recorridos ya aprobados,
+no instalan servicios ni cambian el firewall, Voltify o la base original.
+
 ## Detener solo este entorno
 
 ```powershell

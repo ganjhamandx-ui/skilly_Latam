@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import ipaddress
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -18,6 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = '127.0.0.2'
 FORBIDDEN_PORTS = {8000, 5173, 5432}
 STAGE = 'arguments'
+
+
+class RestartRecoveryError(ValueError):
+    """Motivo publico fijo; nunca incorpora argumentos ni errores del SO."""
+    def __init__(self, reason):
+        self.reason = reason
+        super().__init__(reason)
 
 
 def require(condition):
@@ -86,10 +94,10 @@ def validate_worker_count(count, cache):
     return count
 
 
-def private_root_for(backup, runtime, reuse_context, database_port):
+def private_root_for(backup, runtime, reuse_context, database_port, *, after_restart=False):
     if reuse_context is None:
         return runtime / 'backend_files', copy_private_files(backup, runtime), None
-    previous, _closed = reuse_context_details(reuse_context)
+    previous, _closed = reuse_context_details(reuse_context, after_restart=after_restart)
     require(Path(previous['backup_root']).resolve() == backup and previous['database_port'] == database_port)
     private_root = Path(previous.get('private_root', str(Path(previous['run_dir']) / 'backend_files'))).resolve(strict=True)
     require(private_root.is_relative_to(backup) and not private_root.is_relative_to(ROOT)
@@ -99,10 +107,77 @@ def private_root_for(backup, runtime, reuse_context, database_port):
                            'source_root': str(private_root), 'files_copied': 0}], previous
 
 
-def reuse_context_details(path):
+def restart_recovery_report(path, context):
+    """Prueba un nuevo boot y ausencia de los procesos anteriores sin terminarlos."""
+    import psutil
+    try:
+        boot = psutil.boot_time()
+        require(type(boot) in (int, float) and math.isfinite(boot) and boot > 0)
+        previous_boot = context.get('system_boot_time')
+        if previous_boot is None:
+            # Contextos anteriores al registro del boot: se usa solo la fecha
+            # del contexto original externo, nunca la del puntero del proyecto.
+            previous_time = native(path).stat().st_mtime
+            confirmed = previous_time < boot - 1
+            source = 'original_context_mtime_before_current_boot'
+        else:
+            require(type(previous_boot) in (int, float) and math.isfinite(previous_boot) and previous_boot > 0)
+            confirmed = boot > previous_boot + 1
+            source = 'recorded_system_boot_time'
+        if not confirmed:
+            raise RestartRecoveryError('system_restart_not_confirmed')
+
+        pids = [context['backend_pid'], context['frontend_pid'], context['supervisor_pid']]
+        if 'frontend_lan_pid' in context:
+            pids.append(context['frontend_lan_pid'])
+        pids.extend(worker['pid'] for worker in context.get('backend_workers', []))
+        startup_file = native(Path(context['run_dir']) / 'startup.json')
+        if startup_file.exists():
+            startup = read_json(startup_file)
+            require(startup.get('project_root') == str(ROOT))
+            wrappers = startup.get('launcher_pids', [])
+            require(isinstance(wrappers, list) and len(wrappers) <= 4)
+            pids.extend(wrappers)
+        require(all(type(pid) is int and pid > 0 for pid in pids))
+        processes = []
+        for pid in sorted(set(pids)):
+            try:
+                process = psutil.Process(pid)
+                created = process.create_time()
+                require(type(created) in (int, float) and math.isfinite(created) and created > 0)
+                if created < boot - 1:
+                    raise RestartRecoveryError('previous_process_not_proven_absent')
+                processes.append({'pid': pid, 'state': 'pid_reused_after_restart_left_untouched'})
+            except psutil.NoSuchProcess:
+                processes.append({'pid': pid, 'state': 'absent'})
+        return {'system_restart_confirmed': True, 'current_system_boot_time': boot,
+                'confirmation_source': source, 'previous_processes': processes,
+                'processes_terminated': False, 'previous_context_modified': False}
+    except RestartRecoveryError:
+        raise
+    except (psutil.Error, OSError, ValueError, TypeError, KeyError):
+        raise RestartRecoveryError('previous_process_identity_unavailable') from None
+
+
+def reuse_context_details(path, *, after_restart=False):
     context = context_from(path)
     run = Path(context['run_dir'])
     marker, closure_file = native(run / 'stop.flag'), native(run / 'cierre.json')
+    if after_restart:
+        # Un reinicio puede interrumpir tambien un cierre ya solicitado. No se
+        # falsifica ni completa su evidencia: se conserva y verifica el boot.
+        context['restart_recovery'] = restart_recovery_report(path, context)
+        closed = False
+        if marker.is_file() and closure_file.is_file():
+            try:
+                closure = read_json(closure_file)
+                closed = closure.get('own_children_closed') is True and closure.get('other_processes_touched') is False
+            except (ValueError, OSError, AttributeError):
+                # Un apagado durante write_text puede dejar JSON parcial. El
+                # nuevo boot ya probo la ausencia de los procesos anteriores.
+                pass
+        context['restart_recovery']['previous_closure_verified'] = closed
+        return context, closed
     if marker.exists():
         require(marker.is_file() and closure_file.is_file())
         closure = read_json(closure_file)
@@ -293,6 +368,9 @@ def start(args):
     global STAGE
     from dotenv import dotenv_values
     import psycopg
+    import psutil
+    if args.reanudar_tras_reinicio and not args.reutilizar_contexto:
+        raise RestartRecoveryError('restart_recovery_requires_previous_context')
     backup = Path(args.respaldo).resolve(strict=True)
     cluster = Path(args.cluster).resolve(strict=True)
     config_file, admin_file = Path(args.conexion).resolve(strict=True), Path(args.admin).resolve(strict=True)
@@ -319,7 +397,8 @@ def start(args):
     backend, frontend = f'http://{HOST}:{backend_port}', f'http://{HOST}:{frontend_port}'
     lan_origin = f'http://{lan}:{lan_port}' if lan else None
     frontend_origins = [frontend] + ([lan_origin] if lan_origin else [])
-    _reuse_previous, reuse_closed = reuse_context_details(args.reutilizar_contexto) if args.reutilizar_contexto else (None, False)
+    STAGE = 'previous_context_restart_validation' if args.reanudar_tras_reinicio else 'previous_context_validation'
+    _reuse_previous, reuse_closed = reuse_context_details(args.reutilizar_contexto, after_restart=args.reanudar_tras_reinicio) if args.reutilizar_contexto else (None, False)
     environment = os.environ.copy()
     for name in list(environment):
         if name.startswith(('PG', 'POSTGRES_')):
@@ -330,7 +409,8 @@ def start(args):
     ctx = {'project_root': str(ROOT), 'run_dir': str(runtime), 'backup_root': str(backup),
            'host': HOST, 'backend_origin': backend, 'frontend_origin': frontend,
            'database_port': database_port, 'isolated_database': True,
-           'operational_env_modified': False, 'external_payments_and_mail': False}
+           'operational_env_modified': False, 'external_payments_and_mail': False,
+           'system_boot_time': psutil.boot_time()}
     if lan:
         ctx.update(frontend_lan_host=lan, frontend_lan_origin=lan_origin)
     if cache:
@@ -344,7 +424,7 @@ def start(args):
         STAGE = 'cluster_start'
         existing = subprocess.run([str(pg_bin / 'pg_ctl.exe'), '-D', str(cluster), 'status'],
                                   capture_output=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
-        if args.reutilizar_contexto and not reuse_closed:
+        if args.reutilizar_contexto and not reuse_closed and not args.reanudar_tras_reinicio:
             require(existing.returncode == 0)
         if existing.returncode == 3:
             pg(['-l', str(runtime / 'postgres.log'), '-o', f'-h 127.0.0.1 -p {database_port} -c log_min_messages=panic -c log_min_error_statement=panic -c log_statement=none', '-w', 'start'])
@@ -356,14 +436,17 @@ def start(args):
             require(Path(connection.execute('SHOW data_directory').fetchone()[0]).resolve() == cluster)
         with psycopg.connect(dbname='skilly', user=cfg['POSTGRES_USER'], password=cfg['POSTGRES_PASSWORD'], host='127.0.0.1', port=database_port, options='-c search_path=skilly,public -c default_transaction_read_only=on', connect_timeout=5) as connection:
             require(connection.execute('SELECT current_database(),current_schema(),current_user,inet_server_port()').fetchone() == ('skilly', 'skilly', 'skilly_app', database_port))
-        private_root, ctx['private_files'], previous = private_root_for(backup, runtime, args.reutilizar_contexto, database_port)
+        private_root, ctx['private_files'], previous = private_root_for(backup, runtime, args.reutilizar_contexto, database_port, after_restart=args.reanudar_tras_reinicio)
         ctx['private_root'] = str(private_root)
         ctx['cluster_started_by_this_supervisor'] = started
         ctx['owns_cluster'] = started
         if previous:
             ctx['reused_context'] = str(Path(args.reutilizar_contexto).resolve())
             ctx['reused_context_closed'] = reuse_closed
-            if not reuse_closed:
+            if args.reanudar_tras_reinicio:
+                ctx['reused_after_system_restart'] = True
+                ctx['restart_recovery'] = previous['restart_recovery']
+            elif not reuse_closed:
                 ctx['cluster_dependency_context'] = str(Path(args.reutilizar_contexto).resolve())
         if cache:
             STAGE = 'cache_readiness'
@@ -471,6 +554,7 @@ def main():
     start_parser.add_argument('--frontend-lan-host')
     start_parser.add_argument('--frontend-lan-port', type=int, default=0)
     start_parser.add_argument('--reutilizar-contexto')
+    start_parser.add_argument('--reanudar-tras-reinicio', action='store_true')
     start_parser.add_argument('--cache-contexto')
     start_parser.add_argument('--cache-db', type=int, default=15)
     start_parser.add_argument('--pg-bin', default=r'C:\Program Files\PostgreSQL\18\bin')
@@ -511,5 +595,8 @@ if __name__ == '__main__':
         main()
     except Exception as error:
         kind = type(error).__name__ if type(error).__name__ in ('ValueError', 'FileNotFoundError', 'PermissionError', 'JSONDecodeError') else 'LocalEnvironmentError'
-        print(json.dumps({'completed': False, 'stage': STAGE, 'error_type': kind}), flush=True)
+        report = {'completed': False, 'stage': STAGE, 'error_type': kind}
+        if isinstance(error, RestartRecoveryError):
+            report['reason'] = error.reason
+        print(json.dumps(report), flush=True)
         raise SystemExit(1) from None
