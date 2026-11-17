@@ -23,11 +23,16 @@ def conservar_flujo_historico(apps, schema_editor):
             estado_alternativa = "PROPUESTA_ADMIN"
         elif solicitud.estado == "PENDIENTE_ORGANIZACION":
             solicitud.profesional_confirmo_bloque = True
-            acepto_propuesta = Evento.objects.filter(
-                reagendamiento_id=solicitud.pk,
-                accion="ACEPTAR",
-            ).exists()
-            if acepto_propuesta:
+            ultima_respuesta = (
+                Evento.objects.filter(
+                    reagendamiento_id=solicitud.pk,
+                    accion__in=["ACEPTAR", "CREAR_ALTERNATIVA"],
+                )
+                .order_by("-fecha", "-id")
+                .values_list("accion", flat=True)
+                .first()
+            )
+            if ultima_respuesta == "ACEPTAR":
                 # Bajo la regla bilateral definitiva, la organización que inició
                 # el trámite no debe volver a aceptar el bloque ya confirmado.
                 solicitud.organizacion_autorizo_cambio = True

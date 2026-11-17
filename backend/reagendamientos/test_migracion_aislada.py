@@ -74,6 +74,14 @@ with connection.cursor() as cursor:
             actor, accion, detalle, fecha, reagendamiento_id
         ) VALUES (%s, %s, %s, %s, %s)
         """,
+        ["PROFESIONAL", "ACEPTAR", "aceptación anterior", "2026-01-01T18:00:00+00:00", 4],
+    )
+    cursor.execute(
+        """
+        INSERT INTO evento_reagendamiento (
+            actor, accion, detalle, fecha, reagendamiento_id
+        ) VALUES (%s, %s, %s, %s, %s)
+        """,
         ["PROFESIONAL", "CREAR_ALTERNATIVA", "alternativa histórica", "2026-01-02T12:00:00+00:00", 4],
     )
 
