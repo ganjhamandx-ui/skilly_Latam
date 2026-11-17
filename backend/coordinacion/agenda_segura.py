@@ -66,6 +66,31 @@ class GestionAgendaPrestacionSeguraAdministracionView(
                 PrestacionServicio.objects.select_for_update(),
                 pk=id_prestacion,
             )
+            # Una solicitud bilateral abierta no puede ser omitida usando la
+            # ruta administrativa directa. Solo el cierre formal, después de
+            # todas las autorizaciones, incorpora este marcador interno.
+            from reagendamientos.models import (
+                ESTADOS_ABIERTOS,
+                SolicitudReagendamiento,
+            )
+
+            caso_formal = (
+                SolicitudReagendamiento.objects.select_for_update()
+                .filter(prestacion_id=prestacion.pk, estado__in=ESTADOS_ABIERTOS)
+                .first()
+            )
+            caso_formal_id = getattr(
+                request, "_solicitud_reagendamiento_id", None
+            )
+            if caso_formal is not None and (
+                accion != "REAGENDAR"
+                or caso_formal_id != caso_formal.pk
+                or caso_formal.estado != "LISTO_CONFIRMAR"
+            ):
+                return conflicto(
+                    "Existe una solicitud formal de reagendamiento abierta. "
+                    "Debe resolverse desde su expediente bilateral."
+                )
             if prestacion.estado in {"FINALIZADA", "CANCELADA"}:
                 return conflicto(
                     "La prestación está cerrada y no admite cambios de agenda."
@@ -252,6 +277,13 @@ class GestionAgendaPrestacionSeguraAdministracionView(
                 return conflicto(
                     "El identificador del nuevo bloque debe ser un entero positivo.",
                     status.HTTP_400_BAD_REQUEST,
+                )
+            if (
+                caso_formal is not None
+                and caso_formal.bloque_propuesto_id != id_nuevo
+            ):
+                return conflicto(
+                    "El bloque no coincide con el horario autorizado en el expediente."
                 )
 
             # REAGENDAR desde POSTERGADA reactiva sin volver a cobrar.

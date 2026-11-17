@@ -66,6 +66,24 @@ test('el envío conserva el cuerpo y usa el token recibido por la API', async (t
   assert.equal(llamadas[1][1].headers['Content-Type'], 'application/json')
 })
 
+test('multipart conserva FormData sin fijar Content-Type', async (t) => {
+  const llamadas = []
+  t.mock.method(globalThis, 'fetch', async (...args) => {
+    llamadas.push(args)
+    return respuesta(llamadas.length === 1
+      ? { csrfToken: 'token-ficticio-de-prueba' }
+      : { mensaje: 'Solicitud registrada.' })
+  })
+  const body = new FormData()
+  body.set('accion', 'SOLICITAR_PROFESIONAL')
+  await solicitudReagendamiento('/api/reagendamientos/profesional/', {
+    method: 'POST', body,
+  })
+  assert.equal(llamadas[1][1].body, body)
+  assert.equal(Object.hasOwn(llamadas[1][1].headers, 'Content-Type'), false)
+  assert.equal(llamadas[1][1].headers['X-CSRFToken'], 'token-ficticio-de-prueba')
+})
+
 test('un error de acción conserva el detalle de negocio y admite un reintento', async (t) => {
   let solicitudes = 0
   t.mock.method(globalThis, 'fetch', async (url) => {

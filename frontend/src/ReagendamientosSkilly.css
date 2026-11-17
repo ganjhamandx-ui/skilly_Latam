@@ -27,3 +27,71 @@
 .rea-panel .rea-advertencia { border-left: 3px solid #a47a38; background: #faf6ec; color: #71562d; padding: .75rem .9rem; border-radius: 5px; }
 .rea-cierre { margin-top: .85rem; padding: .6rem .2rem; }
 .rea-cierre summary { cursor: pointer; font-weight: 600; color: #395b51; }
+
+/* Política: se muestra únicamente tras una acción explícita y bloquea el
+   formulario hasta que la persona acepte la versión vigente. */
+.rea-modal-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(19 42 38 / 62%);
+}
+.rea-modal {
+  width: min(38rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1.35rem;
+  border: 1px solid #c6d8ce;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgb(14 44 36 / 28%);
+}
+.rea-modal h3 { margin: 0 0 .8rem; color: #224642; }
+.rea-modal p { color: #425e55; line-height: 1.55; }
+.rea-panel .rea-secundario { background: #ffffff; color: #285d55; }
+.rea-panel .rea-secundario:hover:not(:disabled) { background: #edf5ef; }
+
+/* Selección de múltiples bloques existentes o nuevos. */
+.rea-alternativas {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #cbdad1;
+  border-radius: 10px;
+}
+.rea-alternativas legend { padding: 0 .35rem; font-weight: 700; color: #2d554c; }
+.rea-lista-bloques { display: grid; gap: .45rem; margin-bottom: .8rem; }
+.rea-panel .rea-opcion-bloque {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: .65rem;
+  margin: .35rem 0;
+  font-weight: 500;
+}
+.rea-panel .rea-opcion-bloque input {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: .15rem;
+  padding: 0;
+}
+.rea-bloque-nuevo {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.4fr) repeat(2, minmax(7rem, 1fr)) auto;
+  align-items: end;
+  gap: .65rem;
+  margin: .75rem 0;
+  padding: .75rem;
+  border-radius: 8px;
+  background: #f4f8f5;
+}
+.rea-bloque-nuevo label { margin: 0; }
+.rea-bloque-nuevo button { margin-bottom: 0; }
+
+@media(max-width:760px) {
+  .rea-bloque-nuevo { grid-template-columns: 1fr; }
+  .rea-modal { padding: 1rem; }
+}

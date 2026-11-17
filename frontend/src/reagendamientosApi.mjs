@@ -6,6 +6,7 @@ function mensajeDeError(datos, codigo) {
 
 export async function solicitudReagendamiento(url, opciones = {}) {
   const escritura = opciones.method && opciones.method !== 'GET'
+  const esFormulario = typeof FormData !== 'undefined' && opciones.body instanceof FormData
   let token = null
   if (escritura) {
     const respuesta = await fetch('/api/acceso/csrf/', {
@@ -21,8 +22,9 @@ export async function solicitudReagendamiento(url, opciones = {}) {
     credentials: 'same-origin', cache: 'no-store', ...opciones,
     headers: {
       Accept: 'application/json',
-      ...(opciones.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(opciones.body && !esFormulario ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { 'X-CSRFToken': token } : {}),
+      ...(opciones.headers || {}),
     },
   })
   const datos = await respuesta.json().catch(() => ({}))
