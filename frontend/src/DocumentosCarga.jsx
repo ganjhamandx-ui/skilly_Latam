@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { accionCargaDocumento } from './documentosCargaPolitica.mjs'
 import './DocumentosCarga.css'
 
 function obtenerError(datos, codigo) {
@@ -173,8 +174,7 @@ export default function DocumentosCarga() {
         if (respuesta.status === 404) {
           throw new Error(
             'El registro existe, pero el archivo original no está disponible para descargar. ' +
-            'Puedes adjuntar otra versión con el mismo tipo de documento. ' +
-            'La nueva carga no elimina el registro anterior.',
+            'El registro histórico y su estado de revisión se mantienen disponibles.',
           )
         }
         throw new Error(`No fue posible descargar (HTTP ${respuesta.status}).`)
@@ -258,8 +258,9 @@ return (
           <p className="dc-exito" role="status">{avisoNuevaVersion}</p>
         )}
         <p className="dc-instruccion">
-          Para corregir un documento rechazado, utiliza «Adjuntar otra versión»
-          de ese archivo. Las versiones anteriores permanecen disponibles.
+          {idReemplazado
+            ? 'Estás corrigiendo un documento rechazado. La versión anterior permanecerá en el historial.'
+            : 'Adjunta un documento nuevo. Esta acción no reemplaza ni elimina documentos aprobados o anteriores.'}
         </p>
         <div className="dc-campo">
           <label htmlFor="dc-tipo">Tipo de documento *</label>
@@ -300,7 +301,11 @@ return (
           className="pp-boton"
           disabled={enviando || !politica || !archivo || !tipo}
         >
-          {enviando ? 'Subiendo documento...' : 'Adjuntar documento'}
+          {enviando
+            ? 'Subiendo documento...'
+            : idReemplazado
+              ? 'Enviar corrección del rechazado'
+              : 'Adjuntar nuevo documento'}
         </button>
       </form>
       )}
@@ -340,7 +345,9 @@ return (
               </span>
             </div>
 
-            {registros.map((documento, indice) => (
+            {registros.map((documento, indice) => {
+              const accionCarga = accionCargaDocumento(documento, politica, indice)
+              return (
               <article
                 className="dc-documento"
                 key={documento.id_documento}
@@ -366,13 +373,13 @@ return (
                 </div>
 
                 <div className="dc-acciones">
-                  {((documento.estado_revision === 'RECHAZADA' && politica?.ids_rechazados?.includes(documento.id_documento)) || (politica?.nuevos_permitidos && indice === 0)) && (
+                  {accionCarga && (
                     <button
                       type="button"
                       className="pp-boton pp-secundario"
                       onClick={() => prepararNuevaVersion(documento)}
                     >
-                      Adjuntar otra versi&oacute;n
+                      {accionCarga.etiqueta}
                     </button>
                   )}
                   <button
@@ -384,7 +391,8 @@ return (
                   </button>
                 </div>
               </article>
-            ))}
+              )
+            })}
           </section>
         ))}
       </div>
