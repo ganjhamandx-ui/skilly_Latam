@@ -93,9 +93,16 @@ id_ed25519*
 /.skilly_backups/
 /RESPALDO_*/
 /*.zip
+*.respaldo-*
 /evidencias_entrega2/
 /backend/entregas_privadas_e3/
 /backend/archivos_privados/
+
+# Documentación académica y reporte operativo se entregan fuera del código
+*.docx
+*.xlsx
+*.xls
+/INFORME_CAMBIOS_E_IMPACTO_DOCUMENTAL.md
 
 # Resultados locales de analisis, nunca credenciales ni artefactos en Git
 .scannerwork/
