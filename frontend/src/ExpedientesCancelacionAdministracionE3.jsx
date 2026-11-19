@@ -152,9 +152,19 @@ export default function ExpedientesCancelacionAdministracionE3() {
         {elegido.estado === 'RESUELTO' ? <div className="adm-nota">
           <h3>Evaluación guardada: {elegido.decision}</h3><p>{elegido.fundamento}</p>
           <p>Porcentaje consultado: {elegido.porcentaje_referencia}% · Pago retenido verificado: {pesos(elegido.monto_total)}</p>
-          <p>Trabajo acreditado: {pesos(elegido.monto_trabajo)} · Cargo teórico: {pesos(elegido.cargo_teorico)}</p>
-          <p><strong>Cargo aplicado: {pesos(elegido.cargo_ejecutado)}</strong> · Saldo propuesto para devolución: {pesos(elegido.devolucion_propuesta)}</p>
-          <p>Sin movimiento bancario ni cancelación automática. El cálculo teórico no autoriza cobro sin aceptación contractual previa.</p>
+          {elegido.desglose_economico ? <>
+            <h4>Desglose previsto de la cancelación</h4>
+            <p>Trabajo parcial bruto: {pesos(elegido.monto_trabajo)}</p>
+            <p>Comisión SKILLY sobre trabajo ({Number(elegido.desglose_economico.porcentaje_comision_servicio).toLocaleString('es-CL')}%): {pesos(elegido.desglose_economico.comision_skilly_trabajo)}</p>
+            <p><strong>Neto previsto para el profesional: {pesos(elegido.desglose_economico.neto_profesional_trabajo)}</strong></p>
+            <p>Cargo previsto por cancelación ({Number(elegido.porcentaje_referencia || 0).toLocaleString('es-CL')}% del saldo sin ejecutar): {pesos(elegido.desglose_economico.cargo_skilly_cancelacion)}</p>
+            <p><strong>Total previsto SKILLY: {pesos(elegido.desglose_economico.total_skilly_previsto)}</strong></p>
+            <p><strong>Devolución prevista para la organización: {pesos(elegido.desglose_economico.devolucion_organizacion_prevista)}</strong></p>
+          </> : <>
+            <p>Trabajo acreditado: {pesos(elegido.monto_trabajo)} · Cargo máximo teórico por cancelación: {pesos(elegido.cargo_teorico)}</p>
+            <p>Saldo anterior al cargo: {pesos(elegido.devolucion_propuesta)}</p>
+          </>}
+          <p>Estado de los fondos: pago retenido. Cargo por cancelación autorizado: {pesos(liquidacion?.cargo_autorizado ?? 0)}. Estos valores son estimaciones hasta autorizar la liquidación; no se ha repartido ni devuelto dinero.</p>
         </div> : <form onSubmit={resolver} style={{display:'grid',gap:12,maxWidth:700}}>
           <h3>Evaluación administrativa</h3>
           <label htmlFor="e3-dec">Clasificación de la solicitud</label>
@@ -174,7 +184,8 @@ export default function ExpedientesCancelacionAdministracionE3() {
           <h3>Cierre económico documentado</h3>
           {consultandoLiq ? <p>Consultando liquidación…</p> : liquidacion ? <div className="adm-nota">
             <p><strong>Estado:</strong> {liquidacion.estado}</p>
-            <p><strong>Cargo autorizado:</strong> {pesos(liquidacion.cargo_autorizado)} · <strong>Devolución solicitada:</strong> {pesos(liquidacion.monto_devolucion)}</p>
+            <p><strong>Cargo autorizado por cancelación:</strong> {pesos(liquidacion.cargo_autorizado)} · <strong>Devolución solicitada:</strong> {pesos(liquidacion.monto_devolucion)}</p>
+            {elegido.desglose_economico && <p>Comisión prevista sobre trabajo parcial: {pesos(elegido.desglose_economico.comision_skilly_trabajo)} · Neto profesional previsto: {pesos(elegido.desglose_economico.neto_profesional_trabajo)} · Total SKILLY previsto: {pesos(Number(liquidacion.cargo_autorizado) + Number(elegido.desglose_economico.comision_skilly_trabajo))}</p>}
             <p>Reversa: {liquidacion.id_reversa ? `#${liquidacion.id_reversa} · SOLICITADA`:'No corresponde reversa'}</p>
             <p>Ni el cargo ni la devolución se han ejecutado. La conciliación es independiente.</p>
             {Number(liquidacion.monto_devolucion) > 0 && Number(liquidacion.monto_devolucion) < Number(liquidacion.monto_total) &&
@@ -190,6 +201,7 @@ export default function ExpedientesCancelacionAdministracionE3() {
                 </div> : <form onSubmit={registrarConciliacion} style={{display:'grid',gap:10}}>
                   <p><strong>Devolución pendiente:</strong> {pesos(liquidacion.monto_devolucion)}</p>
                   <p><strong>Trabajo acreditado:</strong> {pesos(liquidacion.monto_trabajo)} · <strong>Cargo autorizado:</strong> {pesos(liquidacion.cargo_autorizado)}</p>
+                  {elegido.desglose_economico && <p>Del trabajo acreditado: comisión SKILLY prevista {pesos(elegido.desglose_economico.comision_skilly_trabajo)} y neto profesional previsto {pesos(elegido.desglose_economico.neto_profesional_trabajo)}. No se han distribuido fondos.</p>}
                   <label htmlFor="e3-conc-fund">Fundamento documental (mínimo 30 caracteres)</label>
                   <textarea id="e3-conc-fund" className="adm-busqueda" rows={4} minLength={30} maxLength={1500} required value={fundamentoConciliacion} onChange={e=>setFundamentoConciliacion(e.target.value)}/>
                   <label><input type="checkbox" checked={confirmaSinDinero} onChange={e=>setConfirmaSinDinero(e.target.checked)}/> Confirmo que es una simulación académica: no se devuelve dinero real.</label>

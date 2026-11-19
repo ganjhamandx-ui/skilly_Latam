@@ -1,7 +1,7 @@
 """Expediente privado de cancelacion; no ejecuta cancelacion ni devolucion."""
 import hashlib
 import os
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import models, transaction
 from django.http import HttpResponse
@@ -97,8 +97,48 @@ def evidencia_validada(archivo):
             'evidencia_contenido': contenido}
 
 
-def datos_expediente(exp):
+
+def desglose_cancelacion_admin(exp, pago, aceptacion):
+    """Proyección interna: no libera, cobra ni devuelve fondos."""
+    if not pago or exp.estado != 'RESUELTO' or exp.monto_trabajo is None:
+        return None
+    if pago.estado_pago != 'RETENIDO' or pago.estado_verificacion != 'VERIFICADO':
+        return None
+    total = Decimal(pago.monto_total)
+    trabajo = Decimal(exp.monto_trabajo)
+    pct_comision = Decimal(pago.porcentaje_comision_aplicado)
+    if (not all(x.is_finite() for x in (total, trabajo, pct_comision))
+            or total <= 0 or trabajo < 0 or trabajo > total
+            or not Decimal('0') <= pct_comision <= Decimal('100')):
+        return None
+    comision = (trabajo * pct_comision / Decimal('100')).quantize(
+        Decimal('0.01'), rounding=ROUND_HALF_UP)
+    neto_profesional = trabajo - comision
+    aceptacion_previa = bool(
+        aceptacion and pago.fecha_pago
+        and aceptacion.fecha_aceptacion <= pago.fecha_pago
+        and exp.porcentaje_referencia is not None
+        and Decimal(exp.porcentaje_referencia) == Decimal(aceptacion.porcentaje_aceptado))
+    cargo_cancelacion = Decimal('0')
+    if (exp.origen == 'ORGANIZACION' and exp.decision == 'INJUSTIFICADA'
+            and aceptacion_previa and exp.cargo_teorico is not None):
+        cargo_cancelacion = Decimal(exp.cargo_teorico)
+    if cargo_cancelacion < 0 or cargo_cancelacion > total - trabajo:
+        return None
+    devolucion_prevista = total - trabajo - cargo_cancelacion
     return {
+        'porcentaje_comision_servicio': str(pct_comision),
+        'comision_skilly_trabajo': str(comision),
+        'neto_profesional_trabajo': str(neto_profesional),
+        'cargo_skilly_cancelacion': str(cargo_cancelacion),
+        'total_skilly_previsto': str(comision + cargo_cancelacion),
+        'devolucion_organizacion_prevista': str(devolucion_prevista),
+        'aceptacion_cancelacion_previa': aceptacion_previa,
+    }
+
+
+def datos_expediente(exp, *, desglose=None):
+    datos = {
         'id_expediente': exp.id_expediente, 'id_prestacion': exp.id_prestacion_id,
         'id_reclamo': exp.id_reclamo_id, 'id_avance': exp.id_avance_id,
         'origen': exp.origen, 'motivo': exp.motivo, 'descripcion': exp.descripcion,
@@ -112,6 +152,9 @@ def datos_expediente(exp):
         'devolucion_propuesta': exp.devolucion_propuesta,
         'nota': 'Evaluacion de expediente. La resolucion de reclamo, cancelacion de prestacion y reversa bancaria son operaciones separadas.',
     }
+    if desglose is not None:
+        datos['desglose_economico'] = desglose
+    return datos
 
 
 def construir_expediente(*, prestacion, origen, data, archivo, usuario=None, id_contacto=None):
@@ -186,8 +229,14 @@ class ExpedientesCancelacionAdminView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
-        expedientes = ExpedienteCancelacion.objects.order_by('-fecha_registro', '-id_expediente')[:100]
-        return Response({'expedientes': [datos_expediente(exp) for exp in expedientes]})
+        expedientes = list(ExpedienteCancelacion.objects.order_by('-fecha_registro', '-id_expediente')[:100])
+        ids = {e.id_prestacion_id for e in expedientes if e.estado == 'RESUELTO'}
+        pagos = {p.id_prestacion_id: p for p in Pago.objects.filter(id_prestacion_id__in=ids)}
+        aceptaciones = {a.id_prestacion_id: a for a in AceptacionPoliticaCancelacion.objects.filter(id_prestacion_id__in=ids)}
+        return Response({'expedientes': [datos_expediente(
+            e, desglose=desglose_cancelacion_admin(
+                e, pagos.get(e.id_prestacion_id), aceptaciones.get(e.id_prestacion_id)))
+            for e in expedientes]})
 
 
 class ExpedienteCancelacionAdminView(APIView):
@@ -198,7 +247,10 @@ class ExpedienteCancelacionAdminView(APIView):
         exp = ExpedienteCancelacion.objects.filter(pk=id_expediente).first()
         if not exp:
             return Response({'mensaje': 'Expediente no encontrado.'}, status=404)
-        return Response({'expediente': datos_expediente(exp)})
+        pago = Pago.objects.filter(id_prestacion_id=exp.id_prestacion_id).first()
+        aceptacion = AceptacionPoliticaCancelacion.objects.filter(id_prestacion_id=exp.id_prestacion_id).first()
+        return Response({'expediente': datos_expediente(
+            exp, desglose=desglose_cancelacion_admin(exp, pago, aceptacion))})
 
     @method_decorator(csrf_protect)
     def patch(self, request, id_expediente):
@@ -246,7 +298,8 @@ class ExpedienteCancelacionAdminView(APIView):
                 usuario=request.user, entidad_tipo='expediente_cancelacion_e3', entidad_id=exp.id_expediente,
                 accion='EVALUAR_CANCELACION', detalle_resumido=f'Expediente {exp.pk} {exp.decision}; cargo ejecutado $0, sin mover dinero.'[:255])
         return Response({'mensaje': 'Evaluación guardada. Cargo efectivamente aplicado: $0. No hubo cancelación ni reembolso automático.',
-                         'expediente': datos_expediente(exp)})
+                         'expediente': datos_expediente(
+                             exp, desglose=desglose_cancelacion_admin(exp, pago, aceptacion))})
 
 
 class EvidenciaCancelacionAdminView(APIView):
