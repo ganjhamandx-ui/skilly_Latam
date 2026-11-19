@@ -103,6 +103,7 @@ class LiquidarCancelacionE3View(APIView):
                 return Response({'mensaje':'El monto del pago no coincide con el expediente evaluado; requiere revisión.'},status=409)
             if ReversaPago.objects.filter(id_pago=pago).exists() or LiquidacionCancelacionE3.objects.filter(id_pago=pago).exists():
                 return Response({'mensaje':'Ya hay una reversa o liquidación vinculada a este pago; evita duplicaciones.'},status=409)
+            # La resolución formal del reclamo es independiente y debe habilitar la reversa.
             if exp.id_reclamo_id:
                 resolucion = ResolucionReclamo.objects.filter(id_reclamo_id=exp.id_reclamo_id).first()
                 if not resolucion:
@@ -111,6 +112,7 @@ class LiquidarCancelacionE3View(APIView):
                     return Response({'mensaje':'La resolución del reclamo debe autorizar una REVERSA.'},status=409)
             else:
                 resolucion = None
+            # Solo se admite el porcentaje aceptado antes del pago, nunca el vigente hoy.
             aceptacion = AceptacionPoliticaCancelacion.objects.filter(id_prestacion=exp.id_prestacion).first()
             aceptacion_previa = bool(aceptacion and pago.fecha_pago and aceptacion.fecha_aceptacion <= pago.fecha_pago)
             porcentaje = Decimal(aceptacion.porcentaje_aceptado) if aceptacion_previa else Decimal('0')
@@ -129,6 +131,7 @@ class LiquidarCancelacionE3View(APIView):
                 return Response({'mensaje':'Monto de resolución de reclamo debe coincidir con devolución autorizada.'},status=409)
             if not devolucion and resolucion:
                 return Response({'mensaje':'No corresponde marcar REVERSA con devolución de cero pesos.'},status=409)
+            # Crear la reversa en estado SOLICITADA no devuelve dinero: el cierre vendrá después.
             rev = None
             if devolucion>0:
                 rev = ReversaPago.objects.create(

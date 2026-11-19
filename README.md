@@ -181,6 +181,7 @@ No se debe abrir el backend como interfaz de usuario ni ejecutar Vite sin el pro
 - Cuentas bancarias y trazabilidad administrativa.
 - Retroalimentación privada y recomendaciones.
 - Cancelaciones y liquidaciones controladas.
+- **Video B:** la administración evalúa el expediente, resuelve el reclamo asociado cuando existe y autoriza la liquidación. Después utiliza un único botón «Finalizar distribución»: el backend documenta en una misma transacción la conciliación y el reparto simulado para organización, profesional y SKILLY. El prototipo no realiza devoluciones ni transferencias bancarias reales; los registros y estados quedan identificados como simulados.
 - Reagendamiento bilateral iniciado por organización o profesional, con política versionada, evidencia privada, alternativas múltiples, espera controlada y aplicación segura de agenda.
 
 ## Comprobaciones técnicas

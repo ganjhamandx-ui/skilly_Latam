@@ -1,3 +1,5 @@
+import CierreEconomicoSimuladoE3 from './CierreEconomicoSimuladoE3.jsx'
+// Bandeja administrativa: evaluación, liquidación y cierre simulado único; sin cobros bancarios.
 import { useEffect, useState } from 'react'
 import AdminNavegacion from './AdminNavegacion.jsx'
 import './Administracion.css'
@@ -24,22 +26,14 @@ export default function ExpedientesCancelacionAdministracionE3() {
   const [fundamentoLiquidacion, setFundamentoLiquidacion] = useState('')
   const [confirmacionSinDinero, setConfirmacionSinDinero] = useState(false)
   const [resultadoLiquidacion, setResultadoLiquidacion] = useState(null)
-  const [resultadoConciliacion, setResultadoConciliacion] = useState(null)
-  const [fundamentoConciliacion, setFundamentoConciliacion] = useState('')
-  const [confirmaSinDinero, setConfirmaSinDinero] = useState(false)
-  const [confirmaRemanente, setConfirmaRemanente] = useState(false)
 
   const elegidoId = elegido?.id_expediente
   const estadoElegido = elegido?.estado
   const liquidacionVigente = resultadoLiquidacion?.id === elegidoId && resultadoLiquidacion?.revision === revision
   const liquidacion = liquidacionVigente ? resultadoLiquidacion.datos : null
   const consultandoLiq = estadoElegido === 'RESUELTO' && !liquidacionVigente
-  const idReversa = liquidacion?.id_reversa
-  const conciliacionVigente = resultadoConciliacion?.id === elegidoId &&
-    resultadoConciliacion?.idReversa === idReversa && resultadoConciliacion?.revision === revision
-  const conciliacion = conciliacionVigente ? resultadoConciliacion.datos : null
-  const cargandoConciliacion = Boolean(idReversa) && !conciliacionVigente
 
+  // Recarga la bandeja cuando cambia la revisión, sin conservar respuestas de una consulta anterior.
   useEffect(() => {
     let activo = true
     fetch(API, { credentials: 'same-origin', cache: 'no-store' })
@@ -49,6 +43,7 @@ export default function ExpedientesCancelacionAdministracionE3() {
     return () => { activo = false }
   }, [revision])
 
+  // El cierre solo se ofrece después de una evaluación resuelta y una liquidación existente.
   useEffect(() => {
     if (!elegidoId || estadoElegido !== 'RESUELTO') return
     const controller = new AbortController()
@@ -59,34 +54,8 @@ export default function ExpedientesCancelacionAdministracionE3() {
     return () => controller.abort()
   }, [elegidoId, estadoElegido, revision])
 
-  useEffect(() => {
-    if (!elegidoId || !idReversa) return
-    const controller = new AbortController()
-    fetch(`${API}${elegidoId}/conciliacion/`, { credentials:'same-origin', cache:'no-store',signal:controller.signal })
-      .then(async r => {const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(textoError(d,r.status));return d})
-      .then(d => {if(!controller.signal.aborted)setResultadoConciliacion({id:elegidoId,idReversa,revision,datos:d.conciliacion})})
-      .catch(e => {if(!controller.signal.aborted){setError(e.message);setResultadoConciliacion({id:elegidoId,idReversa,revision,datos:null})}})
-    return () => controller.abort()
-  }, [elegidoId, idReversa, revision])
 
-  async function registrarConciliacion(e) {
-    e.preventDefault()
-    if (!elegido || !liquidacion || guardando || !confirmaSinDinero || !confirmaRemanente) return
-    if (!window.confirm('¿Registrar simulación documental? NO se devuelve dinero, NO se liquida remanente y el pago permanece retenido.')) return
-    setGuardando(true);setError('');setMensaje('')
-    try {
-      const t=await fetch('/api/acceso/csrf/',{credentials:'same-origin',cache:'no-store'})
-      const token=await t.json().catch(()=>({}));if(!t.ok || !token.csrfToken)throw Error('No se obtuvo CSRF.')
-      const r=await fetch(`${API}${elegido.id_expediente}/conciliacion/`,{
-        method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':token.csrfToken},
-        body:JSON.stringify({fundamento:fundamentoConciliacion,
-          confirmacion_simulacion:confirmaSinDinero,confirmacion_saldo_pendiente:confirmaRemanente})
-      })
-      const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(textoError(d,r.status))
-      setResultadoConciliacion({id:elegidoId,idReversa,revision,datos:d.conciliacion});setMensaje(d.mensaje);setRevision(x=>x+1)
-    } catch(e) {setError(e.message || 'No se registró la conciliación.')} finally {setGuardando(false)}
-  }
-
+  // La liquidación solicita una reversa y conserva la separación respecto del movimiento bancario.
   async function registrarLiquidacion(e) {
     e.preventDefault()
     if (!elegido || guardando || !derechosVerificados || !confirmacionSinDinero) return
@@ -108,6 +77,7 @@ export default function ExpedientesCancelacionAdministracionE3() {
     finally{setGuardando(false)}
   }
 
+  // Evaluar el expediente no sustituye la resolución formal de un reclamo asociado.
   async function resolver(e) {
     e.preventDefault()
     if (!elegido || elegido.estado !== 'PENDIENTE' || guardando) return
@@ -151,20 +121,6 @@ export default function ExpedientesCancelacionAdministracionE3() {
           : <p className="adm-nota">No se adjuntó documentación. La ausencia de archivo no implica automáticamente falta de justificación.</p>}
         {elegido.estado === 'RESUELTO' ? <div className="adm-nota">
           <h3>Evaluación guardada: {elegido.decision}</h3><p>{elegido.fundamento}</p>
-          <p>Porcentaje consultado: {elegido.porcentaje_referencia}% · Pago retenido verificado: {pesos(elegido.monto_total)}</p>
-          {elegido.desglose_economico ? <>
-            <h4>Desglose previsto de la cancelación</h4>
-            <p>Trabajo parcial bruto: {pesos(elegido.monto_trabajo)}</p>
-            <p>Comisión SKILLY sobre trabajo ({Number(elegido.desglose_economico.porcentaje_comision_servicio).toLocaleString('es-CL')}%): {pesos(elegido.desglose_economico.comision_skilly_trabajo)}</p>
-            <p><strong>Neto previsto para el profesional: {pesos(elegido.desglose_economico.neto_profesional_trabajo)}</strong></p>
-            <p>Cargo previsto por cancelación ({Number(elegido.porcentaje_referencia || 0).toLocaleString('es-CL')}% del saldo sin ejecutar): {pesos(elegido.desglose_economico.cargo_skilly_cancelacion)}</p>
-            <p><strong>Total previsto SKILLY: {pesos(elegido.desglose_economico.total_skilly_previsto)}</strong></p>
-            <p><strong>Devolución prevista para la organización: {pesos(elegido.desglose_economico.devolucion_organizacion_prevista)}</strong></p>
-          </> : <>
-            <p>Trabajo acreditado: {pesos(elegido.monto_trabajo)} · Cargo máximo teórico por cancelación: {pesos(elegido.cargo_teorico)}</p>
-            <p>Saldo anterior al cargo: {pesos(elegido.devolucion_propuesta)}</p>
-          </>}
-          <p>Estado de los fondos: pago retenido. Cargo por cancelación autorizado: {pesos(liquidacion?.cargo_autorizado ?? 0)}. Estos valores son estimaciones hasta autorizar la liquidación; no se ha repartido ni devuelto dinero.</p>
         </div> : <form onSubmit={resolver} style={{display:'grid',gap:12,maxWidth:700}}>
           <h3>Evaluación administrativa</h3>
           <label htmlFor="e3-dec">Clasificación de la solicitud</label>
@@ -181,35 +137,12 @@ export default function ExpedientesCancelacionAdministracionE3() {
           <button disabled={guardando || !decision || fundamento.trim().length<20} type="submit" className="adm-secundario">{guardando?'Guardando…':'Guardar evaluación'}</button>
         </form>}
         {elegido.estado === 'RESUELTO' && <div className="adm-panel" style={{marginTop:18}}>
-          <h3>Cierre económico documentado</h3>
-          {consultandoLiq ? <p>Consultando liquidación…</p> : liquidacion ? <div className="adm-nota">
-            <p><strong>Estado:</strong> {liquidacion.estado}</p>
-            <p><strong>Cargo autorizado por cancelación:</strong> {pesos(liquidacion.cargo_autorizado)} · <strong>Devolución solicitada:</strong> {pesos(liquidacion.monto_devolucion)}</p>
-            {elegido.desglose_economico && <p>Comisión prevista sobre trabajo parcial: {pesos(elegido.desglose_economico.comision_skilly_trabajo)} · Neto profesional previsto: {pesos(elegido.desglose_economico.neto_profesional_trabajo)} · Total SKILLY previsto: {pesos(Number(liquidacion.cargo_autorizado) + Number(elegido.desglose_economico.comision_skilly_trabajo))}</p>}
-            <p>Reversa: {liquidacion.id_reversa ? `#${liquidacion.id_reversa} · SOLICITADA`:'No corresponde reversa'}</p>
-            <p>Ni el cargo ni la devolución se han ejecutado. La conciliación es independiente.</p>
-            {Number(liquidacion.monto_devolucion) > 0 && Number(liquidacion.monto_devolucion) < Number(liquidacion.monto_total) &&
-              <div style={{marginTop:18,borderTop:'1px solid #ccc',paddingTop:12}}>
-                <h4>Conciliación documental de devolución parcial</h4>
-                {cargandoConciliacion ? <p>Cargando conciliación…</p> : conciliacion ? <div>
-                  <p><strong>Registro #{conciliacion.id_conciliacion}</strong> · {conciliacion.estado}</p>
-                  <p>Devolución pendiente: {pesos(conciliacion.monto_devolucion)}</p>
-                  <p>Trabajo acreditado pendiente de distribución: {pesos(conciliacion.monto_trabajo)}</p>
-                  <p>Cargo administrativo pendiente de distribución: {pesos(conciliacion.monto_cargo)}</p>
-                  <p><strong>Remanente inmovilizado: {pesos(conciliacion.remanente_pendiente)}</strong></p>
-                  <p>La reversa sigue SOLICITADA y el pago RETENIDO: no hay dinero devuelto ni repartido.</p>
-                </div> : <form onSubmit={registrarConciliacion} style={{display:'grid',gap:10}}>
-                  <p><strong>Devolución pendiente:</strong> {pesos(liquidacion.monto_devolucion)}</p>
-                  <p><strong>Trabajo acreditado:</strong> {pesos(liquidacion.monto_trabajo)} · <strong>Cargo autorizado:</strong> {pesos(liquidacion.cargo_autorizado)}</p>
-                  {elegido.desglose_economico && <p>Del trabajo acreditado: comisión SKILLY prevista {pesos(elegido.desglose_economico.comision_skilly_trabajo)} y neto profesional previsto {pesos(elegido.desglose_economico.neto_profesional_trabajo)}. No se han distribuido fondos.</p>}
-                  <label htmlFor="e3-conc-fund">Fundamento documental (mínimo 30 caracteres)</label>
-                  <textarea id="e3-conc-fund" className="adm-busqueda" rows={4} minLength={30} maxLength={1500} required value={fundamentoConciliacion} onChange={e=>setFundamentoConciliacion(e.target.value)}/>
-                  <label><input type="checkbox" checked={confirmaSinDinero} onChange={e=>setConfirmaSinDinero(e.target.checked)}/> Confirmo que es una simulación académica: no se devuelve dinero real.</label>
-                  <label><input type="checkbox" checked={confirmaRemanente} onChange={e=>setConfirmaRemanente(e.target.checked)}/> Confirmo que el pago permanece RETENIDO, la reversa SOLICITADA y el remanente no se libera.</label>
-                  <button type="submit" className="adm-secundario" disabled={guardando || !confirmaSinDinero || !confirmaRemanente || fundamentoConciliacion.trim().length<30}>Registrar conciliación documental</button>
-                </form>}
-              </div>}
-          </div> : <form onSubmit={registrarLiquidacion} style={{display:'grid',gap:12,maxWidth:700}}>
+          <h3>Cierre económico y distribución final</h3>
+          {consultandoLiq ? <p>Consultando liquidación…</p> : liquidacion ? <CierreEconomicoSimuladoE3
+            idExpediente={elegido.id_expediente}
+            habilitado={true}
+            onCompletado={() => setRevision(x => x + 1)}
+          /> : <form onSubmit={registrarLiquidacion} style={{display:'grid',gap:12,maxWidth:700}}>
             <p>Requisitos: prestación CANCELADA, pago RETENIDO y VERIFICADO; si existe reclamo, debe tener resolución formal con efecto REVERSA y monto consistente.</p>
             <p>Para una cancelación injustificada de organización con aceptación previa válida, cargo máximo teórico: {pesos(elegido.cargo_teorico)}. Si no se permite cargo, escribe 0.</p>
             <label htmlFor="liq-cargo">Cargo que se autoriza (CLP)</label>

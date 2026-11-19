@@ -1,7 +1,7 @@
 """Expediente privado de cancelacion; no ejecuta cancelacion ni devolucion."""
 import hashlib
 import os
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation
 
 from django.db import models, transaction
 from django.http import HttpResponse
@@ -28,6 +28,8 @@ from .aceptacion_politica_e3 import AceptacionPoliticaCancelacion, obtener_prest
 
 
 class ExpedienteCancelacion(models.Model):
+    """Conserva antecedentes, evidencia y resolución de una cancelación."""
+
     id_expediente = models.BigAutoField(primary_key=True)
     id_prestacion = models.ForeignKey(PrestacionServicio, models.DO_NOTHING, db_column='id_prestacion')
     id_reclamo = models.ForeignKey(ReclamoPrestacion, models.DO_NOTHING, db_column='id_reclamo', null=True)
@@ -58,11 +60,15 @@ class ExpedienteCancelacion(models.Model):
 
 
 class SolicitudSerializer(serializers.Serializer):
+    """Valida motivo y descripción de una solicitud de cancelación."""
+
     motivo = serializers.CharField(min_length=5, max_length=120)
     descripcion = serializers.CharField(min_length=20, max_length=2000)
 
 
 class ResolucionSerializer(serializers.Serializer):
+    """Valida la decisión y fundamento administrativo del expediente."""
+
     decision = serializers.ChoiceField(choices=['JUSTIFICADA', 'INJUSTIFICADA', 'INCUMPLIMIENTO_CONTRAPARTE', 'RECHAZAR_SOLICITUD'])
     fundamento = serializers.CharField(min_length=20, max_length=2000)
     monto_trabajo_acreditado = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'), default=Decimal('0'))
@@ -73,6 +79,8 @@ MAX_BYTES = 5 * 1024 * 1024
 
 
 def evidencia_validada(archivo):
+    """Valida y firma una evidencia privada adjunta a la cancelación."""
+
     if not archivo:
         return {}
     nombre = os.path.basename((archivo.name or '').replace('\\', '/'))[:150]
@@ -97,48 +105,10 @@ def evidencia_validada(archivo):
             'evidencia_contenido': contenido}
 
 
+def datos_expediente(exp):
+    """Serializa el expediente sin incluir el contenido privado de evidencia."""
 
-def desglose_cancelacion_admin(exp, pago, aceptacion):
-    """Proyección interna: no libera, cobra ni devuelve fondos."""
-    if not pago or exp.estado != 'RESUELTO' or exp.monto_trabajo is None:
-        return None
-    if pago.estado_pago != 'RETENIDO' or pago.estado_verificacion != 'VERIFICADO':
-        return None
-    total = Decimal(pago.monto_total)
-    trabajo = Decimal(exp.monto_trabajo)
-    pct_comision = Decimal(pago.porcentaje_comision_aplicado)
-    if (not all(x.is_finite() for x in (total, trabajo, pct_comision))
-            or total <= 0 or trabajo < 0 or trabajo > total
-            or not Decimal('0') <= pct_comision <= Decimal('100')):
-        return None
-    comision = (trabajo * pct_comision / Decimal('100')).quantize(
-        Decimal('0.01'), rounding=ROUND_HALF_UP)
-    neto_profesional = trabajo - comision
-    aceptacion_previa = bool(
-        aceptacion and pago.fecha_pago
-        and aceptacion.fecha_aceptacion <= pago.fecha_pago
-        and exp.porcentaje_referencia is not None
-        and Decimal(exp.porcentaje_referencia) == Decimal(aceptacion.porcentaje_aceptado))
-    cargo_cancelacion = Decimal('0')
-    if (exp.origen == 'ORGANIZACION' and exp.decision == 'INJUSTIFICADA'
-            and aceptacion_previa and exp.cargo_teorico is not None):
-        cargo_cancelacion = Decimal(exp.cargo_teorico)
-    if cargo_cancelacion < 0 or cargo_cancelacion > total - trabajo:
-        return None
-    devolucion_prevista = total - trabajo - cargo_cancelacion
     return {
-        'porcentaje_comision_servicio': str(pct_comision),
-        'comision_skilly_trabajo': str(comision),
-        'neto_profesional_trabajo': str(neto_profesional),
-        'cargo_skilly_cancelacion': str(cargo_cancelacion),
-        'total_skilly_previsto': str(comision + cargo_cancelacion),
-        'devolucion_organizacion_prevista': str(devolucion_prevista),
-        'aceptacion_cancelacion_previa': aceptacion_previa,
-    }
-
-
-def datos_expediente(exp, *, desglose=None):
-    datos = {
         'id_expediente': exp.id_expediente, 'id_prestacion': exp.id_prestacion_id,
         'id_reclamo': exp.id_reclamo_id, 'id_avance': exp.id_avance_id,
         'origen': exp.origen, 'motivo': exp.motivo, 'descripcion': exp.descripcion,
@@ -152,12 +122,11 @@ def datos_expediente(exp, *, desglose=None):
         'devolucion_propuesta': exp.devolucion_propuesta,
         'nota': 'Evaluacion de expediente. La resolucion de reclamo, cancelacion de prestacion y reversa bancaria son operaciones separadas.',
     }
-    if desglose is not None:
-        datos['desglose_economico'] = desglose
-    return datos
 
 
 def construir_expediente(*, prestacion, origen, data, archivo, usuario=None, id_contacto=None):
+    """Crea el expediente y su evidencia dentro de la transacción llamadora."""
+
     entrada = SolicitudSerializer(data=data)
     entrada.is_valid(raise_exception=True)
     evidencia = evidencia_validada(archivo)
@@ -193,11 +162,14 @@ def construir_expediente(*, prestacion, origen, data, archivo, usuario=None, id_
 
 @method_decorator(csrf_protect, name='dispatch')
 class CancelacionOrganizacionView(APIView):
+    """Permite a la organización iniciar cancelación mediante referencia privada."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, referencia):
+        """Abre un expediente organizacional usando una referencia privada válida."""
         datos = leer_referencia_seguimiento(referencia)
         if not datos:
             return Response({'mensaje': 'Referencia inválida.'}, status=400)
@@ -211,11 +183,14 @@ class CancelacionOrganizacionView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class CancelacionProfesionalView(APIView):
+    """Permite al profesional asignado iniciar una cancelación justificada."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, id_prestacion):
+        """Abre un expediente para una prestación perteneciente al profesional."""
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         prestacion = PrestacionServicio.objects.filter(pk=id_prestacion, id_profesional=profesional).first() if profesional else None
         if not prestacion:
@@ -225,35 +200,33 @@ class CancelacionProfesionalView(APIView):
 
 
 class ExpedientesCancelacionAdminView(APIView):
+    """Lista expedientes de cancelación pendientes para administración."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
-        expedientes = list(ExpedienteCancelacion.objects.order_by('-fecha_registro', '-id_expediente')[:100])
-        ids = {e.id_prestacion_id for e in expedientes if e.estado == 'RESUELTO'}
-        pagos = {p.id_prestacion_id: p for p in Pago.objects.filter(id_prestacion_id__in=ids)}
-        aceptaciones = {a.id_prestacion_id: a for a in AceptacionPoliticaCancelacion.objects.filter(id_prestacion_id__in=ids)}
-        return Response({'expedientes': [datos_expediente(
-            e, desglose=desglose_cancelacion_admin(
-                e, pagos.get(e.id_prestacion_id), aceptaciones.get(e.id_prestacion_id)))
-            for e in expedientes]})
+        """Lista expedientes de cancelación sin exponer el contenido de evidencias."""
+        expedientes = ExpedienteCancelacion.objects.order_by('-fecha_registro', '-id_expediente')[:100]
+        return Response({'expedientes': [_datos_expediente_admin(exp) for exp in expedientes]})
 
 
 class ExpedienteCancelacionAdminView(APIView):
+    """Consulta y resuelve un expediente bajo responsabilidad administrativa."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
+        """Obtiene el detalle administrativo de un expediente de cancelación."""
         exp = ExpedienteCancelacion.objects.filter(pk=id_expediente).first()
         if not exp:
             return Response({'mensaje': 'Expediente no encontrado.'}, status=404)
-        pago = Pago.objects.filter(id_prestacion_id=exp.id_prestacion_id).first()
-        aceptacion = AceptacionPoliticaCancelacion.objects.filter(id_prestacion_id=exp.id_prestacion_id).first()
-        return Response({'expediente': datos_expediente(
-            exp, desglose=desglose_cancelacion_admin(exp, pago, aceptacion))})
+        return Response({'expediente': _datos_expediente_admin(exp)})
 
     @method_decorator(csrf_protect)
     def patch(self, request, id_expediente):
+        """Resuelve el expediente bajo bloqueo y congela su cálculo económico."""
         entrada = ResolucionSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
@@ -298,15 +271,17 @@ class ExpedienteCancelacionAdminView(APIView):
                 usuario=request.user, entidad_tipo='expediente_cancelacion_e3', entidad_id=exp.id_expediente,
                 accion='EVALUAR_CANCELACION', detalle_resumido=f'Expediente {exp.pk} {exp.decision}; cargo ejecutado $0, sin mover dinero.'[:255])
         return Response({'mensaje': 'Evaluación guardada. Cargo efectivamente aplicado: $0. No hubo cancelación ni reembolso automático.',
-                         'expediente': datos_expediente(
-                             exp, desglose=desglose_cancelacion_admin(exp, pago, aceptacion))})
+                         'expediente': _datos_expediente_admin(exp)})
 
 
 class EvidenciaCancelacionAdminView(APIView):
+    """Descarga evidencia de cancelación solo para administración autorizada."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
+        """Descarga evidencia privada únicamente para administración autenticada."""
         exp = ExpedienteCancelacion.objects.filter(pk=id_expediente).first()
         if not exp or not exp.evidencia_nombre or not exp.evidencia_contenido:
             return Response({'mensaje': 'No existe evidencia.'}, status=404)
@@ -318,10 +293,13 @@ class EvidenciaCancelacionAdminView(APIView):
 
 
 class EstadoCancelacionOrganizacionView(APIView):
+    """Expone a la organización el estado de su expediente mediante referencia."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
+        """Expone a la organización el estado acotado de su expediente firmado."""
         prestacion = obtener_prestacion(referencia)
         if not prestacion:
             return Response({'mensaje': 'Solicitud no encontrada.'}, status=404)
@@ -353,3 +331,52 @@ class EstadoCancelacionOrganizacionView(APIView):
                 if liq else None),
             'mensaje': 'La evaluación no acredita un descuento ejecutado ni dinero devuelto. Consulta el estado del pago.'
         }})
+
+
+def _datos_expediente_admin(exp):
+    """Agrega una proyección económica para administración, sin mover fondos."""
+    from decimal import Decimal, ROUND_HALF_UP
+
+    respuesta = datos_expediente(exp)
+    if exp.estado != 'RESUELTO' or exp.monto_trabajo is None:
+        return respuesta
+    pago = Pago.objects.filter(id_prestacion_id=exp.id_prestacion_id).first()
+    if not pago or pago.estado_pago != 'RETENIDO' or pago.estado_verificacion != 'VERIFICADO':
+        return respuesta
+    total = Decimal(pago.monto_total)
+    trabajo = Decimal(exp.monto_trabajo)
+    porcentaje_comision = Decimal(pago.porcentaje_comision_aplicado)
+    valores = (total, trabajo, porcentaje_comision)
+    if (not all(x.is_finite() for x in valores) or total <= 0
+            or trabajo < 0 or trabajo > total
+            or not Decimal('0') <= porcentaje_comision <= Decimal('100')):
+        return respuesta
+
+    comision_trabajo = (trabajo * porcentaje_comision / Decimal('100')).quantize(
+        Decimal('0.01'), rounding=ROUND_HALF_UP)
+    neto_profesional = trabajo - comision_trabajo
+
+    aceptacion = AceptacionPoliticaCancelacion.objects.filter(
+        id_prestacion_id=exp.id_prestacion_id).first()
+    aceptada_antes_pago = bool(
+        aceptacion and pago.fecha_pago and aceptacion.fecha_aceptacion <= pago.fecha_pago
+        and exp.porcentaje_referencia is not None
+        and Decimal(exp.porcentaje_referencia) == Decimal(aceptacion.porcentaje_aceptado)
+    )
+    cargo_cancelacion = Decimal('0')
+    if (exp.origen == 'ORGANIZACION' and exp.decision == 'INJUSTIFICADA'
+            and aceptada_antes_pago and exp.cargo_teorico is not None):
+        cargo_cancelacion = Decimal(exp.cargo_teorico)
+    if cargo_cancelacion < 0 or cargo_cancelacion > total - trabajo:
+        return respuesta
+
+    respuesta['desglose_economico'] = {
+        'porcentaje_comision_servicio': str(porcentaje_comision),
+        'comision_skilly_trabajo': str(comision_trabajo),
+        'neto_profesional_trabajo': str(neto_profesional),
+        'cargo_skilly_cancelacion': str(cargo_cancelacion),
+        'total_skilly_previsto': str(comision_trabajo + cargo_cancelacion),
+        'devolucion_organizacion_prevista': str(total - trabajo - cargo_cancelacion),
+        'aceptacion_cancelacion_previa': aceptada_antes_pago,
+    }
+    return respuesta

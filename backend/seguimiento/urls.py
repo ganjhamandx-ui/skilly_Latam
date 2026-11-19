@@ -1,3 +1,5 @@
+"""Define las rutas del seguimiento privado y administrativo."""
+
 from .expedientes_cancelacion_e3 import EstadoCancelacionOrganizacionView
 from .aceptacion_politica_e3 import PoliticaCancelacionEmpresaView
 from .expedientes_cancelacion_e3 import (CancelacionOrganizacionView, CancelacionProfesionalView, ExpedientesCancelacionAdminView, ExpedienteCancelacionAdminView, EvidenciaCancelacionAdminView)
@@ -99,9 +101,11 @@ urlpatterns += [path('empresa/<str:referencia>/politica-cancelacion/', PoliticaC
 urlpatterns += [path('empresa/<str:referencia>/cancelaciones/estado/', EstadoCancelacionOrganizacionView.as_view(), name='estado_cancelacion_empresa_e3')]
 
 
+# Primero se autoriza la liquidación; esta ruta no ejecuta el reembolso.
 from .liquidacion_cancelacion_e3 import LiquidarCancelacionE3View
 urlpatterns += [path('administracion/cancelaciones/<int:id_expediente>/liquidacion/', LiquidarCancelacionE3View.as_view(), name='liquidacion_cancelacion_e3')]
 
+# Ruta documental conservada por compatibilidad; el Video B la integra en el cierre único.
 from .conciliacion_reversas_e3 import ConciliarReversaParcialE3View
 urlpatterns += [path('administracion/cancelaciones/<int:id_expediente>/conciliacion/', ConciliarReversaParcialE3View.as_view(), name='conciliacion_parcial_e3')]
 
@@ -117,3 +121,8 @@ urlpatterns += [
     path('empresa/<str:referencia>/entregables/',EntregablesEmpresaE3View.as_view()),
     path('empresa/<str:referencia>/entregables/archivos/<int:id_archivo>/',DescargaEntregaEmpresaE3View.as_view()),
 ]
+
+# Cierre único del Video B: el POST concilia y registra la distribución simulada en una transacción.
+from .cierre_simulado_cancelacion_e3 import CierreSimuladoCancelacionE3View
+urlpatterns += [path('administracion/cancelaciones/<int:id_expediente>/cierre-simulado/',
+    CierreSimuladoCancelacionE3View.as_view(), name='cierre_simulado_cancelacion_e3')]
