@@ -1,3 +1,4 @@
+"""Implementa consultas y cambios de estado del seguimiento de servicios."""
 
 from django.db import transaction
 from django.db.models import Max
@@ -22,6 +23,8 @@ from .serializers import AvanceServicioSerializer, EntregaSerializer, Observacio
 
 
 class SeguimientoPrestacionProfesionalView(APIView):
+    """Entrega al profesional avances, estado y cierre de una prestación propia."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
 
@@ -61,6 +64,8 @@ class SeguimientoPrestacionProfesionalView(APIView):
         return Response({'mensaje': 'Avance registrado correctamente.', 'avance': serializer.data}, status=status.HTTP_201_CREATED)
 
 class SeguimientoPrestacionEmpresaView(APIView):
+    """Expone seguimiento empresarial mediante una referencia privada firmada."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -98,6 +103,8 @@ class SeguimientoPrestacionEmpresaView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class SeguimientoPrestacionAdministracionView(APIView):
+    """Consulta avances, entregas y cierre para administración autorizada."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
@@ -149,9 +156,23 @@ class SeguimientoPrestacionAdministracionView(APIView):
         if prestacion is None:
             return Response({'mensaje': 'La prestación solicitada no existe.'}, status=status.HTTP_404_NOT_FOUND)
         avances = AvanceServicio.objects.filter(id_prestacion=prestacion).order_by('fecha_registro', 'id_avance')
+        # Mantiene las versiones de entrega y sus observaciones separadas de los avances.
+        entregas = Entrega.objects.filter(id_prestacion=prestacion).order_by('version', 'fecha_entrega', 'id_entrega')
+        observaciones = ObservacionEntrega.objects.filter(id_entrega__id_prestacion=prestacion).order_by('fecha', 'id_observacion')
         return Response({
             'prestacion': self.datos_prestacion(prestacion),
             'avances': AvanceServicioSerializer(avances, many=True).data,
+            'entregas': EntregaSerializer(entregas, many=True).data,
+            'observaciones': [
+                {
+                    'id_observacion': obs.id_observacion,
+                    'id_entrega': obs.id_entrega_id,
+                    'fecha': obs.fecha,
+                    'detalle': obs.detalle,
+                    'estado': obs.estado,
+                }
+                for obs in observaciones
+            ],
             'cierre': self.evaluar_cierre(prestacion),
         }, status=status.HTTP_200_OK)
 
@@ -184,6 +205,8 @@ class SeguimientoPrestacionAdministracionView(APIView):
 
 
 class EntregasPrestacionProfesionalView(APIView):
+    """Lista y registra versiones de entrega del profesional asignado."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
 
@@ -237,6 +260,8 @@ class EntregasPrestacionProfesionalView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class RevisionEntregaEmpresaView(APIView):
+    """Permite a la empresa aprobar u observar una entrega mediante referencia privada."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -284,6 +309,8 @@ class RevisionEntregaEmpresaView(APIView):
         return Response({'mensaje': 'Observacion registrada correctamente.', 'entrega': EntregaSerializer(entrega).data, 'observacion': ObservacionEntregaSerializer(observacion).data}, status=status.HTTP_201_CREATED)
 
 class GestionReclamoAdministracionView(APIView):
+    """Revisa y resuelve reclamos con trazabilidad administrativa."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
@@ -324,6 +351,8 @@ class GestionReclamoAdministracionView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class RegistrarReclamoEmpresaView(APIView):
+    """Registra un reclamo empresarial sin exponer identificadores internos."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 

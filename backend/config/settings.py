@@ -1,4 +1,6 @@
 
+"""Configura Django desde variables de entorno seguras y explícitas."""
+
 import os
 from pathlib import Path
 
@@ -16,6 +18,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 def obtener_booleano(nombre, valor_por_defecto=False):
+    """Lee una variable y reconoce como verdaderas las formas afirmativas admitidas."""
+
     valor = os.getenv(nombre)
 
     if valor is None:
@@ -32,6 +36,8 @@ def obtener_booleano(nombre, valor_por_defecto=False):
 
 
 def obtener_lista(nombre, valor_por_defecto=""):
+    """Convierte una variable separada por comas en valores no vacíos."""
+
     valor = os.getenv(nombre, valor_por_defecto)
 
     return [
@@ -57,7 +63,7 @@ DEBUG = obtener_booleano(
 
 ALLOWED_HOSTS = obtener_lista(
     "DJANGO_ALLOWED_HOSTS",
-    "localhost,127.0.0.1",
+    "localhost,127.0.0.1,127.0.0.2",
 )
 
 
@@ -241,6 +247,8 @@ ACCESO_PROXIES_CONFIABLES = obtener_lista("ACCESO_PROXIES_CONFIABLES")
 
 
 def limites_acceso(nombre, defecto):
+    """Expone una lista de ventanas de limitación para el control de acceso."""
+
     return obtener_lista(nombre, defecto)
 
 

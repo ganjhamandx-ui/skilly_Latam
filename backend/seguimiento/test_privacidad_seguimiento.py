@@ -17,6 +17,8 @@ from solicitudes.referencias import crear_referencia_seguimiento
 
 
 class AvancesEnMemoria:
+    """Simula una colección de avances para verificar filtros de privacidad."""
+
     def __init__(self, filas):
         self.filas = filas
 
@@ -39,6 +41,8 @@ class AvancesEnMemoria:
 
 
 class PrivacidadSeguimientoTests(SimpleTestCase):
+    """Comprueba que cada actor reciba únicamente avances permitidos."""
+
     def setUp(self):
         self.factory = APIRequestFactory()
         self.prestacion = PrestacionServicio(
@@ -70,6 +74,7 @@ class PrivacidadSeguimientoTests(SimpleTestCase):
             patch("seguimiento.views.PrestacionServicio.objects") as prestaciones,
             patch("seguimiento.views.AvanceServicio.objects") as avances,
             patch("seguimiento.views.Entrega.objects") as entregas,
+            patch("seguimiento.views.ObservacionEntrega.objects") as observaciones,
             patch.object(SeguimientoPrestacionAdministracionView, "evaluar_cierre", return_value={}),
         ):
             usuarios.filter.return_value.first.return_value = usuario
@@ -79,6 +84,7 @@ class PrivacidadSeguimientoTests(SimpleTestCase):
             consulta.order_by.return_value.first.return_value = self.prestacion
             avances.filter.return_value = AvancesEnMemoria(self.avances)
             entregas.filter.return_value.order_by.return_value = []
+            observaciones.filter.return_value.order_by.return_value = []
             return vista.as_view()(request, **kwargs)
 
     def test_empresa_recibe_avances_publicos_sin_antecedentes_internos(self):
@@ -96,3 +102,6 @@ class PrivacidadSeguimientoTests(SimpleTestCase):
                 response = self.consultar(vista, rol=rol)
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual([fila["id_avance"] for fila in response.data["avances"]], [1, 2, 3])
+                if rol == "ADMIN_SKILLY":
+                    self.assertEqual(response.data["entregas"], [])
+                    self.assertEqual(response.data["observaciones"], [])

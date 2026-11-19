@@ -2,10 +2,12 @@
 from urllib.parse import urlsplit
 
 
-ORIGEN_FRONTEND_POR_DEFECTO = "http://localhost:5173"
+ORIGEN_FRONTEND_POR_DEFECTO = "http://127.0.0.2:57744"
 
 
 def _url_http(valor):
+    """Interpreta un origen HTTP(S) y rechaza credenciales o caracteres de control."""
+
     if (not isinstance(valor, str) or not valor
             or any(ord(caracter) <= 32 or ord(caracter) == 127 for caracter in valor)
             or any(caracter in valor for caracter in ("\\", "?", "#"))):
@@ -24,6 +26,8 @@ def _url_http(valor):
 
 
 def normalizar_origen_frontend(valor):
+    """Devuelve el origen frontend canónico sin ruta, consulta ni fragmento."""
+
     partes = _url_http(valor)
     if partes.path not in {"", "/"}:
         raise ValueError("El origen frontend no debe contener una ruta.")

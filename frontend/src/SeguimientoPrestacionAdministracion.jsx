@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+// Presenta los registros en formato local y conserva el día civil de las fechas sin hora.
 function formatoFecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -25,6 +26,7 @@ function formatoFecha(valor) {
   })
 }
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -37,6 +39,7 @@ function mensajeError(datos, codigo) {
   return `No se pudo consultar el seguimiento (HTTP ${codigo}).`
 }
 
+// Consulta el historial y presenta la acción de cierre según la respuesta del backend.
 export default function SeguimientoPrestacionAdministracion({
   idPrestacion,
   estadoPrestacion,
@@ -54,6 +57,7 @@ export default function SeguimientoPrestacionAdministracion({
   // Ventana nativa en la capa superior del navegador.
   // Evita quedar detrás del detalle empresarial.
   useEffect(() => {
+    // Sincroniza la apertura del diálogo nativo con el estado del panel.
     if (!abierto) return undefined
 
     const dialogo = dialogoRef.current
@@ -71,10 +75,12 @@ export default function SeguimientoPrestacionAdministracion({
 
   // Consulta de solo lectura.
   useEffect(() => {
+    // Cancela la consulta de seguimiento al cerrar o cambiar de prestación.
     if (!abierto) return undefined
 
     const controlador = new AbortController()
 
+    // Consulta la prestación y verifica que el historial recibido tenga todos los grupos.
     async function consultar() {
       setCargando(true)
       setError('')
@@ -108,10 +114,12 @@ export default function SeguimientoPrestacionAdministracion({
 
         if (
           !contenido.prestacion ||
-          !Array.isArray(contenido.avances)
+          !Array.isArray(contenido.avances) ||
+          !Array.isArray(contenido.entregas) ||
+          !Array.isArray(contenido.observaciones)
         ) {
           throw new Error(
-            'La API devolvió información de seguimiento incompleta.',
+            'El servidor Django SKILLY todavía no entrega el historial de entregas. Reinicia solamente el backend de SKILLY.',
           )
         }
 
@@ -138,6 +146,7 @@ export default function SeguimientoPrestacionAdministracion({
     return () => controlador.abort()
   }, [abierto, idPrestacion, revision])
 
+  // Inicializa la consulta de seguimiento al abrir el diálogo.
   function abrir() {
     setDatos(null)
     setError('')
@@ -145,10 +154,12 @@ export default function SeguimientoPrestacionAdministracion({
     setAbierto(true)
   }
 
+  // Cierra la consulta de seguimiento sin cambiar la prestación.
   function cerrar() {
     setAbierto(false)
   }
 
+  // Solicita el cierre después de leer el token CSRF y recarga el estado confirmado.
   async function finalizarPrestacion() {
     if (!datos?.cierre?.habilitado || finalizando) return
     if (!window.confirm(`¿Finalizar formalmente la prestación #${idPrestacion}? Esta acción no libera el pago.`)) return
@@ -182,8 +193,11 @@ export default function SeguimientoPrestacionAdministracion({
     }
   }
 
+  // Avances y entregas son historiales independientes y se presentan por separado.
   const prestacion = datos?.prestacion
   const avances = datos?.avances ?? []
+  const entregas = datos?.entregas ?? []
+  const observaciones = datos?.observaciones ?? []
   const avisosProfesional = avances.filter((avance) => avance.estado === 'INCIDENCIA_REPORTADA')
   // La ficha usa el estado del padre; tras cerrar, prevalece el estado
   // recién consultado al backend sin requerir actualizar la página.
@@ -209,14 +223,14 @@ export default function SeguimientoPrestacionAdministracion({
           <>
             <div className="adm-seguimiento-accion-fila">
               <p className="adm-seguimiento-accion-descripcion">
-                Consulta los avances registrados de la prestación #{idPrestacion}.
+                Consulta los avances y las entregas de la prestación #{idPrestacion}.
               </p>
               <button
                 type="button"
                 className="adm-accion adm-accion-seguimiento"
                 onClick={abrir}
               >
-                Consultar avances
+                Consultar seguimiento
               </button>
             </div>
           </>
@@ -411,6 +425,48 @@ export default function SeguimientoPrestacionAdministracion({
                   )}
                 </section>
 
+                <section className="adm-detalle-pago">
+                  <h3>Entregas registradas ({entregas.length})</h3>
+                  <p className="adm-nota">
+                    Las entregas y los avances son registros independientes. Una entrega aprobada
+                    no crea automáticamente un avance. Este historial es de solo lectura.
+                  </p>
+                  {entregas.length === 0 ? (
+                    <p className="adm-vacio">No hay entregas registradas.</p>
+                  ) : (
+                    <div className="adm-lista">
+                      {entregas.map((entrega) => (
+                        <article className="adm-item" key={entrega.id_entrega}
+                          style={{ display: 'grid', gap: 8, overflowWrap: 'anywhere' }}>
+                          <strong>Entrega #{entrega.id_entrega} · Versión {entrega.version}</strong>
+                          <span className="adm-estado">Estado: {entrega.estado}</span>
+                          <small>{formatoFecha(entrega.fecha_entrega)}</small>
+                          <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                            {entrega.descripcion || 'Sin descripción.'}
+                          </span>
+                          {entrega.referencia_entrega && (
+                            <small>Referencia: {entrega.referencia_entrega}</small>
+                          )}
+                          {observaciones.filter((obs) =>
+                            Number(obs.id_entrega) === Number(entrega.id_entrega)
+                          ).map((obs) => (
+                            <div key={obs.id_observacion} style={{
+                              borderLeft: '3px solid #4a7967', paddingLeft: 12,
+                              display: 'grid', gap: 4,
+                            }}>
+                              <strong>Observaciones de la organización</strong>
+                              <small>{formatoFecha(obs.fecha)}</small>
+                              <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                                {obs.detalle || 'Sin detalle.'}
+                              </span>
+                            </div>
+                          ))}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
                 <div className="adm-panel-header">
                   <h3>
                     Avances registrados
@@ -477,11 +533,10 @@ export default function SeguimientoPrestacionAdministracion({
                   className="adm-nota"
                   style={{ marginTop: 20 }}
                 >
-                  Esta consulta presenta la prestación
-                  y sus avances. Las entregas, reclamos
-                  y pagos se gestionan en sus
-                  respectivos flujos. La consulta
-                  no modifica la contratación.
+                  Esta consulta presenta la prestación, sus avances,
+                  las entregas y observaciones registradas. Los reclamos
+                  y los pagos siguen en sus respectivos módulos.
+                  Consultar no modifica la contratación.
                 </p>
               </>
             )}

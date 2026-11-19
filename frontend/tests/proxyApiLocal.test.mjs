@@ -1,3 +1,4 @@
+// Valida el proxy local estricto sin destinos alternativos ni exposición de variables privadas.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
@@ -64,6 +65,7 @@ test('serve falla sin configuración y no usa variables VITE ni un fallback a 80
     SKILLY_API_PROXY_TARGET: 'http://127.0.0.2:48123', PRIVATE_CANARY: canary,
   })
   assert.equal(config.host, '127.0.0.2')
+  assert.equal(config.port, 57744)
   assert.equal(config.strictPort, true)
   assert.deepEqual(Object.keys(config.proxy), ['/api'])
   assert.deepEqual(config.proxy['/api'], { target: 'http://127.0.0.2:48123', changeOrigin: true })
@@ -71,7 +73,10 @@ test('serve falla sin configuración y no usa variables VITE ni un fallback a 80
 })
 
 test('build no requiere ni consulta la variable del proxy y no publica configuración de servidor', () => {
-  const environment = new Proxy({}, { get() { throw new Error('No leer entorno de desarrollo durante build') } })
+  const environment = new Proxy({}, {
+    // Cualquier intento de leer el entorno de desarrollo hace fallar la prueba.
+    get() { throw new Error('No leer entorno de desarrollo durante build') },
+  })
   assert.equal(configurarServidorLocal('build', environment), undefined)
   assert.equal(configurarServidorLocal('build', { SKILLY_API_PROXY_TARGET: 'http://example.invalid:8000' }), undefined)
 })

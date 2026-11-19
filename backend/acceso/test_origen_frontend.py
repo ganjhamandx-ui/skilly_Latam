@@ -18,6 +18,8 @@ ORIGEN_ALTERNATIVO = "http://127.0.0.2:53171"
 
 
 class ConfiguracionOrigenFrontendTests(SimpleTestCase):
+    """Comprueba normalización y propagación del origen frontend permitido."""
+
     def cargar_configuracion(self, origen=None):
         # Ejecutar la configuración real con entorno ficticio y sin leer .env.
         ruta = Path(__file__).resolve().parents[1] / "config" / "settings.py"
@@ -41,9 +43,9 @@ class ConfiguracionOrigenFrontendTests(SimpleTestCase):
         self.assertEqual(configuracion.CSRF_TRUSTED_ORIGINS, [ORIGEN_ALTERNATIVO])
         self.assertTrue(configuracion.CORS_ALLOW_CREDENTIALS)
 
-    def test_default_legacy_se_conserva_solo_si_no_hay_configuracion(self):
+    def test_default_es_el_origen_local_permanente(self):
         configuracion = self.cargar_configuracion()
-        self.assertEqual(configuracion.FRONTEND_ORIGIN, "http://localhost:5173")
+        self.assertEqual(configuracion.FRONTEND_ORIGIN, "http://127.0.0.2:57744")
         self.assertEqual(configuracion.CORS_ALLOWED_ORIGINS, [configuracion.FRONTEND_ORIGIN])
         self.assertEqual(configuracion.CSRF_TRUSTED_ORIGINS, [configuracion.FRONTEND_ORIGIN])
 
@@ -80,6 +82,8 @@ class ConfiguracionOrigenFrontendTests(SimpleTestCase):
     CORS_ALLOW_CREDENTIALS=True,
 )
 class MiddlewareOrigenFrontendTests(SimpleTestCase):
+    """Comprueba rechazo de escrituras con orígenes ajenos al frontend configurado."""
+
     def setUp(self):
         self.factory = RequestFactory()
 

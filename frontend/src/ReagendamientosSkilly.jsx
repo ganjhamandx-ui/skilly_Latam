@@ -1,3 +1,4 @@
+// Interfaz compartida del flujo bilateral para organización, profesional y administración.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import useCargaAsincrona from './useCargaAsincrona.js'
 import { solicitudReagendamiento as solicitudHttp } from './reagendamientosApi.mjs'
@@ -15,6 +16,12 @@ import {
 import './ReagendamientosSkilly.css'
 
 const API = '/api/reagendamientos/'
+// Mantiene visible la política vigente si una lectura transitoria omite sus metadatos.
+// El backend vuelve a validar esta versión antes de aceptar cualquier solicitud.
+const POLITICA_FALLBACK = {
+  version: 'PRT-33-35-v1-2026-11-17',
+  texto: 'Al solicitar el reagendamiento de la primera reunión, quien inicia el procedimiento acepta que la nueva fecha se coordine conforme a la disponibilidad válida del profesional. SKILLY revisará la solicitud y coordinará un horario disponible. La solicitud no modifica inmediatamente la reserva ni genera cobros, sanciones o reembolsos automáticos.',
+}
 const ESTADOS = {
   PENDIENTE_ADMIN: 'Administración debe revisar el expediente',
   PENDIENTE_PROFESIONAL: 'Esperando la decisión del profesional',
@@ -27,12 +34,14 @@ const ESTADOS = {
   VENCIDA: 'Cerrado por vencimiento de la primera reunión',
 }
 
+// Construye el texto del bloque a partir de su fecha y sus horas.
 function mostrarHorario(bloque) {
   if (!bloque?.fecha) return 'Horario no disponible'
   const fecha = String(bloque.fecha).split('-').reverse().join('/')
   return `${fecha} · ${bloque.hora_inicio} a ${bloque.hora_fin} h (Santiago de Chile)`
 }
 
+// Presenta cuándo ocurrió un evento del expediente en formato local.
 function mostrarFechaEvento(fecha) {
   const valor = new Date(fecha)
   return Number.isNaN(valor.getTime()) ? '' : new Intl.DateTimeFormat('es-CL', {
@@ -40,18 +49,22 @@ function mostrarFechaEvento(fecha) {
   }).format(valor)
 }
 
+// Inicializa la selección con listas separadas para bloques existentes y nuevos.
 function alternativasVacias() {
   return { existentes: [], nuevas: [{ fecha: '', hora_inicio: '', hora_fin: '' }] }
 }
 
+// Distingue los bloques publicados de los horarios que se deben crear al enviar la propuesta.
 function EditorAlternativas({ disponibles = [], valor, onChange, disabled = false }) {
   const actual = valor || alternativasVacias()
+  // Añade o retira el identificador de un bloque publicado en el borrador.
   const cambiarExistente = (id, marcado) => {
     const ids = marcado
       ? [...new Set([...actual.existentes, id])]
       : actual.existentes.filter((item) => item !== id)
     onChange({ ...actual, existentes: ids })
   }
+  // Actualiza la propuesta de un bloque nuevo dentro de la lista del borrador.
   const cambiarNueva = (indice, campo, nuevoValor) => {
     const nuevas = actual.nuevas.map((item, posicion) => (
       posicion === indice ? { ...item, [campo]: nuevoValor } : item
@@ -91,6 +104,7 @@ function EditorAlternativas({ disponibles = [], valor, onChange, disabled = fals
   </fieldset>
 }
 
+// Expone carga, error y datos del expediente mediante consultas cancelables.
 function useBandejaReagendamientos(url) {
   const [datos, setDatos] = useState(null)
   const [estado, setEstado] = useState('cargando')
@@ -112,8 +126,10 @@ function useBandejaReagendamientos(url) {
   return { datos, estado, error, cargar }
 }
 
+// Consulta solo con la pestaña visible y pausa el sondeo durante una acción en curso.
 function useActualizacionInterna(cargar, pausada) {
   useEffect(() => {
+    // Realiza el sondeo solo con la pestaña visible y mientras no haya una acción en curso.
     const actualizar = () => {
       if (!pausada && document.visibilityState === 'visible') void cargar()
     }
@@ -126,13 +142,18 @@ function useActualizacionInterna(cargar, pausada) {
   }, [cargar, pausada])
 }
 
+// Diferencia la espera de red del error que permite reintentar la consulta.
 function EstadoConsulta({ estado, error }) {
   if (estado === 'cargando') return <p role="status">Consultando reagendamientos…</p>
   if (estado === 'error') return <p role="alert" className="rea-error">{error} Usa «Actualizar» para reintentar.</p>
   return null
 }
 
+// Presenta el estado, horarios y eventos según los datos entregados al actor actual.
 function Estado({ caso, actor }) {
+  const alternativasVigentes = (caso.alternativas || []).filter(
+    (item) => item.estado !== 'DESCARTADA',
+  )
   return <div className="rea-estado">
     <strong>Solicitud #{caso.id} · {ESTADOS[caso.estado] || caso.estado}</strong>
     <p><b>Iniciada por:</b> {caso.iniciador === 'PROFESIONAL' ? 'Profesional' : 'Organización'}</p>
@@ -141,9 +162,9 @@ function Estado({ caso, actor }) {
     {caso.bloque_propuesto && <p><b>Nuevo horario:</b> {mostrarHorario(caso.bloque_propuesto)}</p>}
     {caso.motivo_profesional && caso.iniciador !== 'PROFESIONAL' &&
       <p><b>Respuesta profesional:</b> {caso.motivo_profesional}</p>}
-    {caso.alternativas?.length > 0 && <div>
-      <b>Alternativas registradas:</b>
-      <ul>{caso.alternativas.map((item) => <li key={item.id_disponibilidad}>
+    {alternativasVigentes.length > 0 && <div>
+      <b>Alternativas vigentes:</b>
+      <ul>{alternativasVigentes.map((item) => <li key={item.id_disponibilidad}>
         {mostrarHorario(item)} · {item.disponible ? 'Disponible' : 'Ya no disponible'}
       </li>)}</ul>
     </div>}
@@ -161,6 +182,7 @@ function Estado({ caso, actor }) {
   </div>
 }
 
+// Separa la lectura de la política de su aceptación expresa y administra el foco.
 function ModalPolitica({ politica, aceptada, onAceptada, onContinuar, onCerrar }) {
   const panelRef = useRef(null)
   useDialogoAccesible(true, panelRef, onCerrar)
@@ -168,8 +190,8 @@ function ModalPolitica({ politica, aceptada, onAceptada, onContinuar, onCerrar }
     <section ref={panelRef} className="rea-modal" role="dialog" aria-modal="true"
       aria-labelledby="rea-politica-titulo" tabIndex={-1}>
       <h3 id="rea-politica-titulo">Política de reagendamiento</h3>
-      <p>{politica?.texto}</p>
-      <p><small>Versión: {politica?.version}</small></p>
+      <p>{politica?.texto || POLITICA_FALLBACK.texto}</p>
+      <p><small>Versión: {politica?.version || POLITICA_FALLBACK.version}</small></p>
       <label className="rea-opcion-bloque">
         <input type="checkbox" checked={aceptada} onChange={(evento) => onAceptada(evento.target.checked)} />
         <span>He leído y acepto expresamente esta política.</span>
@@ -180,11 +202,13 @@ function ModalPolitica({ politica, aceptada, onAceptada, onContinuar, onCerrar }
   </div>
 }
 
+// Vincula la bandeja empresarial al expediente identificado por su referencia privada.
 export function ReagendamientosOrganizacion({ referencia, estadoPrestacion }) {
   return <ReagendamientosOrganizacionContenido key={referencia}
     referencia={referencia} estadoPrestacion={estadoPrestacion} />
 }
 
+// Coordina consentimiento, solicitud, espera y selección mediante la referencia empresarial.
 function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) {
   const [motivo, setMotivo] = useState('')
   const [cargando, setCargando] = useState(false)
@@ -204,6 +228,7 @@ function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) 
   const disponible = bandeja.estado === 'lista' && !cargando
   useActualizacionInterna(cargar, cargando)
 
+  // Envía la acción de organización con la referencia privada y recarga el expediente según el resultado.
   async function enviar(data) {
     if (escribiendo.current || !disponible) return
     escribiendo.current = true; setCargando(true); setError(''); setAviso('')
@@ -260,7 +285,7 @@ function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) 
       evento.preventDefault()
       void enviar({
         accion: 'SOLICITAR', motivo, acepta_politica: true,
-        politica_version: bandeja.datos?.politica?.version,
+        politica_version: bandeja.datos?.politica?.version || POLITICA_FALLBACK.version,
       })
     }}>
       <label>Motivo del cambio (15 a 1000 caracteres)
@@ -288,6 +313,7 @@ function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) 
   </section>
 }
 
+// Presenta acciones de propuesta, validación y confirmación según el estado de cada expediente.
 export function ReagendamientosAdministracion() {
   const [selecciones, setSelecciones] = useState({})
   const [motivosCierre, setMotivosCierre] = useState({})
@@ -301,6 +327,7 @@ export function ReagendamientosAdministracion() {
   const disponible = bandeja.estado === 'lista' && !cargando
   useActualizacionInterna(cargar, cargando)
 
+  // Envía la decisión administrativa del expediente con los campos exigidos por el estado.
   async function accionar(item, accion) {
     if (escribiendo.current || !disponible) return
     if (accion === 'CONFIRMAR' && !window.confirm('¿Aplicar el horario seleccionado en la agenda segura?')) return
@@ -367,6 +394,7 @@ export function ReagendamientosAdministracion() {
   </section>
 }
 
+// Permite iniciar el trámite con evidencia o responder a una propuesta vigente.
 export function ReagendamientosProfesional() {
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
@@ -389,6 +417,7 @@ export function ReagendamientosProfesional() {
   const disponible = bandeja.estado === 'lista' && !cargando
   useActualizacionInterna(cargar, cargando)
 
+  // Transmite la respuesta profesional al expediente e incorpora los bloques cuando corresponden.
   async function enviarJson(item, accion, campos = {}) {
     if (escribiendo.current || !disponible) return
     escribiendo.current = true; setCargando(true); setError(''); setAviso('')
@@ -402,6 +431,7 @@ export function ReagendamientosProfesional() {
     }
   }
 
+  // Envía evidencia y alternativas en multipart para conservar el archivo original.
   async function solicitarComoProfesional(evento) {
     evento.preventDefault()
     if (escribiendo.current || !disponible) return
@@ -411,7 +441,7 @@ export function ReagendamientosProfesional() {
     datos.set('id_prestacion', prestacionId)
     datos.set('motivo', motivoInicio)
     datos.set('acepta_politica', 'true')
-    datos.set('politica_version', bandeja.datos?.politica?.version || '')
+    datos.set('politica_version', bandeja.datos?.politica?.version || POLITICA_FALLBACK.version)
     datos.set('alternativas_existentes', JSON.stringify(alternativas.alternativas_existentes))
     datos.set('alternativas_nuevas', JSON.stringify(alternativas.alternativas_nuevas))
     if (evidencia) datos.set('evidencia', evidencia)
