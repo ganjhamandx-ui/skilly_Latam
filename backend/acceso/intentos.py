@@ -31,7 +31,20 @@ class ControlIntentosNoDisponible(APIException):
 
 
 def _direccion_origen(request):
-    """Solo un proxy explicitamente confiable puede aportar la cadena XFF."""
+    """Resuelve el origen sin confiar en cabeceras de proxies no autorizados.
+
+    Args:
+        request (Request): Petición con ``REMOTE_ADDR`` y, opcionalmente, XFF.
+
+    Returns:
+        str: IP normalizada, o ``sin-direccion`` si el par remoto es inválido.
+        Desde un proxy confiable recorre XFF de derecha a izquierda y elige el
+        primer salto no confiable. Una cadena inválida, mayor de 2048 caracteres
+        o con más de 20 saltos se descarta a favor de la IP del par remoto.
+
+    Raises:
+        ValueError: Si una red de ``ACCESO_PROXIES_CONFIABLES`` es inválida.
+    """
     remoto = request.META.get("REMOTE_ADDR", "")
     try:
         peer = ipaddress.ip_address(remoto)
@@ -40,6 +53,7 @@ def _direccion_origen(request):
 
     redes = [ipaddress.ip_network(red) for red in settings.ACCESO_PROXIES_CONFIABLES]
     def confiable(ip):
+        """Indica si la dirección pertenece a una red autorizada de su versión IP."""
         return any(ip.version == red.version and ip in red for red in redes)
     if not confiable(peer):
         return peer.compressed
@@ -62,7 +76,23 @@ def _direccion_origen(request):
 
 
 def _reglas(configuracion):
-    """Convierte reglas `intentos/segundos` en pares numéricos validados."""
+    """Convierte reglas ``intentos/segundos`` en pares numéricos validados.
+
+    Args:
+        configuracion (Iterable[str]): Límites entre 1 y 1000000 intentos y
+            ventanas entre 1 y 86400 segundos; debe contener al menos una regla.
+
+    Returns:
+        list[tuple[int, int]]: Límites y duraciones en el orden de entrada.
+
+    Raises:
+        ImproperlyConfigured: Si una regla está mal formada, fuera de rango
+            o la colección está vacía.
+
+    Example:
+        >>> _reglas(["5/60"])
+        [(5, 60)]
+    """
 
     reglas = []
     for valor in configuracion:
@@ -87,6 +117,24 @@ class LimiteIntentosAcceso(BaseThrottle):
     """
 
     def allow_request(self, request, view):
+        """Cuenta el intento por IP y por identidad/IP en todas sus ventanas.
+
+        Args:
+            request (Request): Petición con correo, o token al restablecer acceso.
+            view (APIView): Vista con ``alcance_intentos`` configurado en settings.
+
+        Returns:
+            bool: Si ninguna ventana supera su límite. En caso de rechazo guarda
+            en ``espera`` el mayor tiempo restante, redondeado hacia arriba.
+            Todos los intentos, incluidos los rechazados, incrementan contadores
+            sin desplazar el vencimiento absoluto de la ventana.
+
+        Raises:
+            ControlIntentosNoDisponible: Si la caché falla o devuelve contadores
+                inválidos; DRF comunica indisponibilidad con HTTP 503.
+            ImproperlyConfigured: Si alguna regla de límites no es válida.
+            KeyError: Si faltan el alcance o sus dimensiones en la configuración.
+        """
         self.espera = None
         alcance = view.alcance_intentos
         configuracion = settings.ACCESO_LIMITES[alcance]
@@ -150,6 +198,10 @@ class LimiteIntentosAcceso(BaseThrottle):
         return True
 
     def wait(self):
+        """Devuelve los segundos de espera calculados, o ``None`` si se admitió.
+
+        Se consulta después de ``allow_request`` según el ciclo de throttling de DRF.
+        """
         return self.espera
 
 
@@ -159,4 +211,13 @@ class ProteccionIntentosMixin:
     throttle_classes = [LimiteIntentosAcceso]
 
     def throttled(self, request, wait):
+        """Convierte el rechazo del limitador en la excepción HTTP 429 de SKILLY.
+
+        Args:
+            request (Request): Petición rechazada; no se inspecciona su contenido.
+            wait (int | None): Segundos de espera calculados por el limitador.
+
+        Raises:
+            IntentosExcesivos: Siempre, con el tiempo de espera recibido.
+        """
         raise IntentosExcesivos(wait=wait)

@@ -18,6 +18,22 @@ class Command(BaseCommand):
     help = "Crea una cuenta interna con rol ADMIN_SKILLY."
 
     def handle(self, *args, **options):
+        """Solicita credenciales por consola y crea una identidad administrativa.
+
+        Args:
+            *args: Argumentos del comando; no se utilizan.
+            **options: Opciones de Django; los datos se solicitan interactivamente.
+
+        Returns:
+            None: Informa por consola el resultado. Los errores de formato,
+            duplicidad detectada, confirmación o política de contraseña terminan
+            el comando sin guardar. Un éxito crea un usuario ``ADMIN_SKILLY``
+            activo, sin perfil profesional ni inicio de sesión.
+
+        Note:
+            Las contraseñas se leen con ``getpass`` y solo se guarda su hash.
+            Los errores de persistencia no se capturan en este comando.
+        """
         self.stdout.write("Creación interna de cuenta ADMIN_SKILLY")
         self.stdout.write("")
 

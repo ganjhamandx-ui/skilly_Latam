@@ -1,4 +1,8 @@
-"""Modela usuarios, sesiones y datos necesarios para el acceso a SKILLY."""
+"""Mapea identidades y recuperaciones sobre tablas SQL preexistentes.
+
+Django no administra estas tablas. Las sesiones se almacenan mediante el
+backend de sesiones configurado, no mediante los modelos de este módulo.
+"""
 
 from django.db import models
 
@@ -21,6 +25,7 @@ class Usuario(models.Model):
         db_table = "usuario"
 
     def __str__(self):
+        """Devuelve el correo como identificación textual de la cuenta."""
         return self.correo
 
 
@@ -47,4 +52,5 @@ class RecuperacionAcceso(models.Model):
         db_table = "recuperacion_acceso"
 
     def __str__(self):
+        """Identifica el registro sin exponer el token ni su huella."""
         return f"Recuperación {self.id_recuperacion}"

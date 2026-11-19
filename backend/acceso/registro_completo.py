@@ -51,6 +51,21 @@ class RegistroProfesionalCompletoSerializer(
 
     @transaction.atomic
     def create(self, validated_data):
+        """Crea la cuenta y su perfil pendiente, revirtiendo ambos ante un fallo.
+
+        Args:
+            validated_data (dict): Credenciales, nombres y apellidos obligatorios,
+                más teléfono, título, resumen y ubicación opcionales.
+
+        Returns:
+            Usuario: Cuenta creada por el serializador base. El perfil queda
+            asociado con estado ``PENDIENTE`` y campos opcionales vacíos como
+            ``None``. Se trabaja sobre una copia de los datos recibidos.
+
+        Raises:
+            serializers.ValidationError: Si el guardado de la cuenta detecta
+                un correo duplicado.
+        """
         datos = dict(validated_data)
 
         perfil = {

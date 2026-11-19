@@ -10,6 +10,21 @@ class SesionSkillyAuthentication(SessionAuthentication):
     """Autentica la sesión propia de SKILLY y exige un usuario activo y vigente."""
 
     def authenticate(self, request):
+        """Resuelve la identidad activa y valida CSRF antes de autenticarla.
+
+        Args:
+            request (Request): Petición DRF con la sesión de Django.
+
+        Returns:
+            tuple[Usuario, None] | None: Usuario y credencial vacía cuando la
+            sesión es válida; ``None`` si no hay identidad autenticable. Una
+            identidad inexistente, inactiva o con contraseña cambiada provoca
+            además el vaciado de la sesión.
+
+        Raises:
+            PermissionDenied: Si la comprobación CSRF heredada de DRF rechaza
+                una petición que requiere protección.
+        """
         id_usuario = request.session.get("id_usuario")
 
         if not id_usuario:

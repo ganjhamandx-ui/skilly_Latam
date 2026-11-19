@@ -38,6 +38,15 @@ class CsrfTokenView(APIView):
     authentication_classes = []
 
     def get(self, request):
+        """Obtiene un token CSRF para preparar escrituras desde el navegador.
+
+        Args:
+            request (Request): Petición pública, sin requisito de sesión.
+
+        Returns:
+            Response: HTTP 200 con ``csrfToken``; el middleware administra la
+            cookie CSRF asociada. No autentica al solicitante.
+        """
         token = get_token(request)
 
         return Response(
@@ -50,12 +59,30 @@ class CsrfTokenView(APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class RegistroProfesionalView(APIView):
-    """Registra una cuenta profesional y establece su sesión autenticada."""
+    """Registra cuenta y perfil profesional sin iniciar una sesión.
+
+    El endpoint es público y exige CSRF. La creación conjunta queda protegida
+    por la transacción del serializador de registro completo.
+    """
 
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def post(self, request):
+        """Valida los datos y crea una identidad con perfil pendiente de revisión.
+
+        Args:
+            request (Request): Correo, contraseña, confirmación, nombres,
+                apellidos y datos opcionales del perfil en ``data``.
+
+        Returns:
+            Response: HTTP 201 con la identidad creada; HTTP 400 con errores
+            de validación inicial. No contiene la contraseña ni su hash.
+
+        Raises:
+            ValidationError: Si el guardado detecta un correo duplicado por
+                concurrencia; DRF lo convierte en una respuesta HTTP 400.
+        """
         serializer = RegistroProfesionalCompletoSerializer(
             data=request.data
         )
@@ -93,6 +120,16 @@ class InicioSesionView(ProteccionIntentosMixin, APIView):
     authentication_classes = []
 
     def post(self, request):
+        """Autentica las credenciales y renueva sesión, huella y token CSRF.
+
+        Args:
+            request (Request): Petición pública con ``correo`` y ``contrasena``.
+
+        Returns:
+            Response: HTTP 200 con identidad y rol; HTTP 400 si los datos o las
+            credenciales son inválidos. El limitador puede impedir la ejecución
+            con HTTP 429 o 503 y la protección CSRF con HTTP 403.
+        """
         serializer = InicioSesionSerializer(
             data=request.data
         )
@@ -141,6 +178,20 @@ class SolicitarRecuperacionView(ProteccionIntentosMixin, APIView):
     authentication_classes = []
 
     def post(self, request):
+        """Solicita un código sin revelar si existe una cuenta activa.
+
+        Args:
+            request (Request): Petición pública con el correo de recuperación.
+
+        Returns:
+            Response: HTTP 400 para datos inválidos; HTTP 200 con el mismo
+            mensaje para cuenta ausente, envío correcto o fallo SMTP/OSError.
+            La protección previa aplica CSRF y límites por origen e identidad.
+
+        Note:
+            La creación del token se revierte si el envío falla o no confirma
+            exactamente un mensaje. El registro del fallo omite datos privados.
+        """
         serializer = SolicitarRecuperacionSerializer(
             data=request.data
         )
@@ -203,6 +254,16 @@ class RestablecerContrasenaView(ProteccionIntentosMixin, APIView):
     authentication_classes = []
 
     def post(self, request):
+        """Valida la contraseña y solicita el consumo atómico del código.
+
+        Args:
+            request (Request): Token, nueva contraseña y confirmación en ``data``.
+
+        Returns:
+            Response: HTTP 200 al actualizar y revocar sesiones anteriores;
+            HTTP 400 por datos inválidos o token vencido, usado o inexistente.
+            El endpoint público conserva CSRF y control previo de intentos.
+        """
         serializer = RestablecerContrasenaSerializer(
             data=request.data
         )
@@ -263,6 +324,15 @@ class CerrarSesionView(APIView):
     ]
 
     def post(self, request):
+        """Vacía la sesión actual y rota el token CSRF del navegador.
+
+        Args:
+            request (Request): Petición con sesión activa y CSRF válido.
+
+        Returns:
+            Response: HTTP 200 con confirmación. El middleware de sesión
+            gestiona la cookie; no se revocan aquí las otras sesiones del usuario.
+        """
         request.session.flush()
         rotate_token(request)
 

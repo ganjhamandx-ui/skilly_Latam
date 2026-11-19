@@ -19,7 +19,16 @@ ATOMICO_COMPARTIDO = {
 
 @register(Tags.security)
 def configuracion_limites_acceso(app_configs, **kwargs):
-    """Valida que todas las ventanas de limitación tengan formato y valores seguros."""
+    """Revisa límites, proxies, backend y driver sin conectarse a la caché.
+
+    Args:
+        app_configs: Selección de aplicaciones de Django; no restringe esta revisión.
+        **kwargs: Opciones del sistema de comprobaciones; no se utilizan.
+
+    Returns:
+        list[Error]: Diagnósticos ``acceso.E001`` a ``acceso.E004`` por reglas,
+        backend, conexión Redis o driver inválidos; lista vacía si pasan los controles.
+    """
 
     errores = []
     try:
@@ -65,7 +74,16 @@ def configuracion_limites_acceso(app_configs, **kwargs):
 
 @register(Tags.security, deploy=True)
 def cache_acceso_compartida(app_configs, **kwargs):
-    """Advierte cuando varios procesos usarían un contador de intentos no compartido."""
+    """Advierte en despliegue si el contador carece de un backend compartido admitido.
+
+    Args:
+        app_configs: Selección de aplicaciones de Django; no se utiliza.
+        **kwargs: Opciones del sistema de comprobaciones; no se utilizan.
+
+    Returns:
+        list[Warning]: ``acceso.W001`` si el backend no está en la lista admitida;
+        lista vacía en otro caso. No comprueba conectividad ni modifica contadores.
+    """
 
     configuracion = settings.CACHES.get(settings.ACCESO_CACHE_ALIAS, {})
     if configuracion.get("BACKEND") not in ATOMICO_COMPARTIDO:

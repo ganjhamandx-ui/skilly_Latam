@@ -37,6 +37,17 @@ class RedisIntentosCache(RedisCache):
     """
 
     def __init__(self, server, params):
+        """Configura un único Redis con tiempos acotados y sin reintentos.
+
+        Args:
+            server (str): URL Redis admitida por ``ubicacion_redis_valida``.
+            params (dict): Parámetros de caché de Django; se copian junto con
+                ``OPTIONS`` antes de ajustar la política de conexión.
+
+        Raises:
+            ImproperlyConfigured: Si el endpoint o los tiempos son inválidos,
+                o si el driver Redis no está instalado.
+        """
         if not ubicacion_redis_valida(server):
             raise ImproperlyConfigured('Redis de acceso requiere un unico endpoint valido.')
         try:
@@ -53,10 +64,41 @@ class RedisIntentosCache(RedisCache):
         super().__init__(server, params)
 
     def incrementar_ventana(self, clave_base, ventana, version=None):
+        """Incrementa una ventana usando la misma operación atómica del lote.
+
+        Args:
+            clave_base (str): Clave lógica, sin sufijo de intervalo temporal.
+            ventana (int): Duración entre 1 y 86400 segundos.
+            version (int | None): Versión de claves de Django; ``None`` usa la actual.
+
+        Returns:
+            tuple[int, int]: Contador actualizado y segundos hasta su vencimiento.
+
+        Raises:
+            ValueError: Si la duración o la respuesta de Redis es inválida.
+        """
         return self.incrementar_ventanas([(clave_base, ventana)], version=version)[0]
 
     def incrementar_ventanas(self, ventanas, version=None):
-        """Contar todas las dimensiones de una petición sin intercalarlas con otra."""
+        """Incrementa las dimensiones de una petición en una sola ejecución Lua.
+
+        Args:
+            ventanas (list | tuple): Pares de clave base y duración entera entre
+                1 y 86400 segundos. La colección debe ser no vacía.
+            version (int | None): Versión opcional aplicada a las claves de Django.
+
+        Returns:
+            list[tuple[int, int]]: Contador y segundos restantes de cada ventana,
+            en el orden recibido, calculados con el reloj del Redis primario.
+
+        Raises:
+            ValueError: Si la entrada o los pares devueltos tienen forma o valores
+                inválidos. Los errores del cliente Redis se propagan al limitador.
+
+        Note:
+            La validación de una respuesta fallida no revierte incrementos que
+            Redis ya haya aplicado. Por eso esta operación no reintenta EVAL.
+        """
         if not isinstance(ventanas, (list, tuple)) or not ventanas:
             raise ValueError('Ventanas de acceso invalidas.')
         keys, durations = [], []

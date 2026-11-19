@@ -16,7 +16,14 @@ from .models import RecuperacionAcceso, Usuario
 
 
 def convertir_fecha_bd(fecha):
-    """Normaliza fechas legacy sin zona para compararlas con el reloj consciente de Django."""
+    """Interpreta en UTC las fechas heredadas que carecen de zona horaria.
+
+    Args:
+        fecha (datetime): Fecha de expiración obtenida de la base de datos.
+
+    Returns:
+        datetime: Fecha con zona UTC si era ingenua; la original si ya tenía zona.
+    """
 
     if timezone.is_naive(fecha):
         return timezone.make_aware(
@@ -28,7 +35,16 @@ def convertir_fecha_bd(fecha):
 
 
 def crear_recuperacion_acceso(usuario):
-    """Genera un token de un solo uso y guarda únicamente su huella criptográfica."""
+    """Crea una recuperación con caducidad y almacena solo la huella del token.
+
+    Args:
+        usuario (Usuario): Identidad persistida que solicita recuperar el acceso.
+
+    Returns:
+        tuple[str, RecuperacionAcceso]: Token para comunicar al usuario y registro
+        creado, con vencimiento según ``RECUPERACION_MINUTOS``. Esta función no
+        invalida recuperaciones anteriores ni envía el correo.
+    """
 
     token = secrets.token_urlsafe(32)
 
@@ -55,7 +71,19 @@ def crear_recuperacion_acceso(usuario):
 
 
 def enviar_correo_recuperacion(usuario, token):
-    """Envía el enlace de recuperación al correo de la identidad solicitante."""
+    """Envía por correo el código temporal de recuperación y su vigencia.
+
+    Args:
+        usuario (Usuario): Destinatario, identificado por su atributo ``correo``.
+        token (str): Código original; no debe sustituirse por su huella almacenada.
+
+    Returns:
+        int: Número de mensajes enviados según el backend de correo de Django.
+
+    Note:
+        Los errores del backend de correo se propagan porque el envío usa
+        ``fail_silently=False``; la vista decide cómo informar el fallo.
+    """
 
     asunto = "Skilly - Recuperacion de contraseña"
 
@@ -84,7 +112,15 @@ def enviar_correo_recuperacion(usuario, token):
 
 
 def _revocar_sesiones_usuario(id_usuario, ahora):
-    """Revoca solo sesiones DB vigentes del usuario que restablece su acceso."""
+    """Elimina las sesiones de base de datos vigentes de una identidad.
+
+    Args:
+        id_usuario (int): Identificador comparado como texto con el dato de sesión.
+        ahora (datetime): Umbral de vigencia; las sesiones vencidas se conservan.
+
+    Returns:
+        None: Elimina los registros coincidentes después de recorrerlos en lotes.
+    """
     claves = []
     sesiones = Session.objects.filter(expire_date__gt=ahora)
 
@@ -97,7 +133,26 @@ def _revocar_sesiones_usuario(id_usuario, ahora):
 
 
 def restablecer_contrasena(token, nueva_contrasena):
-    """Consume atómicamente el token, actualiza la clave y revoca sesiones previas."""
+    """Consume un token vigente y cambia la contraseña en una sola transacción.
+
+    Bloquea primero al usuario y luego su recuperación para serializar cambios
+    concurrentes. Al completar, inutiliza todos sus tokens pendientes y elimina
+    sus sesiones de base de datos vigentes. La política de complejidad de la
+    nueva contraseña debe validarse antes de invocar esta función.
+
+    Args:
+        token (str): Código original recibido por correo.
+        nueva_contrasena (str): Contraseña en claro que se guarda mediante hash.
+
+    Returns:
+        tuple[bool, str]: Éxito y ``CONTRASENA_ACTUALIZADA``, o rechazo con
+        ``TOKEN_INVALIDO_O_UTILIZADO`` o ``TOKEN_EXPIRADO``. Los rechazos no
+        cambian la contraseña ni consumen el token.
+
+    Raises:
+        Usuario.DoesNotExist: Si la identidad referenciada desaparece antes
+            de adquirir el bloqueo del usuario.
+    """
 
     token_hash = hashlib.sha256(
         token.encode("utf-8")

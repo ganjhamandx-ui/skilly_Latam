@@ -1,4 +1,9 @@
-"""Vinculo privado de las sesiones nuevas con la contrasena que las autorizo."""
+"""Vincula las sesiones nuevas con la contraseña que las autorizó.
+
+La autenticación compara una huella HMAC para detectar cambios de contraseña.
+Las sesiones antiguas sin huella se admiten por compatibilidad y su revocación
+depende del borrado de sesiones realizado durante la recuperación de acceso.
+"""
 from django.utils.crypto import constant_time_compare, salted_hmac
 
 
@@ -6,7 +11,14 @@ _CLAVE_VINCULO_CONTRASENA = "_skilly_password_hmac"
 
 
 def _huella_contrasena(usuario):
-    """Deriva un HMAC para vincular la sesión sin almacenar el hash de contraseña."""
+    """Deriva un HMAC para vincular la sesión con la contraseña vigente.
+
+    Args:
+        usuario (Usuario): Identidad con clave primaria y ``password_hash``.
+
+    Returns:
+        str: Huella hexadecimal SHA-256 autenticada con la clave de Django.
+    """
 
     return salted_hmac(
         "skilly.acceso.sesion.contrasena",
@@ -16,14 +28,31 @@ def _huella_contrasena(usuario):
 
 
 def _vincular_sesion_con_contrasena(sesion, usuario):
-    """Registra en la sesión la huella de la contraseña vigente del usuario."""
+    """Registra en la sesión la huella de la contraseña vigente del usuario.
 
-    # La sesion guarda un HMAC, nunca el hash de contrasena ni su valor original.
+    Args:
+        sesion (SessionBase): Sesión modificada mediante asignación de su huella.
+        usuario (Usuario): Identidad cuya contraseña autoriza la sesión.
+
+    Returns:
+        None: La persistencia queda a cargo del mecanismo de sesiones de Django.
+    """
+
+    # La sesión guarda un HMAC, nunca el hash de contraseña ni su valor original.
     sesion[_CLAVE_VINCULO_CONTRASENA] = _huella_contrasena(usuario)
 
 
 def _sesion_contrasena_vigente(sesion, usuario):
-    """Comprueba que la sesión no sobreviva a un cambio posterior de contraseña."""
+    """Valida la huella de contraseña, admitiendo sesiones antiguas sin marca.
+
+    Args:
+        sesion (SessionBase): Sesión que se está autenticando; no se modifica.
+        usuario (Usuario): Identidad con el hash vigente en la base de datos.
+
+    Returns:
+        bool: ``True`` si no existe marca o si coincide en tiempo constante;
+        ``False`` si la marca tiene otro tipo o corresponde a otra contraseña.
+    """
 
     if _CLAVE_VINCULO_CONTRASENA not in sesion:
         # Compatibilidad: las sesiones anteriores se revocan al restablecer por BD.

@@ -14,6 +14,16 @@ class SesionActualView(APIView):
     permission_classes = [EsUsuarioSkillyAutenticado]
 
     def get(self, request):
+        """Entrega los identificadores públicos de la sesión autenticada.
+
+        Args:
+            request (Request): Petición autorizada para un usuario activo.
+
+        Returns:
+            Response: HTTP 200 con identificador, correo y rol del usuario.
+            La autenticación y el permiso rechazan el acceso antes del método
+            si no existe una sesión válida; no se exponen hashes ni tokens.
+        """
         usuario = request.user
         return Response({
             "usuario": {

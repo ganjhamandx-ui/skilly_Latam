@@ -29,6 +29,17 @@ class RegistroProfesionalSerializer(serializers.Serializer):
     )
 
     def validate_correo(self, value):
+        """Normaliza el correo y comprueba duplicados sin distinguir mayúsculas.
+
+        Args:
+            value (str): Correo previamente validado por ``EmailField``.
+
+        Returns:
+            str: Correo sin espacios exteriores y en minúsculas.
+
+        Raises:
+            serializers.ValidationError: Si ya existe una cuenta con ese correo.
+        """
         correo = value.strip().lower()
 
         if Usuario.objects.filter(
@@ -41,6 +52,18 @@ class RegistroProfesionalSerializer(serializers.Serializer):
         return correo
 
     def validate(self, data):
+        """Comprueba confirmación y validadores de contraseña de Django.
+
+        Args:
+            data (dict): Campos válidos del registro, incluidas ambas contraseñas.
+
+        Returns:
+            dict: Los datos originales si las contraseñas coinciden y son válidas.
+
+        Raises:
+            serializers.ValidationError: Si falla la confirmación o la política
+                configurada; el error se asocia al campo correspondiente.
+        """
         contrasena = data["contrasena"]
         confirmar_contrasena = data[
             "confirmar_contrasena"
@@ -69,6 +92,18 @@ class RegistroProfesionalSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
+        """Guarda una cuenta profesional activa con contraseña cifrada por hash.
+
+        Args:
+            validated_data (dict): Correo normalizado y contraseña ya validados.
+
+        Returns:
+            Usuario: Identidad creada, sin crear perfil ni iniciar sesión.
+
+        Raises:
+            serializers.ValidationError: Si un registro concurrente ocupa el correo.
+            IntegrityError: Si falla otra restricción de persistencia.
+        """
         ahora = timezone.now()
 
         try:
@@ -111,6 +146,18 @@ class InicioSesionSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
+        """Verifica contraseña y estado activo con un error común de credenciales.
+
+        Args:
+            data (dict): Correo y contraseña validados por los campos de DRF.
+
+        Returns:
+            dict: Los mismos datos con correo normalizado y ``usuario`` resuelto.
+
+        Raises:
+            serializers.ValidationError: Si no existe la cuenta, la contraseña
+                no coincide o el estado no es ``ACTIVO``.
+        """
         correo = data["correo"].strip().lower()
         contrasena = data["contrasena"]
 
@@ -155,6 +202,14 @@ class SolicitarRecuperacionSerializer(
     )
 
     def validate_correo(self, value):
+        """Devuelve el correo sin espacios exteriores y en minúsculas.
+
+        Args:
+            value (str): Correo cuya sintaxis ya validó DRF.
+
+        Returns:
+            str: Dirección normalizada sin consultar la existencia de la cuenta.
+        """
         return value.strip().lower()
 
 
@@ -181,6 +236,18 @@ class RestablecerContrasenaSerializer(
     )
 
     def validate(self, data):
+        """Comprueba la nueva contraseña sin consumir ni verificar el token.
+
+        Args:
+            data (dict): Token, nueva contraseña y confirmación validados por DRF.
+
+        Returns:
+            dict: Datos originales si coinciden las contraseñas y cumplen la política.
+
+        Raises:
+            serializers.ValidationError: Si la confirmación difiere o Django
+                rechaza la nueva contraseña.
+        """
         nueva_contrasena = data[
             "nueva_contrasena"
         ]
