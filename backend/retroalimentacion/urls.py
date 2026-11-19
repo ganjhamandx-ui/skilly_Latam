@@ -1,3 +1,5 @@
+"""Define las rutas de retroalimentación para cada actor autorizado."""
+
 from django.urls import path
 
 from .recomendaciones_profesional import (

@@ -18,10 +18,13 @@ from .politicas_reportes_profesional import ESTADO_AVISO, preparar_aviso
 
 @method_decorator(csrf_protect, name='dispatch')
 class AvisoIncidenciaProfesionalView(APIView):
+    """Registra una incidencia informativa sin modificar agenda, pago o contrato."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
 
     def post(self, request, id_prestacion):
+        """Registra un aviso profesional sin cancelar ni reagendar automáticamente."""
         try:
             detalle = preparar_aviso(
                 request.data.get('motivo'), request.data.get('descripcion')

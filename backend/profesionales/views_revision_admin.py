@@ -1,3 +1,5 @@
+"""Registra decisiones administrativas sobre documentos profesionales."""
+
 from django.db import transaction
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect

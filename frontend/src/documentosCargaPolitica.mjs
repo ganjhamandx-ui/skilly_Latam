@@ -1,3 +1,4 @@
+// Decide si corresponde corregir un rechazo o adjuntar una nueva versión sin reemplazar aprobados.
 export function accionCargaDocumento(documento, politica, indiceEnTipo) {
   const corregible = Boolean(
     documento?.estado_revision === 'RECHAZADA'

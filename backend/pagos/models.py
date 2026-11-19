@@ -1,3 +1,5 @@
+"""Modela pagos, abonos, comprobantes y reversas económicas."""
+
 from django.db import models
 
 from acceso.models import Usuario
@@ -87,6 +89,8 @@ class Pago(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `pago`."""
+
         managed = False
         db_table = "pago"
 
@@ -128,6 +132,8 @@ class HistorialEstadoPago(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `historial_estado_pago`."""
+
         managed = False
         db_table = "historial_estado_pago"
 
@@ -189,5 +195,7 @@ class ReversaPago(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `reversa_pago`."""
+
         managed = False
         db_table = "reversa_pago"

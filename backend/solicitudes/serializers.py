@@ -1,3 +1,5 @@
+"""Valida solicitudes, propuestas, disponibilidad y reservas."""
+
 import re
 
 from django.utils import timezone
@@ -15,6 +17,8 @@ from .referencias import crear_referencia_seguimiento
 class GuardarDisponibilidadProfesionalSerializer(
     serializers.Serializer
 ):
+    """Valida fecha y rango horario de un bloque profesional."""
+
     fecha = serializers.DateField(
         required=True
     )
@@ -28,6 +32,7 @@ class GuardarDisponibilidadProfesionalSerializer(
     )
 
     def validate(self, attrs):
+        """Valida que el bloque tenga fecha vigente y un rango horario coherente."""
         bloque_actual = self.context.get(
             "bloque_actual"
         )
@@ -95,11 +100,15 @@ class GuardarDisponibilidadProfesionalSerializer(
 class DisponibilidadProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Expone bloques de disponibilidad con campos legibles para la interfaz."""
+
     reserva_actual = (
         serializers.SerializerMethodField()
     )
 
     class Meta:
+        """Define la representación de Disponibilidad y protege sus campos de solo lectura."""
+
         model = Disponibilidad
 
         fields = [
@@ -117,6 +126,7 @@ class DisponibilidadProfesionalSerializer(
         self,
         disponibilidad,
     ):
+        """Presenta la reserva vigente o pendiente vinculada al bloque."""
         reserva = (
             ReservaDisponibilidad.objects
             .filter(
@@ -150,6 +160,8 @@ class DisponibilidadProfesionalSerializer(
 class EnviarSolicitudServicioSerializer(
     serializers.Serializer
 ):
+    """Valida datos empresariales y de necesidad antes de crear una solicitud."""
+
     id_servicio = serializers.IntegerField(
         min_value=1
     )
@@ -177,6 +189,7 @@ class EnviarSolicitudServicioSerializer(
     )
 
     def validate_rut(self, valor):
+        """Normaliza y valida el RUT chileno mediante módulo 11."""
         # Validacion del modulo 11 chileno; normaliza antes de buscar empresa.
         rut = valor.upper().replace(".", "").replace("-", "").replace(" ", "")
         if not re.fullmatch(r"[0-9]{1,8}[0-9K]", rut):
@@ -265,6 +278,7 @@ class EnviarSolicitudServicioSerializer(
     )
 
     def validate(self, attrs):
+        """Impide alterar el precio publicado y normaliza campos opcionales vacíos."""
         if "referencia_presupuesto" in self.initial_data:
             raise serializers.ValidationError({
                 "referencia_presupuesto": (
@@ -290,6 +304,8 @@ class EnviarSolicitudServicioSerializer(
 class SolicitudServicioPublicaSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta datos públicos de la solicitud sin información administrativa sensible."""
+
     empresa = serializers.SerializerMethodField()
     contacto = serializers.SerializerMethodField()
     servicio = serializers.SerializerMethodField()
@@ -300,6 +316,8 @@ class SolicitudServicioPublicaSerializer(
     )
 
     class Meta:
+        """Define la representación de SolicitudServicio y protege sus campos de solo lectura."""
+
         model = SolicitudServicio
 
         fields = [
@@ -326,6 +344,7 @@ class SolicitudServicioPublicaSerializer(
         self,
         solicitud,
     ):
+        """Genera la referencia privada de seguimiento para la solicitud."""
         return crear_referencia_seguimiento(
             solicitud
         )
@@ -334,6 +353,7 @@ class SolicitudServicioPublicaSerializer(
         self,
         solicitud,
     ):
+        """Presenta la identificación pública mínima de la organización."""
         empresa = solicitud.id_empresa
 
         return {
@@ -347,6 +367,7 @@ class SolicitudServicioPublicaSerializer(
         self,
         solicitud,
     ):
+        """Presenta los datos de contacto asociados a la solicitud."""
         contacto = solicitud.id_contacto
 
         return {
@@ -361,6 +382,7 @@ class SolicitudServicioPublicaSerializer(
         self,
         solicitud,
     ):
+        """Presenta el servicio publicado asociado, cuando existe."""
         servicio = solicitud.id_servicio
 
         if servicio is None:
@@ -377,6 +399,7 @@ class SolicitudServicioPublicaSerializer(
         self,
         solicitud,
     ):
+        """Presenta la reserva vigente o pendiente con su bloque horario."""
         reserva = (
             ReservaDisponibilidad.objects
             .select_related(
@@ -423,11 +446,15 @@ class SolicitudServicioPublicaSerializer(
 class SeguimientoSolicitudServicioSerializer(
     serializers.ModelSerializer
 ):
+    """Construye el estado de seguimiento visible mediante referencia privada."""
+
     empresa = serializers.SerializerMethodField()
     servicio = serializers.SerializerMethodField()
     reserva = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de SolicitudServicio y protege sus campos de solo lectura."""
+
         model = SolicitudServicio
 
         fields = [
@@ -449,6 +476,7 @@ class SeguimientoSolicitudServicioSerializer(
         self,
         solicitud,
     ):
+        """Presenta el nombre de la organización en el seguimiento privado."""
         return {
             "nombre_organizacion": (
                 solicitud
@@ -461,6 +489,7 @@ class SeguimientoSolicitudServicioSerializer(
         self,
         solicitud,
     ):
+        """Presenta el servicio asociado en el seguimiento privado."""
         servicio = solicitud.id_servicio
 
         if servicio is None:
@@ -477,6 +506,7 @@ class SeguimientoSolicitudServicioSerializer(
         self,
         solicitud,
     ):
+        """Presenta la reserva activa o pendiente en el seguimiento privado."""
         reserva = (
             ReservaDisponibilidad.objects
             .select_related(

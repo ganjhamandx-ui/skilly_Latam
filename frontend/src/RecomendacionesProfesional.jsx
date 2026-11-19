@@ -19,23 +19,27 @@ const etiquetas = {
   motivo: 'Motivo',
 }
 
+// Traduce claves recibidas en etiquetas de recomendaciones legibles.
 function nombreCampo(clave) {
   return etiquetas[clave] ??
     clave.replaceAll('_', ' ')
       .replace(/^./, (letra) => letra.toUpperCase())
 }
 
+// Distingue claves que se excluyen del detalle privado de recomendaciones.
 function esRestringido(clave) {
   return /password|contrasena|token|secret|hash|csrf|credential/i
     .test(clave)
 }
 
+// Convierte valores de la recomendación en una representación legible.
 function convertirTexto(valor) {
   if (valor == null || valor === '') return 'No informado'
   if (typeof valor === 'boolean') return valor ? 'S\u00ed' : 'No'
   return String(valor)
 }
 
+// Presenta solamente los antecedentes de recomendación que superan el filtro por campo.
 function MostrarDatos({ datos }) {
   if (!datos || typeof datos !== 'object') {
     return <p>{convertirTexto(datos)}</p>
@@ -70,6 +74,7 @@ function MostrarDatos({ datos }) {
   )
 }
 
+// Extrae la lista de recomendaciones del formato recibido.
 function normalizarLista(datos) {
   if (Array.isArray(datos)) return datos
 
@@ -84,6 +89,7 @@ function normalizarLista(datos) {
   return null
 }
 
+// Extrae detalles de validación del servidor para evitar mensajes genéricos.
 function obtenerMensaje(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -91,6 +97,7 @@ function obtenerMensaje(datos, estado) {
   return `La solicitud no pudo completarse (HTTP ${estado}).`
 }
 
+// Lista las recomendaciones de desarrollo accesibles al profesional actual.
 export default function RecomendacionesProfesional() {
   const [recomendaciones, setRecomendaciones] = useState([])
   const [consultadas, setConsultadas] = useState(false)
@@ -102,6 +109,7 @@ export default function RecomendacionesProfesional() {
   const [errorDetalle, setErrorDetalle] = useState('')
 
   const consultarRecomendaciones = useCallback(async () => {
+    // Actualiza la lista de recomendaciones con estado independiente de carga.
 
     setCargando(true)
     setError('')
@@ -149,6 +157,7 @@ export default function RecomendacionesProfesional() {
   }, [])
 
   useEffect(() => {
+    // Omite la consulta inicial si la vista se desmontó antes de iniciarla.
     let activo = true
     // La consulta comienza tras el montaje del componente.
     Promise.resolve().then(() => {
@@ -157,6 +166,7 @@ export default function RecomendacionesProfesional() {
     return () => { activo = false }
   }, [consultarRecomendaciones])
 
+  // Recupera el detalle de una recomendación que pertenece al profesional.
   async function consultarDetalle(id) {
     if (cargandoDetalle || id == null) return
 
@@ -231,6 +241,7 @@ export default function RecomendacionesProfesional() {
       {recomendaciones.length > 0 && (
         <div className="rp-listado">
           {recomendaciones.map((item, indice) => {
+            // Adapta recomendaciones de texto y estructuradas al mismo formato de tarjeta.
             const recomendacion = item && typeof item === 'object'
               ? item
               : { descripcion: item }

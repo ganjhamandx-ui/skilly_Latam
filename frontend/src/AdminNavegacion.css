@@ -1,3 +1,4 @@
+/* Distribuye la navegación administrativa y adapta sus acciones al ancho disponible. */
 .sk-admin-menu {
   width: 100%;
   max-width: 1200px;

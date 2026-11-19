@@ -1,14 +1,17 @@
+// Coordina solicitudes y decisiones de reversa sin recalcular importes en el navegador.
 import { useCallback, useState } from 'react'
 import useCargaAsincrona from './useCargaAsincrona.js'
 
 const api = '/api/pagos/administracion/'
 
+// Escoge el mensaje de la API de reversas y prepara una respuesta de error visible.
 function errorTexto(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `Operación no completada (HTTP ${codigo}).`
 }
 
+// Envía solicitudes de reversa con las credenciales de sesión y comunica errores HTTP.
 async function peticion(ruta, opciones = {}) {
   const respuesta = await fetch(ruta, {
     credentials: 'same-origin', cache: 'no-store',
@@ -20,6 +23,7 @@ async function peticion(ruta, opciones = {}) {
   return datos
 }
 
+// Solicita un token CSRF con las cookies de la sesión antes de una escritura.
 async function obtenerCsrf() {
   const datos = await peticion('/api/acceso/csrf/')
   if (!datos.csrfToken) throw new Error('No se obtuvo CSRF.')
@@ -29,10 +33,12 @@ async function obtenerCsrf() {
 const campos = { width: '100%', padding: 10, borderRadius: 8,
   border: '1px solid #abc7b9', boxSizing: 'border-box', font: 'inherit' }
 
+// Reinicia el formulario de reversas al seleccionar otro pago.
 export default function GestionReversasPagoE3({ pago, alActualizar }) {
   return <GestionReversasPago key={pago?.id_pago} pago={pago} alActualizar={alActualizar} />
 }
 
+// Presenta solicitudes de reversa y sus decisiones dentro del expediente del pago.
 function GestionReversasPago({ pago, alActualizar }) {
   const idPago = pago?.id_pago
   const [reversas, setReversas] = useState([])
@@ -55,8 +61,10 @@ function GestionReversasPago({ pago, alActualizar }) {
   }, [])
   const fallarConsulta = useCallback((e) => { setError(e.message); setCargando(false) }, [])
   const recargar = useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
+  // Recupera las reversas del pago seleccionado y las acciones disponibles.
   async function cargar() { setCargando(true); setError(''); await recargar() }
 
+  // Envía el monto y fundamento de la reversa para revisión del backend.
   async function solicitar() {
     if (procesando || motivo.trim().length < 20) {
       setError('Describe el motivo de la reversa (mínimo 20 caracteres).')
@@ -76,6 +84,7 @@ function GestionReversasPago({ pago, alActualizar }) {
     finally { setProcesando(false) }
   }
 
+  // Registra la decisión sobre una reversa seleccionada y refresca su historial.
   async function resolver(reversa, accion) {
     if (procesando || fundamento.trim().length < 20) {
       setError('Explica la decisión administrativa (mínimo 20 caracteres).')

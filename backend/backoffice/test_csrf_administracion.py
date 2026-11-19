@@ -12,6 +12,8 @@ from .cuentas_bancarias_api import CuentasBancariasView, CuentaBancariaDetalleVi
 
 @override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
 class CsrfAdministracionTests(SimpleTestCase):
+    """Comprueba que las escrituras administrativas con sesión exijan CSRF válido."""
+
     operaciones = (
         ('post', '/api/backoffice/configuracion/cuentas-bancarias/', CuentasBancariasView),
         ('patch', '/api/backoffice/configuracion/cuentas-bancarias/1/', CuentaBancariaDetalleView),

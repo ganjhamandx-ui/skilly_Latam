@@ -1,3 +1,5 @@
+"""Declara las rutas privadas de configuración y control administrativo."""
+
 from .configuracion_cargo_cancelacion_e3 import ConfiguracionCargoCancelacionView
 from django.urls import include, path
 

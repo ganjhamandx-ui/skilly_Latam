@@ -7,10 +7,14 @@ CAMPOS_REQUERIDOS = ('titular', 'rut_titular', 'banco', 'tipo_cuenta', 'numero_c
 
 
 class DatosBancariosInvalidos(ValueError):
+    """Agrupa rechazos de formato antes de almacenar una cuenta bancaria."""
+
     pass
 
 
 def normalizar_rut(rut):
+    """Normaliza y valida el RUT chileno, incluido su dígito verificador."""
+
     texto = re.sub(r'[.\s-]', '', str(rut or '')).upper()
     if not re.fullmatch(r'\d{7,8}[0-9K]', texto):
         raise DatosBancariosInvalidos('RUT: formato invalido.')

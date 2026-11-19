@@ -18,6 +18,8 @@ from .views import InicioSesionView
 
 
 class SesionesContrasenaTests(SimpleTestCase):
+    """Comprueba invalidación de sesiones después de cambiar la contraseña."""
+
     def setUp(self):
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.usuario = self.usuario_simulado("hash-sintetico-v1")

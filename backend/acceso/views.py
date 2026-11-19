@@ -1,3 +1,5 @@
+"""Implementa los endpoints de registro, autenticación y cuenta de usuario."""
+
 from acceso.registro_completo import RegistroProfesionalCompletoSerializer
 from django.middleware.csrf import get_token, rotate_token
 from django.utils.decorators import method_decorator
@@ -30,6 +32,8 @@ from .recuperacion import enviar_correo_recuperacion
 
 
 class CsrfTokenView(APIView):
+    """Entrega el token CSRF inicial sin desactivar la protección de escrituras."""
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -46,6 +50,8 @@ class CsrfTokenView(APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class RegistroProfesionalView(APIView):
+    """Registra una cuenta profesional y establece su sesión autenticada."""
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -80,6 +86,8 @@ class RegistroProfesionalView(APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class InicioSesionView(ProteccionIntentosMixin, APIView):
+    """Inicia sesión con limitación por origen e identidad y rota la clave de sesión."""
+
     alcance_intentos = "iniciar_sesion"
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -126,6 +134,8 @@ class InicioSesionView(ProteccionIntentosMixin, APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class SolicitarRecuperacionView(ProteccionIntentosMixin, APIView):
+    """Solicita recuperación con respuesta uniforme para evitar enumerar cuentas."""
+
     alcance_intentos = "recuperar"
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -186,6 +196,8 @@ class SolicitarRecuperacionView(ProteccionIntentosMixin, APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class RestablecerContrasenaView(ProteccionIntentosMixin, APIView):
+    """Valida y consume el token antes de sustituir la contraseña del usuario."""
+
     alcance_intentos = "restablecer"
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -240,6 +252,8 @@ class RestablecerContrasenaView(ProteccionIntentosMixin, APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class CerrarSesionView(APIView):
+    """Invalida la sesión autenticada y elimina su cookie del cliente."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]

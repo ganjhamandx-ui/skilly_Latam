@@ -1,3 +1,5 @@
+"""Expone al profesional sus recomendaciones sin revelar datos ajenos."""
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,6 +15,8 @@ from .serializers import (
 
 
 class MisRecomendacionesProfesionalView(APIView):
+    """Lista únicamente recomendaciones comunicadas al profesional autenticado."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -22,6 +26,7 @@ class MisRecomendacionesProfesionalView(APIView):
     ]
 
     def get(self, request):
+        """Lista recomendaciones comunicadas al profesional autenticado."""
         profesional = Profesional.objects.filter(
             id_usuario=request.user
         ).first()
@@ -70,6 +75,8 @@ class MisRecomendacionesProfesionalView(APIView):
 
 
 class DetalleRecomendacionProfesionalView(APIView):
+    """Entrega el detalle de una recomendación que pertenece al profesional."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -83,6 +90,7 @@ class DetalleRecomendacionProfesionalView(APIView):
         request,
         id_recomendacion,
     ):
+        """Entrega una recomendación comunicada que pertenece al profesional autenticado."""
         profesional = Profesional.objects.filter(
             id_usuario=request.user
         ).first()

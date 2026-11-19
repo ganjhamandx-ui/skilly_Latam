@@ -1,3 +1,4 @@
+// Aísla errores de carga diferida y presenta una espera común para todas las pantallas.
 import { Component, Suspense } from 'react'
 
 const contenedor = {
@@ -6,13 +7,16 @@ const contenedor = {
   padding: '1.5rem',
 }
 
+// Aísla errores de renderizado durante la carga diferida de una pantalla.
 export default class CargaPantalla extends Component {
   state = { fallo: false }
 
+  // Activa la vista de recuperación tras un error de renderizado del módulo.
   static getDerivedStateFromError() {
     return { fallo: true }
   }
 
+  // Presenta la carga, el estado de recuperación o el módulo activo según el estado actual.
   render() {
     if (this.state.fallo) {
       return (

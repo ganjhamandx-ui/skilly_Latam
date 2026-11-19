@@ -1,9 +1,11 @@
+// Permite revisar y registrar el cargo económico de un expediente de cancelación autorizado.
 import { useEffect, useState } from 'react'
 import AdminNavegacion from './AdminNavegacion.jsx'
 import './Administracion.css'
 
 const URL = '/api/backoffice/configuracion/cancelaciones/'
 
+// Formatea el cargo porcentual sin modificar el valor que valida el backend.
 const mostrarPorcentaje = (valor) => {
   if (valor == null || valor === '') return 'Sin configurar'
   const numero = Number(valor)
@@ -12,6 +14,7 @@ const mostrarPorcentaje = (valor) => {
     : 'No disponible'
 }
 
+// Presenta la fecha de registro con formato regional para interpretar el historial.
 const fechaLocal = (valor) => {
   if (!valor) return 'Sin información'
   const fecha = new Date(valor)
@@ -19,6 +22,7 @@ const fechaLocal = (valor) => {
     fecha.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// Adapta el detalle del rechazo al formulario y conserva el código HTTP.
 const detalleError = (datos, codigo) => {
   if (datos?.mensaje) return datos.mensaje
   if (datos?.detail) return String(datos.detail)
@@ -27,6 +31,7 @@ const detalleError = (datos, codigo) => {
   return `No se pudo completar la operación (HTTP ${codigo}).`
 }
 
+// Presenta el parámetro de cargo por cancelación y conserva el historial de cambios.
 export default function CargoCancelacionAdministracionE3() {
   const [parametro, setParametro] = useState(null)
   const [historial, setHistorial] = useState([])
@@ -39,7 +44,9 @@ export default function CargoCancelacionAdministracionE3() {
   const [confirmando, setConfirmando] = useState(false)
 
   useEffect(() => {
+    // Desactiva las actualizaciones del cargo y su historial al desmontar la pantalla.
     let activo = true
+    // Obtiene del backend el cargo vigente y sus cambios históricos.
     async function cargar() {
       try {
         const respuesta = await fetch(URL, {
@@ -70,6 +77,7 @@ export default function CargoCancelacionAdministracionE3() {
     Number.isFinite(valor) && valor >= 0 && valor <= 100
   const modificado = valido && (parametro === null || valor !== Number(parametro.valor_actual))
 
+  // Envía el nuevo cargo por cancelación para validarlo y registrarlo en el historial.
   async function guardar() {
     if (!confirmando || !modificado || guardando) return
     setError('')

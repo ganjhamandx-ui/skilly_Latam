@@ -1,3 +1,5 @@
+"""Declara las rutas de autenticación, sesión y recuperación de acceso."""
+
 from django.urls import path
 from .sesion_actual import SesionActualView
 

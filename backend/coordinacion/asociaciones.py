@@ -1,3 +1,5 @@
+"""Consulta asociaciones entre solicitudes, profesionales y responsables."""
+
 from .control_responsable import requiere_responsable_solicitud
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -26,6 +28,8 @@ from .serializers import (
 class ConfirmarAsociacionSolicitudProfesionalView(
     APIView
 ):
+    """Permite al profesional aceptar o rechazar una asociación propuesta."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]

@@ -1,4 +1,6 @@
 
+"""Declara las rutas públicas y privadas del marketplace."""
+
 from django.urls import path
 from .views_decision_comercial import RechazarVersionComercialProfesionalView
 

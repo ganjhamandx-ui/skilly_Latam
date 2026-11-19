@@ -1,3 +1,4 @@
+/* Separa carga, estado y corrección de documentos para evitar acciones visualmente ambiguas. */
 
 .dc-panel {
   margin-bottom: 26px;

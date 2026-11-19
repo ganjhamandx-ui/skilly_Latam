@@ -1,3 +1,5 @@
+"""Implementa consultas y transacciones protegidas del ciclo de pagos."""
+
 from seguimiento.aceptacion_politica_e3 import bloquear_pago_sin_aceptacion
 from datetime import datetime
 from uuid import uuid4

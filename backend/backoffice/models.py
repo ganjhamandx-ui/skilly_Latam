@@ -1,9 +1,13 @@
+"""Modela parámetros e historiales gestionados por el backoffice."""
+
 from django.db import models
 
 from acceso.models import Usuario
 
 
 class EventoTrazabilidad(models.Model):
+    """Registra quién ejecutó una acción relevante sobre una entidad operativa."""
+
     id_evento = models.BigAutoField(
         primary_key=True
     )
@@ -38,11 +42,15 @@ class EventoTrazabilidad(models.Model):
     fecha_evento = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `evento_trazabilidad`."""
+
         managed = False
         db_table = "evento_trazabilidad"
 
 
 class ParametroSistema(models.Model):
+    """Mantiene un parámetro administrativo vigente y su responsable de actualización."""
+
     id_parametro = models.BigAutoField(
         primary_key=True
     )
@@ -77,11 +85,15 @@ class ParametroSistema(models.Model):
     fecha_actualizacion = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `parametro_sistema`."""
+
         managed = False
         db_table = "parametro_sistema"
 
 
 class HistorialParametro(models.Model):
+    """Conserva valores anteriores y nuevos de cada parámetro modificado."""
+
     id_historial_parametro = models.BigAutoField(
         primary_key=True
     )
@@ -113,5 +125,7 @@ class HistorialParametro(models.Model):
     fecha_cambio = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `historial_parametro`."""
+
         managed = False
         db_table = "historial_parametro"

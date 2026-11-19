@@ -1,3 +1,5 @@
+"""Modela asignaciones, prestaciones, reservas y reuniones coordinadas."""
+
 from django.db import models
 
 from acceso.models import Usuario
@@ -36,6 +38,8 @@ class SolicitudProfesional(models.Model):
     fecha_asociacion = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `solicitud_profesional`."""
+
         managed = False
         db_table = "solicitud_profesional"
 
@@ -73,6 +77,8 @@ class AsignacionSolicitud(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `asignacion_solicitud`."""
+
         managed = False
         db_table = "asignacion_solicitud"
 
@@ -112,6 +118,8 @@ class CoordinacionSolicitud(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `coordinacion_solicitud`."""
+
         managed = False
         db_table = "coordinacion_solicitud"
 
@@ -160,6 +168,8 @@ class ReunionSolicitud(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `reunion_solicitud`."""
+
         managed = False
         db_table = "reunion_solicitud"
 
@@ -211,5 +221,7 @@ class PrestacionServicio(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `prestacion_servicio`."""
+
         managed = False
         db_table = "prestacion_servicio"

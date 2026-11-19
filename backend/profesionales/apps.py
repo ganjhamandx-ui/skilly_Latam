@@ -1,3 +1,5 @@
+"""Declara la aplicación Django de profesionales y validación documental."""
+
 from django.apps import AppConfig
 
 

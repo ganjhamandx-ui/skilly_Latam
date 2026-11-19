@@ -1,3 +1,5 @@
+"""Configura la aplicación del marketplace de servicios profesionales."""
+
 from django.apps import AppConfig
 
 

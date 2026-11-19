@@ -8,6 +8,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 def proyectar_liquidacion(*, monto_total, monto_trabajo, porcentaje,
                           origen, decision, aceptacion_previa_valida=False):
+    """Proyecta trabajo, cargo y devolución sin ejecutar movimientos de dinero."""
+
     try:
         total = Decimal(str(monto_total))
         trabajo = Decimal(str(monto_trabajo))

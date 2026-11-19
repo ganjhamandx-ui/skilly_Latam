@@ -54,6 +54,7 @@ function VentanaProfesional({ abierta, titulo, onCerrar, children }) {
   )
 }
 
+// Presenta la fecha de la actividad usando la configuración regional chilena.
 function formatearFechaChile(valor, conHora = false) {
   if (!valor) return 'No informada'
   const texto = String(valor)
@@ -72,12 +73,14 @@ function formatearFechaChile(valor, conHora = false) {
   }).format(fecha)
 }
 
+// Agrupa perfil, validación, Marketplace, agenda y prestaciones en el área profesional.
 function PortalProfesional() {
   const [estado, setEstado] = useState('cargando')
   const [moduloPortal, setModuloPortal] = useState('servicios')
   const [ventanaPortal, setVentanaPortal] = useState(null)
   const [ultimaConsulta, setUltimaConsulta] = useState({})
 
+  // Vincula la consulta activa a su señal de cancelación para descartar respuestas antiguas.
   function registrarConsulta(seccion) {
     setUltimaConsulta((actual) => ({
       ...actual,
@@ -182,8 +185,10 @@ function PortalProfesional() {
 
 
   useEffect(() => {
+    // Inicializa la sesión y comprueba vigencia antes de actualizar el portal.
     let activo = true
 
+    // Consulta si la sesión corresponde a un profesional antes de cargar los módulos privados.
     async function verificar() {
       try {
         const respuesta = await fetch('/api/acceso/sesion-actual/', {
@@ -212,6 +217,7 @@ function PortalProfesional() {
     return () => { activo = false }
   }, [])
 
+  // Finaliza la sesión en el backend y despeja el estado de acceso de la vista.
   async function cerrarSesion() {
     if (cerrando) return
 
@@ -261,6 +267,7 @@ function PortalProfesional() {
   
 
 
+  // Carga la versión evaluada para que el profesional conozca la decisión administrativa.
   async function consultarVersionRevisada(idServicio) {
     if (!idServicio || cargandoVersion) return
 
@@ -303,6 +310,7 @@ function PortalProfesional() {
     }
   }
 
+  // Envía la acción de propuesta o publicación sobre el servicio del profesional.
   async function ejecutarAccionServicio(accion) {
     if (accionServicio || !idServicioDetalle) return
 
@@ -447,6 +455,7 @@ function PortalProfesional() {
     }
   }
 
+  // Carga los datos del servicio propio seleccionado antes de mostrar el detalle.
   async function consultarDetalleServicio(idServicio) {
     if (!idServicio || cargandoDetalleServicio) return
     setVentanaPortal(null)
@@ -498,6 +507,7 @@ function PortalProfesional() {
     }
   }
 
+  // Actualiza la lista de servicios que pertenecen al profesional en sesión.
   async function cargarServicios() {
     setCargandoServicios(true)
     setErrorServicios('')
@@ -544,6 +554,7 @@ function PortalProfesional() {
   }
 
 
+  // Obtiene los datos del perfil necesarios para las vistas del portal.
   async function cargarPerfil() {
     setCargandoPerfil(true)
     setErrorPerfil('')
@@ -578,6 +589,7 @@ function PortalProfesional() {
   }
 
 
+  // Actualiza el estado de la validación profesional a partir del backend.
   async function cargarValidacion() {
     setCargandoValidacion(true)
     setErrorValidacion('')
@@ -630,6 +642,7 @@ function PortalProfesional() {
 
 
 
+  // Consulta horarios de entrevista que el profesional puede reservar.
   async function consultarBloquesEntrevista() {
     if (cargandoBloques) return
 
@@ -674,6 +687,7 @@ function PortalProfesional() {
     }
   }
 
+  // Solicita la reserva del bloque y actualiza la agenda con el resultado autorizado.
   async function reservarEntrevista(evento) {
     evento.preventDefault()
 
@@ -759,6 +773,7 @@ function PortalProfesional() {
 
 
 
+  // Envía una entrega del profesional y actualiza el historial de su prestación.
   async function registrarEntregaProfesional(evento) {
     evento.preventDefault()
 
@@ -884,6 +899,7 @@ function PortalProfesional() {
     }
   }
 
+  // Consulta el historial de entregas de la prestación seleccionada.
   async function cargarEntregasProfesional(idPrestacion) {
     if (!idPrestacion || cargandoEntregas) return
     setVentanaPortal('entregas')
@@ -958,6 +974,7 @@ function PortalProfesional() {
     }
   }
 
+  // Consulta avances y estado del servicio coordinado seleccionado.
   async function cargarSeguimientoProfesional(idPrestacion) {
     if (!idPrestacion || cargandoSeguimiento) return
     setVentanaPortal('seguimiento')
@@ -1001,6 +1018,7 @@ function PortalProfesional() {
   }
 
 
+  // Consulta el resumen de pagos de las prestaciones propias.
   async function cargarPagosProfesional() {
     if (cargandoPagos) return
 
@@ -1055,6 +1073,7 @@ function PortalProfesional() {
     }
   }
 
+  // Carga las prestaciones coordinadas asociadas al profesional.
   async function cargarCoordinados() {
     if (cargandoCoordinados) return
 
@@ -1102,6 +1121,7 @@ function PortalProfesional() {
     }
   }
 
+  // Solicita cancelar la entrevista registrada con el motivo informado.
   async function cancelarEntrevista(evento) {
     evento.preventDefault()
     const motivo = motivoCancelacion.trim()
@@ -1147,6 +1167,7 @@ function PortalProfesional() {
     }
   }
 
+  // Consulta la entrevista vigente y actualiza sus datos en el portal.
   async function cargarEntrevista() {
     if (cargandoEntrevista) return
 
@@ -1200,6 +1221,7 @@ function PortalProfesional() {
     setExitoNuevaEntrega('')
   }, [registrandoEntrega])
 
+  // Selecciona la opción del portal y carga los datos que necesita.
   function abrirOpcion(seccion) {
     setVentanaPortal(seccion)
     if (seccion === 'mis-servicios') void cargarServicios()

@@ -1,3 +1,5 @@
+"""Construye la respuesta segura que describe la sesión autenticada actual."""
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -6,6 +8,8 @@ from .permissions import EsUsuarioSkillyAutenticado
 
 
 class SesionActualView(APIView):
+    """Devuelve la identidad activa asociada a la sesión autenticada."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsUsuarioSkillyAutenticado]
 

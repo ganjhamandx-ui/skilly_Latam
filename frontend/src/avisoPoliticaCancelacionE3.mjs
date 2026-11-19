@@ -8,6 +8,7 @@ export function mostrarAvisoPolitica({ referencia, habilitarFormulario, cargando
   )
 }
 
+// Combina la referencia y versión para distinguir aceptaciones de políticas diferentes.
 export function claveAvisoPolitica(referencia, version) {
   return `${referencia}:${version}`
 }

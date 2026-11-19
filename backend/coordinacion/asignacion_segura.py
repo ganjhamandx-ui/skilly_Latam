@@ -1,4 +1,6 @@
 
+"""Asigna responsables con bloqueo transaccional para evitar carreras."""
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -21,6 +23,8 @@ from .views import (
 
 
 def error_asignacion(mensaje, codigo):
+    """Devuelve un error controlado sin exponer detalles de la asignación."""
+
     return Response(
         {"mensaje": mensaje},
         status=codigo,
@@ -31,6 +35,8 @@ def error_asignacion(mensaje, codigo):
 class AsignacionSolicitudSeguraAdministracionView(
     AsignacionSolicitudAdministracionView
 ):
+    """Serializa asignaciones administrativas y evita responsables duplicados."""
+
     # Conserva el GET y los permisos existentes.
 
     def post(self, request, id_solicitud):

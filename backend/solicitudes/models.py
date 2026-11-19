@@ -1,3 +1,5 @@
+"""Modela solicitudes, disponibilidad, reservas y reuniones iniciales."""
+
 from django.db import models
 
 from marketplace.models import Servicio
@@ -8,6 +10,8 @@ from profesionales.models import (
 
 
 class Disponibilidad(models.Model):
+    """Representa un bloque horario publicable de un profesional."""
+
     id_disponibilidad = models.BigAutoField(
         primary_key=True
     )
@@ -29,11 +33,15 @@ class Disponibilidad(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `disponibilidad`."""
+
         managed = False
         db_table = "disponibilidad"
 
 
 class EmpresaSolicitante(models.Model):
+    """Almacena la organización que contrata servicios en SKILLY."""
+
     id_empresa = models.BigAutoField(
         primary_key=True
     )
@@ -67,14 +75,19 @@ class EmpresaSolicitante(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `empresa_solicitante`."""
+
         managed = False
         db_table = "empresa_solicitante"
 
     def __str__(self):
+        """Devuelve el nombre de la organización para representaciones legibles."""
         return self.nombre_organizacion
 
 
 class ContactoEmpresa(models.Model):
+    """Vincula un usuario de contacto con una empresa solicitante."""
+
     id_contacto = models.BigAutoField(
         primary_key=True
     )
@@ -108,14 +121,19 @@ class ContactoEmpresa(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `contacto_empresa`."""
+
         managed = False
         db_table = "contacto_empresa"
 
     def __str__(self):
+        """Devuelve el nombre del contacto para representaciones legibles."""
         return self.nombre
 
 
 class SolicitudServicio(models.Model):
+    """Registra la necesidad empresarial enviada a un servicio publicado."""
+
     id_solicitud = models.BigAutoField(
         primary_key=True
     )
@@ -178,11 +196,15 @@ class SolicitudServicio(models.Model):
     fecha_actualizacion = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `solicitud_servicio`."""
+
         managed = False
         db_table = "solicitud_servicio"
 
 
 class ReservaDisponibilidad(models.Model):
+    """Reserva un bloque para una solicitud mientras su prestación está vigente."""
+
     id_reserva = models.BigAutoField(
         primary_key=True
     )
@@ -216,11 +238,15 @@ class ReservaDisponibilidad(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `reserva_disponibilidad`."""
+
         managed = False
         db_table = "reserva_disponibilidad"
 
 
 class SolicitudCompetencia(models.Model):
+    """Relaciona una solicitud con las competencias profesionales requeridas."""
+
     pk = models.CompositePrimaryKey(
         "id_solicitud",
         "id_competencia",
@@ -239,5 +265,7 @@ class SolicitudCompetencia(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `solicitud_competencia`."""
+
         managed = False
         db_table = "solicitud_competencia"

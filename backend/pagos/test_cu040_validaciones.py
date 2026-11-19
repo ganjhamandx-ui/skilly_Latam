@@ -1,4 +1,6 @@
-﻿from contextlib import nullcontext
+"""Prueba validaciones económicas y transaccionales del flujo de pagos CU040."""
+
+from contextlib import nullcontext
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch

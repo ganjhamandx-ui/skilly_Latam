@@ -6,6 +6,7 @@ import './Administracion.css'
 
 const API = '/api/retroalimentacion/administracion/'
 
+// Presenta la fecha almacenada en un formato adecuado para la ficha.
 function fecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -21,6 +22,7 @@ function fecha(valor) {
   })
 }
 
+// Extrae el mensaje devuelto por el backend para presentarlo en el panel.
 function mensajeApi(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -47,6 +49,7 @@ function mensajeApi(datos, codigo) {
   return `No se pudo completar la operación (HTTP ${codigo}).`
 }
 
+// Obtiene el token CSRF que exige una acción autenticada de administración.
 async function csrfToken() {
   const respuesta = await fetch('/api/acceso/csrf/', {
     method: 'GET',
@@ -66,6 +69,7 @@ async function csrfToken() {
   return datos.csrfToken
 }
 
+// Coordina la revisión administrativa de evaluaciones y recomendaciones.
 export default function RetroalimentacionAdministracion() {
   const [registros, setRegistros] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -87,8 +91,10 @@ export default function RetroalimentacionAdministracion() {
 
   // Consulta privada disponible solo para administradores.
   useEffect(() => {
+    // Carga las evaluaciones según los filtros activos del panel.
     let vigente = true
 
+    // Carga las filas que corresponden a los filtros activos del panel.
     async function consultarLista() {
       try {
         const respuesta = await fetch(API, {
@@ -139,10 +145,12 @@ export default function RetroalimentacionAdministracion() {
 
   // Detalle con recomendaciones relacionadas.
   useEffect(() => {
+    // Busca el detalle al cambiar la evaluación seleccionada.
     if (idSeleccionado === null) return undefined
 
     let vigente = true
 
+    // Carga la evaluación y sus antecedentes para el expediente seleccionado.
     async function consultarDetalle() {
       try {
         const respuesta = await fetch(
@@ -199,11 +207,13 @@ export default function RetroalimentacionAdministracion() {
 
   // Bloqueo del desplazamiento al abrir una ventana.
   useEffect(() => {
+    // Mantiene el fondo inmóvil durante la apertura del detalle.
     if (idSeleccionado === null) return undefined
 
     const anterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
+    // Activa con teclado la interacción disponible en una fila.
     function alPresionar(evento) {
       if (evento.key === 'Escape' && !guardando) {
         setIdSeleccionado(null)
@@ -218,12 +228,14 @@ export default function RetroalimentacionAdministracion() {
     }
   }, [idSeleccionado, guardando])
 
+  // Refresca las filas del panel conservando sus filtros.
   function recargarLista() {
     setCargando(true)
     setError('')
     setVersionLista((actual) => actual + 1)
   }
 
+  // Selecciona la evaluación y carga su detalle antes de mostrar el diálogo.
   function abrir(id) {
     setIdSeleccionado(id)
     setDetalle(null)
@@ -235,10 +247,12 @@ export default function RetroalimentacionAdministracion() {
     setDescripcion('')
   }
 
+  // Limpia la evaluación seleccionada y cierra el diálogo.
   function cerrar() {
     if (!guardando) setIdSeleccionado(null)
   }
 
+  // Vuelve a consultar el expediente abierto después de registrar una decisión.
   function refrescarDetalle() {
     setCargandoDetalle(true)
     setVersionDetalle((actual) => actual + 1)
@@ -408,6 +422,7 @@ export default function RetroalimentacionAdministracion() {
   }
 
   const filtrados = registros.filter((registro) => {
+    // Aplica el término de búsqueda a los campos visibles de la ficha.
     const feedback = registro.retroalimentacion ?? {}
     const termino = busqueda.trim().toLowerCase()
 
@@ -574,6 +589,7 @@ export default function RetroalimentacionAdministracion() {
 
           <div className="adm-lista">
             {filtrados.map((registro) => {
+              // Omite registros que no incluyen una evaluación para presentar.
               const feedback = registro.retroalimentacion
 
               if (!feedback) return null

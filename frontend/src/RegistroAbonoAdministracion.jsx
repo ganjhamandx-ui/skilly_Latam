@@ -1,20 +1,25 @@
+// Registra abonos administrativos sobre pagos existentes y refresca el saldo desde la API.
 import { useCallback, useState } from 'react'
 import useCargaAsincrona from './useCargaAsincrona.js'
 import './RegistroAbonoAdministracion.css'
+// Obtiene el token CSRF para registrar el abono en la sesión vigente.
 const csrf = async () => {
   const r=await fetch('/api/acceso/csrf/',{credentials:'same-origin',cache:'no-store'})
   const d=await r.json().catch(()=>({}))
   if(!r.ok||!d.csrfToken)throw new Error('No se pudo obtener el token CSRF.')
   return d.csrfToken
 }
+// Interpreta la respuesta del módulo de abonos y conserva los errores comunicables.
 async function leer(r){
   const d=await r.json().catch(()=>({}))
   if(!r.ok)throw new Error(d.mensaje||d.detail||Object.values(d).flat().join(' · ')||`Error HTTP ${r.status}`)
   return d
 }
+// Inicializa el registro de abono para la prestación administrativa seleccionada.
 export default function RegistroAbonoAdministracion({pago}){
  return <RegistroAbono key={pago.id_pago} pago={pago}/>
 }
+// Guía la revisión de destino y registro de un abono para la prestación.
 function RegistroAbono({pago}){
  const [datos,setDatos]=useState(null)
  const [referencia,setReferencia]=useState('')
@@ -29,7 +34,9 @@ function RegistroAbono({pago}){
  const aplicarConsulta=useCallback(d=>{setDatos(d);setError('');setCargando(false)},[])
  const fallarConsulta=useCallback(e=>{setError(e.message);setCargando(false)},[])
  const recargar=useCargaAsincrona(consultar,aplicarConsulta,fallarConsulta)
+ // Consulta el destino autorizado y los abonos previos para la prestación.
  async function cargar(){setCargando(true);setError('');await recargar()}
+ // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
  async function registrar(e){
   e.preventDefault()
   if(cargando||!confirmado||!referencia.trim()||datos?.abono)return

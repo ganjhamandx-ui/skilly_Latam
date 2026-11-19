@@ -49,12 +49,16 @@ class CacheConReloj:
 
 
 def limites(ip=("50/60", "100/600"), identidad=("2/60", "20/600")):
+    """Genera límites ficticios comunes para cada alcance protegido."""
+
     return {alcance: {"ip": list(ip), "identidad_ip": list(identidad)}
             for alcance in ("iniciar_sesion", "recuperar", "restablecer")}
 
 
 @override_settings(ACCESO_LIMITES=limites(), ACCESO_PROXIES_CONFIABLES=[])
 class LimitesTemporalesTests(SimpleTestCase):
+    """Comprueba ventanas, expiración y bloqueo de intentos con reloj controlado."""
+
     def setUp(self):
         self.reloj = [100.0]
         self.cache = CacheConReloj(self.reloj)
@@ -171,6 +175,8 @@ class LimitesTemporalesTests(SimpleTestCase):
 
 
 class ProxiesYConfiguracionTests(SimpleTestCase):
+    """Valida IP efectiva y confianza explícita en proxies configurados."""
+
     def setUp(self):
         self.factory = APIRequestFactory()
 
@@ -200,6 +206,8 @@ class ProxiesYConfiguracionTests(SimpleTestCase):
 
 
 class CredencialesSinEnumeracionTests(SimpleTestCase):
+    """Comprueba respuestas equivalentes para cuentas ausentes, inactivas o inválidas."""
+
     def validar(self):
         entrada = InicioSesionSerializer(data={
             "correo": "persona@example.invalid", "contrasena": "entrada-ficticia",

@@ -1,3 +1,5 @@
+"""Declara la aplicación Django responsable del ciclo de pagos."""
+
 from django.apps import AppConfig
 
 

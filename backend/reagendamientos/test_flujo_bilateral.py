@@ -1,3 +1,5 @@
+"""Cubre permisos, transiciones y privacidad del reagendamiento bilateral."""
+
 from contextlib import nullcontext
 from datetime import time, timedelta
 from types import SimpleNamespace
@@ -26,43 +28,59 @@ from .views import (
 
 
 class RegistroFalso(SimpleNamespace):
+    """Simula un modelo con guardado y actualización observables por la prueba."""
+
     def __init__(self, **kwargs):
+        """Inicializa un registro simulado con los atributos indicados."""
         super().__init__(**kwargs)
         self.guardados = []
 
     def save(self, update_fields=None):
+        """Simula la persistencia y registra los campos solicitados para actualización."""
         self.guardados.append(tuple(update_fields or ()))
 
 
 class RelacionFalsa:
+    """Simula una relación Django mínima para eventos y alternativas en memoria."""
+
     def __init__(self, elementos=None):
+        """Inicializa una relación en memoria con elementos de prueba."""
         self.elementos = list(elementos or [])
         self.actualizaciones = []
 
     def all(self):
+        """Devuelve la misma colección simulada sin alterar sus elementos."""
         return self.elementos
 
     def filter(self, **kwargs):
+        """Filtra la colección simulada según las condiciones recibidas."""
         return self
 
     def exclude(self, **kwargs):
+        """Excluye de la colección los registros que cumplen las condiciones."""
         return self
 
     def select_for_update(self):
+        """Simula el bloqueo transaccional conservando la colección actual."""
         return self
 
     def update(self, **kwargs):
+        """Actualiza en memoria los atributos de todos los registros simulados."""
         self.actualizaciones.append(kwargs)
         return len(self.elementos)
 
     def exists(self):
+        """Indica si la colección simulada contiene al menos un elemento."""
         return False
 
     def __iter__(self):
+        """Permite recorrer los registros simulados durante la prueba."""
         return iter(self.elementos)
 
 
 def bloque_falso(pk=91):
+    """Crea un bloque futuro disponible con identidad controlada."""
+
     return RegistroFalso(
         pk=pk,
         id_profesional_id=7,
@@ -74,6 +92,8 @@ def bloque_falso(pk=91):
 
 
 def prestacion_falsa():
+    """Crea una prestación contratada aislada de la base de datos."""
+
     return RegistroFalso(
         pk=3,
         estado="CONTRATADA",
@@ -83,10 +103,14 @@ def prestacion_falsa():
 
 
 def reserva_falsa():
+    """Crea una reserva asociada al bloque original simulado."""
+
     return SimpleNamespace(id_disponibilidad_id=44, id_disponibilidad=bloque_falso(44))
 
 
 def solicitud_falsa(**cambios):
+    """Construye un expediente simulado y permite sobrescribir su estado."""
+
     valores = {
         "pk": 5,
         "prestacion_id": 3,
@@ -116,6 +140,8 @@ def solicitud_falsa(**cambios):
 
 
 def gestor_objetos(objeto):
+    """Configura un manager simulado que devuelve el objeto indicado."""
+
     gestor = MagicMock()
     gestor.filter.return_value.first.return_value = objeto
     gestor.select_for_update.return_value.get.return_value = objeto
@@ -124,7 +150,10 @@ def gestor_objetos(objeto):
 
 
 class ReglasEntradaTests(SimpleTestCase):
+    """Cubre política, evidencia y alternativas antes de tocar persistencia."""
+
     def test_politica_exige_consentimiento_y_version_exacta(self):
+        """Verifica el escenario: política exige consentimiento y version exacta."""
         self.assertTrue(politica_aceptada({
             "acepta_politica": True,
             "politica_version": POLITICA_VERSION,
@@ -143,6 +172,7 @@ class ReglasEntradaTests(SimpleTestCase):
         }))
 
     def test_una_contrapropuesta_admite_varios_bloques(self):
+        """Verifica el escenario: una contrapropuesta admite varios bloques."""
         fecha = (timezone.localdate() + timedelta(days=30)).isoformat()
         existentes, nuevos = alternativas_validadas({
             "alternativas_existentes": [10, 11],
@@ -166,6 +196,7 @@ class ReglasEntradaTests(SimpleTestCase):
             })
 
     def test_evidencia_valida_firma_tamano_y_hash_sin_escribir_archivos(self):
+        """Verifica el escenario: evidencia válida firma tamaño y hash sin escribir archivos."""
         contenido = b"%PDF-1.7\njustificacion privada"
         archivo = SimpleUploadedFile(
             "respaldo.pdf",
@@ -186,6 +217,7 @@ class ReglasEntradaTests(SimpleTestCase):
             evidencia_validada(falso)
 
     def test_espera_controlada_sigue_sujeta_a_unicidad_abierta(self):
+        """Verifica el escenario: espera controlada sigue sujeta a unicidad abierta."""
         self.assertIn("ESPERANDO_SELECCION", ESTADOS_ABIERTOS)
         restriccion = next(
             item for item in SolicitudReagendamiento._meta.constraints
@@ -195,10 +227,14 @@ class ReglasEntradaTests(SimpleTestCase):
 
 
 class ProteccionesHttpTests(SimpleTestCase):
+    """Comprueba CSRF, permisos y privacidad en los endpoints del flujo."""
+
     def setUp(self):
+        """Prepara dependencias y datos aislados antes de cada escenario."""
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
 
     def test_todos_los_post_rechazan_ausencia_de_csrf(self):
+        """Verifica el escenario: todos los post rechazan ausencia de CSRF."""
         casos = [
             (OrganizacionReagendamientoView.as_view(), {"referencia": "privada"}),
             (AdministracionReagendamientoView.as_view(), {}),
@@ -211,6 +247,7 @@ class ProteccionesHttpTests(SimpleTestCase):
                 self.assertEqual(respuesta.status_code, 403)
 
     def test_bandejas_y_evidencia_autenticadas_rechazan_anonimos(self):
+        """Verifica el escenario: bandejas y evidencia autenticadas rechazan anónimos."""
         casos = [
             (AdministracionReagendamientoView.as_view(), {}),
             (ProfesionalReagendamientoView.as_view(), {}),
@@ -239,6 +276,7 @@ class ProteccionesHttpTests(SimpleTestCase):
     @patch("reagendamientos.views.PrestacionServicio.objects.filter")
     @patch("reagendamientos.views.Disponibilidad.objects.filter")
     def test_organizacion_no_recibe_metadatos_de_evidencia(self, disponibilidad, prestacion):
+        """Verifica el escenario: organización no recibe metadatos de evidencia."""
         prestacion.return_value.first.return_value = None
         disponibilidad.return_value.first.return_value = None
         obj = solicitud_falsa(
@@ -256,6 +294,7 @@ class ProteccionesHttpTests(SimpleTestCase):
     def test_descarga_privada_usa_transaccion_y_cabeceras_seguras(
         self, objetos, verificar, atomicidad
     ):
+        """Verifica el escenario: descarga privada usa transacción y cabeceras seguras."""
         objetos.defer.return_value.filter.return_value.first.return_value = solicitud_falsa(
             evidencia_nombre="respaldo.pdf",
             evidencia_sha256="c" * 64,
@@ -274,7 +313,10 @@ class ProteccionesHttpTests(SimpleTestCase):
 
 
 class FlujoBilateralTests(SimpleTestCase):
+    """Ejercita transiciones de ambos iniciadores con colaboradores simulados."""
+
     def contexto_comun(self, obj, prestacion=None, bloque=None):
+        """Construye parches y objetos compartidos por los escenarios bilaterales."""
         prestacion = prestacion or prestacion_falsa()
         bloque = bloque or bloque_falso()
         return (
@@ -290,6 +332,7 @@ class FlujoBilateralTests(SimpleTestCase):
         )
 
     def test_organizacion_registra_politica_antes_de_abrir_caso_a(self):
+        """Verifica el escenario: organización registra política antes de abrir caso a."""
         prestacion = prestacion_falsa()
         creado = solicitud_falsa()
         gestor_prestacion = gestor_objetos(prestacion)
@@ -322,6 +365,7 @@ class FlujoBilateralTests(SimpleTestCase):
         self.assertIsNotNone(campos["politica_aceptada_en"])
 
     def test_caso_a_propuesta_y_aceptacion_profesional_sin_segunda_aceptacion(self):
+        """Verifica el escenario: caso a propuesta y aceptación profesional sin segunda aceptación."""
         obj = solicitud_falsa()
         prestacion = prestacion_falsa()
         bloque = bloque_falso()
@@ -353,6 +397,7 @@ class FlujoBilateralTests(SimpleTestCase):
         self.assertTrue(obj.organizacion_autorizo_cambio)
 
     def test_caso_a_rechazo_unico_admite_varios_bloques(self):
+        """Verifica el escenario: caso a rechazo único admite varios bloques."""
         obj = solicitud_falsa(
             estado="PENDIENTE_PROFESIONAL",
             bloque_propuesto_id=90,
@@ -389,6 +434,7 @@ class FlujoBilateralTests(SimpleTestCase):
         segundo_registro.assert_not_called()
 
     def test_espera_y_seleccion_posterior_conservan_el_mismo_expediente(self):
+        """Verifica el escenario: espera y seleccion posterior conservan el mismo expediente."""
         obj = solicitud_falsa(
             estado="PENDIENTE_ORGANIZACION",
             profesional_confirmo_bloque=True,
@@ -428,6 +474,7 @@ class FlujoBilateralTests(SimpleTestCase):
         self.assertTrue(obj.organizacion_autorizo_cambio)
 
     def test_caso_b_exige_evidencia_y_envia_varios_bloques_a_validacion(self):
+        """Verifica el escenario: caso b exige evidencia y envia varios bloques a validacion."""
         obj = solicitud_falsa(iniciador="PROFESIONAL", motivo_organizacion="")
         prestacion = prestacion_falsa()
         gestor_solicitud = MagicMock()
@@ -476,6 +523,7 @@ class FlujoBilateralTests(SimpleTestCase):
         self.assertEqual(registrar.call_args.args[-1], "PENDIENTE_VALIDACION")
 
     def test_caso_b_validacion_habilita_solo_bloques_disponibles(self):
+        """Verifica el escenario: caso b validacion habilita solo bloques disponibles."""
         alternativa_valida = RegistroFalso(bloque_id=91, estado="PENDIENTE_VALIDACION")
         alternativa_invalida = RegistroFalso(bloque_id=92, estado="PENDIENTE_VALIDACION")
         obj = solicitud_falsa(
@@ -509,6 +557,7 @@ class FlujoBilateralTests(SimpleTestCase):
         self.assertFalse(obj.organizacion_autorizo_cambio)
 
     def test_confirmacion_es_unica_y_pasa_marcador_a_agenda_segura(self):
+        """Verifica el escenario: confirmacion es única y pasa marcador a agenda segura."""
         bloque = bloque_falso(91)
         obj = solicitud_falsa(
             estado="LISTO_CONFIRMAR",
@@ -520,6 +569,7 @@ class FlujoBilateralTests(SimpleTestCase):
         llamadas = []
 
         def agenda(request, prestacion_id):
+            """Simula la aplicación final del bloque en la agenda segura."""
             llamadas.append((request, prestacion_id))
             return Response({"mensaje": "agenda actualizada"}, status=200)
 
@@ -544,6 +594,7 @@ class FlujoBilateralTests(SimpleTestCase):
     @patch("coordinacion.agenda_segura.transaction.atomic", side_effect=lambda: nullcontext())
     @patch("coordinacion.agenda_segura.get_object_or_404")
     def test_ruta_directa_no_salta_expediente_formal(self, obtener, atomicidad):
+        """Verifica el escenario: ruta directa no salta expediente formal."""
         prestacion = prestacion_falsa()
         obtener.return_value = prestacion
         formal = solicitud_falsa(estado="PENDIENTE_ORGANIZACION")

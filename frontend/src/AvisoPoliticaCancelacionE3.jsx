@@ -14,6 +14,7 @@ export default function AvisoPoliticaCancelacionE3({
     : 'No informado'
 
   useEffect(() => {
+    // Mantiene el foco y bloquea el desplazamiento de fondo durante el aviso.
     const focoAnterior = document.activeElement
     const overflowAnterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -24,6 +25,7 @@ export default function AvisoPoliticaCancelacionE3({
     }
   }, [])
 
+  // Controla las teclas del diálogo para cerrar o mantener una navegación de foco accesible.
   function manejarTeclado(evento) {
     if (evento.key === 'Escape') {
       evento.preventDefault()

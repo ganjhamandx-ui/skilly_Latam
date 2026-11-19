@@ -5,10 +5,14 @@ No confirma transferencia bancaria, abono profesional, cargo cobrado ni refund W
 from decimal import Decimal, InvalidOperation
 
 class ConciliacionInvalida(ValueError):
+    """Señala una combinación económica que no puede conciliarse."""
+
     pass
 
 
 def importe(valor):
+    """Convierte un valor monetario a decimal no negativo y finito."""
+
     try:
         x = Decimal(str(valor))
     except (ValueError, TypeError, InvalidOperation) as exc:
@@ -20,6 +24,8 @@ def importe(valor):
 
 def desglose_parcial(*, total, trabajo, cargo, devolucion, monto_reversa,
                      metodo_pago, estado_pago, estado_verificacion, estado_reversa):
+    """Valida que pago, devolución, cargo y reversa formen un desglose consistente."""
+
     total, trabajo, cargo, devolucion, monto_reversa = map(importe,
         (total, trabajo, cargo, devolucion, monto_reversa))
     if total <= 0 or devolucion <= 0 or devolucion >= total:

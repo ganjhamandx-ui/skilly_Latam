@@ -1,3 +1,4 @@
+"""Crea el perfil profesional completo dentro de una transacción."""
 
 from django.db import transaction
 from django.utils import timezone

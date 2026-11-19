@@ -14,12 +14,16 @@ from .cache import RedisIntentosCache
 
 
 class IntentosExcesivos(Throttled):
+    """Representa un bloqueo temporal con un mensaje de espera no ambiguo."""
+
     default_detail = "Demasiados intentos. Espera antes de volver a intentarlo."
     extra_detail_singular = "Disponible de nuevo en {wait} segundo."
     extra_detail_plural = "Disponible de nuevo en {wait} segundos."
 
 
 class ControlIntentosNoDisponible(APIException):
+    """Cierra el acceso de forma segura cuando el contador compartido no responde."""
+
     status_code = 503
     default_detail = "El acceso no esta disponible temporalmente. Vuelve a intentarlo."
     default_code = "access_temporarily_unavailable"
@@ -58,6 +62,8 @@ def _direccion_origen(request):
 
 
 def _reglas(configuracion):
+    """Convierte reglas `intentos/segundos` en pares numéricos validados."""
+
     reglas = []
     for valor in configuracion:
         try:
@@ -148,6 +154,8 @@ class LimiteIntentosAcceso(BaseThrottle):
 
 
 class ProteccionIntentosMixin:
+    """Aplica el limitador común a vistas públicas sensibles de autenticación."""
+
     throttle_classes = [LimiteIntentosAcceso]
 
     def throttled(self, request, wait):

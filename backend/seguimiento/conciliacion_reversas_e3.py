@@ -21,6 +21,8 @@ from .politica_conciliacion_e3 import desglose_parcial, ConciliacionInvalida
 
 
 class ConciliacionReversaE3(models.Model):
+    """Registra la conciliación final de una reversa parcial."""
+
     id_conciliacion = models.BigAutoField(primary_key=True)
     id_liquidacion = models.OneToOneField(LiquidacionCancelacionE3, models.DO_NOTHING, db_column='id_liquidacion')
     id_pago = models.OneToOneField(Pago, models.DO_NOTHING, db_column='id_pago')
@@ -37,17 +39,23 @@ class ConciliacionReversaE3(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `conciliacion_reversa_e3`."""
+
         managed = False
         db_table = 'conciliacion_reversa_e3'
 
 
 class ConciliacionSerializer(serializers.Serializer):
+    """Valida fundamento y confirmación antes de conciliar una reversa."""
+
     fundamento = serializers.CharField(min_length=30, max_length=1500, trim_whitespace=True)
     confirmacion_simulacion = serializers.BooleanField(required=True)
     confirmacion_saldo_pendiente = serializers.BooleanField(required=True)
 
 
 def datos_conciliacion(c):
+    """Serializa una conciliación o devuelve nulo cuando no existe."""
+
     if c is None:
         return None
     return {
@@ -65,10 +73,13 @@ def datos_conciliacion(c):
 
 @method_decorator(csrf_protect, name='dispatch')
 class ConciliarReversaParcialE3View(APIView):
+    """Concilia una reversa parcial bajo bloqueo y trazabilidad administrativa."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
+        """Consulta la conciliación documental vinculada al expediente."""
         liquidacion = LiquidacionCancelacionE3.objects.filter(id_expediente_id=id_expediente).first()
         if not liquidacion:
             return Response({'conciliacion': None, 'mensaje':'No hay liquidación para este expediente.'})
@@ -76,6 +87,7 @@ class ConciliarReversaParcialE3View(APIView):
         return Response({'conciliacion': datos_conciliacion(c)})
 
     def post(self, request, id_expediente):
+        """Registra la conciliación parcial bajo bloqueos sin ejecutar movimientos bancarios."""
         entrada = ConciliacionSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data

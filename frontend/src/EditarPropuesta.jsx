@@ -1,6 +1,8 @@
+// Edita una propuesta pendiente y valida catálogos y competencias antes de enviarla.
 import { useState } from 'react'
 import './EditarPropuesta.css'
 
+// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
 function texto(valor) {
   if (valor === null || valor === undefined) return ''
   if (typeof valor === 'string' || typeof valor === 'number') {
@@ -9,6 +11,7 @@ function texto(valor) {
   return ''
 }
 
+// Resuelve el identificador de la categoría antes de llenar el formulario de propuesta.
 function obtenerCategoria(servicio) {
   const valor = servicio.id_categoria
 
@@ -23,6 +26,7 @@ function obtenerCategoria(servicio) {
   return ''
 }
 
+// Normaliza las competencias de la propuesta para compararlas con el catálogo.
 function obtenerCompetencias(servicio) {
   const valores = servicio.ids_competencias ?? servicio.competencias
 
@@ -30,6 +34,7 @@ function obtenerCompetencias(servicio) {
 
   const ids = valores
     .map((valor) => {
+      // Unifica referencias de competencias que llegan como número, texto u objeto.
       if (typeof valor === 'number') return valor
       if (typeof valor === 'string') return Number(valor)
 
@@ -44,12 +49,14 @@ function obtenerCompetencias(servicio) {
   return [...new Set(ids)]
 }
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   if (typeof datos.mensaje === 'string') return datos.mensaje
   if (typeof datos.detail === 'string') return datos.detail
 
   const textoErrores = Object.entries(datos)
     .map(([campo, valor]) => {
+      // Extrae los errores por campo de la edición de propuesta.
       const detalle = Array.isArray(valor)
         ? valor.join(', ')
         : typeof valor === 'string'
@@ -63,6 +70,7 @@ function mensajeError(datos, codigo) {
   return textoErrores || `Error HTTP ${codigo}`
 }
 
+// Carga la versión editable de un servicio propio y sincroniza sus cambios con la API.
 export default function EditarPropuesta({
   servicio,
   idServicio,
@@ -91,6 +99,7 @@ export default function EditarPropuesta({
     ids_competencias: obtenerCompetencias(servicio) ?? [],
   }))
 
+  // Actualiza el campo editado sin descartar los otros valores del formulario.
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -98,6 +107,7 @@ export default function EditarPropuesta({
     }))
   }
 
+  // Obtiene categorías y competencias que sirven como opciones autorizadas del formulario.
   async function cargarCatalogos() {
     if (cargandoCatalogos) return
 
@@ -140,6 +150,7 @@ export default function EditarPropuesta({
     }
   }
 
+  // Abre o cierra el formulario sin enviar la propuesta.
   function alternarFormulario() {
     if (!abierto && !catalogosCargados) {
       void cargarCatalogos()
@@ -148,6 +159,7 @@ export default function EditarPropuesta({
     setAbierto((actual) => !actual)
   }
 
+  // Actualiza la selección de competencias sin duplicar identificadores.
   function alternarCompetencia(idCompetencia, seleccionado) {
     setCompetenciasModificadas(true)
 
@@ -159,6 +171,7 @@ export default function EditarPropuesta({
     }))
   }
 
+  // Envía la versión corregida de la propuesta y actualiza su estado visible.
   async function guardar(evento) {
     evento.preventDefault()
 
@@ -463,6 +476,7 @@ export default function EditarPropuesta({
 
             <div className="ep-opciones">
               {competencias.map((competencia) => {
+                // Sincroniza la selección de competencias con sus casillas.
                 const id = Number(competencia.id_competencia)
 
                 return (

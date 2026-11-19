@@ -21,6 +21,8 @@ from .politica_texto_cancelacion_e3 import texto_versionado, firma_politica, por
 CLAVE = 'cancelacion_injustificada_porcentaje'
 
 class AceptacionPoliticaCancelacion(models.Model):
+    """Conserva la política de cancelación aceptada para una prestación."""
+
     id_aceptacion = models.BigAutoField(primary_key=True)
     id_prestacion = models.OneToOneField(PrestacionServicio, models.DO_NOTHING, db_column='id_prestacion')
     porcentaje_aceptado = models.DecimalField(max_digits=7, decimal_places=4)
@@ -29,11 +31,15 @@ class AceptacionPoliticaCancelacion(models.Model):
     fecha_aceptacion = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `aceptacion_politica_cancelacion_e3`."""
+
         managed = False
         db_table = 'aceptacion_politica_cancelacion_e3'
 
 
 def politica_actual():
+    """Obtiene versión, porcentaje y texto vigente de la política."""
+
     parametro = ParametroSistema.objects.filter(clave=CLAVE).first()
     if not parametro:
         raise ValueError('SKILLY aún no configura el cargo por cancelación; no se puede iniciar un pago nuevo.')
@@ -46,6 +52,8 @@ def politica_actual():
 
 
 def obtener_prestacion(referencia, bloquear=False):
+    """Resuelve una prestación desde referencia privada y opcionalmente la bloquea."""
+
     datos = leer_referencia_seguimiento(referencia)
     if not datos:
         return None
@@ -57,6 +65,8 @@ def obtener_prestacion(referencia, bloquear=False):
 
 
 def detalle_politica(aceptacion):
+    """Serializa la aceptación persistida para mostrarla a la empresa."""
+
     return {'aceptada': True, 'porcentaje': str(aceptacion.porcentaje_aceptado),
             'version': aceptacion.version_politica, 'texto': aceptacion.texto_aceptado,
             'fecha_aceptacion': aceptacion.fecha_aceptacion,
@@ -74,10 +84,13 @@ def bloquear_pago_sin_aceptacion(prestacion):
 
 @method_decorator(csrf_protect, name='dispatch')
 class PoliticaCancelacionEmpresaView(APIView):
+    """Consulta y registra aceptación empresarial de la política versionada."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
+        """Devuelve la política vigente y la aceptación congelada para la prestación."""
         prestacion = obtener_prestacion(referencia)
         if not prestacion:
             return Response({'mensaje': 'Solicitud no encontrada.'}, status=404)
@@ -97,6 +110,7 @@ class PoliticaCancelacionEmpresaView(APIView):
             'texto': actual['texto'], 'mensaje': 'Revisa antes de pagar. El cargo no es automático y está sujeto a derechos y evaluación.'})
 
     def post(self, request, referencia):
+        """Registra una aceptación idempotente de la política antes del pago."""
         if request.data.get('acepto') is not True:
             return Response({'mensaje': 'Marca la aceptación expresa de las condiciones antes de continuar.'}, status=400)
         version = request.data.get('version')

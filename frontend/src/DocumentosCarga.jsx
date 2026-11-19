@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { accionCargaDocumento } from './documentosCargaPolitica.mjs'
 import './DocumentosCarga.css'
 
+// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
 function obtenerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -16,6 +17,7 @@ function obtenerError(datos, codigo) {
   return mensajes || `Error HTTP ${codigo}`
 }
 
+// Gestiona documentos propios y habilita correcciones según el estado de validación.
 export default function DocumentosCarga() {
   const [tipo, setTipo] = useState('')
   const [archivo, setArchivo] = useState(null)
@@ -32,6 +34,7 @@ export default function DocumentosCarga() {
   const campoArchivo = useRef(null)
 
   const cargarDocumentos = useCallback(async () => {
+    // Carga el historial documental y conserva el estado explícito de consulta.
 
     setConsultando(true)
     setError('')
@@ -70,6 +73,7 @@ export default function DocumentosCarga() {
   }, [])
 
   useEffect(() => {
+    // Inicia la lectura documental tras el montaje si la pantalla sigue activa.
     let activo = true
     // La consulta comienza tras el montaje del componente.
     Promise.resolve().then(() => {
@@ -78,6 +82,7 @@ export default function DocumentosCarga() {
     return () => { activo = false }
   }, [cargarDocumentos])
 
+  // Valida la selección y envía el archivo con su tipo o versión al endpoint protegido.
   async function subirDocumento(evento) {
     evento.preventDefault()
 
@@ -161,6 +166,7 @@ export default function DocumentosCarga() {
     }
   }
 
+  // Solicita el archivo al endpoint autenticado para mantener privada la ruta de almacenamiento.
   async function descargarDocumento(documento) {
     setError('')
 
@@ -197,6 +203,7 @@ export default function DocumentosCarga() {
   }
 
   
+  // Preselecciona el tipo y el documento exacto que admite corrección.
   function prepararNuevaVersion(documento) {
     const esRechazado = documento.estado_revision === 'RECHAZADA'
     const corregible = esRechazado && politica?.ids_rechazados?.includes(documento.id_documento)
@@ -346,6 +353,7 @@ return (
             </div>
 
             {registros.map((documento, indice) => {
+              // Calcula la acción permitida para cada documento antes de presentar sus controles.
               const accionCarga = accionCargaDocumento(documento, politica, indice)
               return (
               <article

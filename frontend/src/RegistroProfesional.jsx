@@ -1,3 +1,4 @@
+// Registra la cuenta profesional con validaciones locales complementarias a las del servidor.
 import { useState } from 'react'
 import './RegistroProfesional.css'
 
@@ -13,6 +14,7 @@ const inicial = {
   resumen: '',
 }
 
+// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
 function obtenerError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -20,6 +22,7 @@ function obtenerError(datos, estado) {
   if (datos && typeof datos === 'object') {
     const errores = Object.entries(datos)
       .map(([campo, valor]) => {
+        // Compone errores por campo para orientar la corrección del registro.
         const detalle = Array.isArray(valor)
           ? valor.join(', ')
           : typeof valor === 'string'
@@ -36,6 +39,7 @@ function obtenerError(datos, estado) {
   return `No se pudo crear la cuenta (HTTP ${estado}).`
 }
 
+// Coordina el registro de la cuenta profesional y la edición de sus campos.
 export default function RegistroProfesional({ onRegistrado }) {
   const [formulario, setFormulario] = useState(inicial)
   const [mostrarClave, setMostrarClave] = useState(false)
@@ -43,6 +47,7 @@ export default function RegistroProfesional({ onRegistrado }) {
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
 
+  // Actualiza el campo editado sin descartar los otros valores del formulario.
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -50,6 +55,7 @@ export default function RegistroProfesional({ onRegistrado }) {
     }))
   }
 
+  // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
   async function registrar(evento) {
     evento.preventDefault()
 

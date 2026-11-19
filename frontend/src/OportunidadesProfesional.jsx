@@ -1,6 +1,8 @@
 
+// Muestra oportunidades compatibles y permite postular sin alterar la solicitud publicada.
 import { useEffect, useState } from 'react'
 
+// Da formato a datos de la oportunidad profesional y a valores ausentes.
 function mostrar(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No informado'
@@ -9,6 +11,7 @@ function mostrar(valor) {
   return String(valor)
 }
 
+// Presenta la fecha almacenada en un formato adecuado para la ficha.
 function fecha(valor) {
   if (!valor) return 'No informada'
 
@@ -21,6 +24,7 @@ function fecha(valor) {
   return fechaConvertida.toLocaleDateString('es-CL')
 }
 
+// Presenta las propuestas de asociación disponibles para el profesional autenticado.
 export default function OportunidadesProfesional() {
   const [oportunidades, setOportunidades] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -28,8 +32,10 @@ export default function OportunidadesProfesional() {
   const [revision, setRevision] = useState(0)
 
   useEffect(() => {
+    // Cancela la lectura privada de oportunidades al salir del componente.
     const controlador = new AbortController()
 
+    // Recupera las oportunidades asignadas a la sesión profesional.
     async function consultar() {
       setCargando(true)
       setError('')

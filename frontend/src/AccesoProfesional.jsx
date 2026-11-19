@@ -4,6 +4,7 @@ import './AccesoProfesional.css'
 
 const API = '/api/acceso/'
 
+// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
 function obtenerError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -11,6 +12,7 @@ function obtenerError(datos, estado) {
   if (datos && typeof datos === 'object') {
     const errores = Object.entries(datos)
       .map(([campo, valor]) => {
+        // Aplana los errores por campo para explicar el rechazo del formulario.
         const detalle = Array.isArray(valor)
           ? valor.join(', ')
           : typeof valor === 'string'
@@ -27,6 +29,7 @@ function obtenerError(datos, estado) {
   return `La operación no pudo completarse (HTTP ${estado}).`
 }
 
+// Solicita un token CSRF con las cookies de la sesión antes de una escritura.
 async function obtenerCsrf() {
   const respuesta = await fetch(`${API}csrf/`, {
     method: 'GET',
@@ -46,6 +49,7 @@ async function obtenerCsrf() {
   return datos.csrfToken
 }
 
+// Envía un formulario de acceso con su sesión y la protección CSRF.
 async function enviarFormulario(ruta, contenido) {
   const csrfToken = await obtenerCsrf()
 
@@ -69,6 +73,7 @@ async function enviarFormulario(ruta, contenido) {
   return datos
 }
 
+// Selecciona la ruta posterior al ingreso según el rol confirmado por el servidor.
 function destinoPorRol(rol) {
   switch (rol) {
     case 'PROFESIONAL':
@@ -80,6 +85,7 @@ function destinoPorRol(rol) {
   }
 }
 
+// Coordina autenticación, registro y recuperación en el área de acceso profesional.
 export default function AccesoProfesional() {
   const [vista, setVista] = useState('acceso')
   const [mostrarRegistro, setMostrarRegistro] = useState(false)
@@ -99,6 +105,7 @@ export default function AccesoProfesional() {
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
+  // Alterna formularios de acceso y restablece sus avisos para la nueva acción.
   function cambiarVista(siguiente) {
     if (cargando) return
 

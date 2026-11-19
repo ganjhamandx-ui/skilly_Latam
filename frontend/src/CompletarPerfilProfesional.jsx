@@ -1,3 +1,4 @@
+// Completa el perfil profesional y mantiene sincronizados sus datos básicos y competencias.
 import { useEffect, useState } from 'react'
 import './CompletarPerfilProfesional.css'
 
@@ -10,6 +11,7 @@ const inicial = {
   ubicacion: '',
 }
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -29,6 +31,7 @@ function mensajeError(datos, codigo) {
   return `No fue posible completar la operaci\u00f3n (HTTP ${codigo}).`
 }
 
+// Valida y registra los datos obligatorios del primer perfil profesional.
 export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
   const [consultando, setConsultando] = useState(true)
   const [sinPerfil, setSinPerfil] = useState(false)
@@ -39,8 +42,10 @@ export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
   const [exito, setExito] = useState('')
 
   useEffect(() => {
+    // Cancela la verificación de perfil cuando se abandona la pantalla.
     const controlador = new AbortController()
 
+    // Consulta el perfil profesional para decidir si falta completar la ficha inicial.
     async function comprobarPerfil() {
       try {
         const respuesta = await fetch(
@@ -87,6 +92,7 @@ export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
     return () => controlador.abort()
   }, [])
 
+  // Actualiza el campo editado sin descartar los otros valores del formulario.
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -94,6 +100,7 @@ export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
     }))
   }
 
+  // Envía los datos del perfil profesional para completar el registro.
   async function guardar(evento) {
     evento.preventDefault()
 

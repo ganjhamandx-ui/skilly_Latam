@@ -1,3 +1,5 @@
+"""Modela expedientes, alternativas y eventos de reagendamiento bilateral."""
+
 from django.db import models
 from django.db.models import Q
 
@@ -13,6 +15,8 @@ ESTADOS_ABIERTOS = (
 
 
 class SolicitudReagendamiento(models.Model):
+    """Conserva el expediente, autorizaciones, política y evidencia del cambio."""
+
     # Se declara explícitamente para conservar el estado de la migración 0001.
     id = models.BigAutoField(primary_key=True)
     prestacion_id = models.BigIntegerField(db_index=True)
@@ -39,6 +43,8 @@ class SolicitudReagendamiento(models.Model):
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     class Meta:
+        """Vincula el modelo con `solicitud_reagendamiento` y declara sus restricciones de integridad."""
+
         db_table = "solicitud_reagendamiento"
         constraints = [
             models.UniqueConstraint(
@@ -50,6 +56,8 @@ class SolicitudReagendamiento(models.Model):
 
 
 class AlternativaReagendamiento(models.Model):
+    """Registra un bloque candidato y su snapshot dentro del expediente."""
+
     reagendamiento = models.ForeignKey(
         SolicitudReagendamiento,
         on_delete=models.PROTECT,
@@ -64,6 +72,8 @@ class AlternativaReagendamiento(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Vincula el modelo con `alternativa_reagendamiento` y declara sus restricciones de integridad."""
+
         db_table = "alternativa_reagendamiento"
         ordering = ["fecha_creacion", "id"]
         constraints = [
@@ -75,6 +85,8 @@ class AlternativaReagendamiento(models.Model):
 
 
 class EventoReagendamiento(models.Model):
+    """Mantiene el historial auditable de actores y acciones del expediente."""
+
     # Se declara explícitamente para conservar el estado de la migración 0001.
     id = models.BigAutoField(primary_key=True)
     reagendamiento = models.ForeignKey(
@@ -86,5 +98,7 @@ class EventoReagendamiento(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Establece el orden de consulta predeterminado de `evento_reagendamiento`."""
+
         db_table = "evento_reagendamiento"
         ordering = ["fecha", "id"]

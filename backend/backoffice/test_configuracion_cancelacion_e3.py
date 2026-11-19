@@ -12,6 +12,8 @@ from backoffice.configuracion_cargo_cancelacion_e3 import (
 
 
 class ConfiguracionCargoCancelacionE3Tests(SimpleTestCase):
+    """Comprueba aislamiento, permisos y trazabilidad del cargo de cancelación."""
+
     def test_clave_aislada_de_comision(self):
         self.assertEqual(CLAVE_CARGO_CANCELACION, "cancelacion_injustificada_porcentaje")
         self.assertNotEqual(CLAVE_CARGO_CANCELACION, "comision_porcentaje")

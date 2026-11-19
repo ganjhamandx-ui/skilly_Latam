@@ -1,9 +1,11 @@
+// Transporte autenticado del reagendamiento; conserva cookies, CSRF y cuerpos multipart.
 function mensajeDeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `Error HTTP ${codigo}`
 }
 
+// Usa el proxy con cookies, CSRF y el formato apropiado para JSON o FormData.
 export async function solicitudReagendamiento(url, opciones = {}) {
   const escritura = opciones.method && opciones.method !== 'GET'
   const esFormulario = typeof FormData !== 'undefined' && opciones.body instanceof FormData

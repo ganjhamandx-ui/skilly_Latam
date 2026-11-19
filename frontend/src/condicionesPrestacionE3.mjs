@@ -32,6 +32,7 @@ const grupos = [
   { id: 'pagos', titulo: 'Pagos, incidencias y condiciones', clases: ['Pagos', 'Incidencias', 'Condiciones de contratación', 'Información importante'] },
 ]
 
+// Normaliza diacríticos para reconocer etiquetas de condiciones equivalentes.
 function sinAcentos(texto) {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ')
 }
@@ -42,6 +43,7 @@ function limpiarFormato(texto) {
   return texto.replace(/\*\*/g, '').trim()
 }
 
+// Detecta el encabezado de condición que identifica la sección del texto.
 function leerEtiqueta(linea) {
   const valor = limpiarFormato(linea)
   const match = /^([^:\n]{1,70}):\s*(.*)$/.exec(valor)
@@ -64,12 +66,14 @@ function leerEtiqueta(linea) {
   return null
 }
 
+// Separa el texto de condiciones según las etiquetas que reconoce la interfaz.
 export function extraerSeccionesCondiciones(texto) {
   if (typeof texto !== 'string' || !texto.trim()) return []
   const secciones = []
   const lineas = texto.replace(/\r\n?/g, '\n').split('\n')
   let actual = null
 
+  // Conserva el bloque de texto bajo la etiqueta detectada antes de avanzar a la siguiente.
   function guardar() {
     if (actual) {
       actual.contenido = actual.contenido.trim()
@@ -100,6 +104,7 @@ export function extraerSeccionesCondiciones(texto) {
   return secciones
 }
 
+// Organiza las secciones encontradas para presentar su contenido sin perder texto.
 export function agruparSeccionesCondiciones(texto) {
   const secciones = extraerSeccionesCondiciones(texto)
   const conjuntos = grupos.map(({ id, titulo, clases }) => ({

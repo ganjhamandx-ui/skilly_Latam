@@ -1,3 +1,5 @@
+"""Valida y representa avances, entregas y reclamos de seguimiento."""
+
 from rest_framework import serializers
 
 from .politicas_incidentes import orientacion_reclamo
@@ -14,7 +16,11 @@ from .models import (
 class AvanceServicioSerializer(
     serializers.ModelSerializer
 ):
+    """Representa avances visibles para los actores de la prestación."""
+
     class Meta:
+        """Define la representación de AvanceServicio y protege sus campos de solo lectura."""
+
         model = AvanceServicio
 
         fields = [
@@ -31,6 +37,8 @@ class AvanceServicioSerializer(
 class RegistrarAvanceServicioSerializer(
     serializers.Serializer
 ):
+    """Valida tipo, detalle y estado de un nuevo avance profesional."""
+
     estado = serializers.CharField(
         max_length=30
     )
@@ -45,7 +53,11 @@ class RegistrarAvanceServicioSerializer(
 class EntregaSerializer(
     serializers.ModelSerializer
 ):
+    """Serializa una entrega y su versión sin incluir archivos privados."""
+
     class Meta:
+        """Define la representación de Entrega y protege sus campos de solo lectura."""
+
         model = Entrega
 
         fields = [
@@ -64,6 +76,8 @@ class EntregaSerializer(
 class RegistrarEntregaSerializer(
     serializers.Serializer
 ):
+    """Valida descripción y referencia antes de crear una entrega."""
+
     descripcion = serializers.CharField()
 
     referencia_entrega = serializers.CharField(
@@ -77,6 +91,8 @@ class RegistrarEntregaSerializer(
 class RevisarEntregaEmpresaSerializer(
     serializers.Serializer
 ):
+    """Valida la decisión empresarial y su observación sobre una entrega."""
+
     accion = serializers.ChoiceField(
         choices=[
             "ACEPTAR",
@@ -92,6 +108,7 @@ class RevisarEntregaEmpresaSerializer(
     )
 
     def validate(self, datos):
+        """Exige observación al objetar y limpia el detalle al aceptar una entrega."""
         accion = datos["accion"]
 
         detalle = datos.get(
@@ -121,9 +138,13 @@ class RevisarEntregaEmpresaSerializer(
 class ObservacionEntregaSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta observaciones asociadas a una versión de entrega."""
+
     contacto_empresa = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de ObservacionEntrega y protege sus campos de solo lectura."""
+
         model = ObservacionEntrega
 
         fields = [
@@ -141,6 +162,7 @@ class ObservacionEntregaSerializer(
         self,
         observacion,
     ):
+        """Presenta la identidad empresarial asociada a la observación."""
         contacto = observacion.id_contacto
 
         if contacto is None:
@@ -156,12 +178,17 @@ class ObservacionEntregaSerializer(
 class ReclamoPrestacionSerializer(
     serializers.ModelSerializer
 ):
+    """Representa el reclamo con datos de prestación pertinentes al actor."""
+
     orientacion = serializers.SerializerMethodField()
 
     def get_orientacion(self, reclamo):
+        """Calcula la orientación visible según el motivo del reclamo."""
         return orientacion_reclamo(reclamo.motivo)
 
     class Meta:
+        """Define la representación de ReclamoPrestacion y protege sus campos de solo lectura."""
+
         model = ReclamoPrestacion
 
         fields = [
@@ -182,9 +209,13 @@ class ReclamoPrestacionSerializer(
 class ResolucionReclamoSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta la resolución administrativa de un reclamo."""
+
     responsable_skilly = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de ResolucionReclamo y protege sus campos de solo lectura."""
+
         model = ResolucionReclamo
 
         fields = [
@@ -204,6 +235,7 @@ class ResolucionReclamoSerializer(
         self,
         resolucion,
     ):
+        """Presenta la identidad administrativa responsable de la resolución."""
         usuario = resolucion.id_usuario_skilly
 
         return {
@@ -216,6 +248,8 @@ class ResolucionReclamoSerializer(
 class ResolverReclamoSerializer(
     serializers.Serializer
 ):
+    """Valida decisión, fundamento y medidas antes de cerrar un reclamo."""
+
     decision = serializers.CharField(
         max_length=40
     )
@@ -244,6 +278,8 @@ class ResolverReclamoSerializer(
 class RegistrarReclamoEmpresaSerializer(
     serializers.Serializer
 ):
+    """Valida motivo y detalle del reclamo enviado por la empresa."""
+
     motivo = serializers.CharField(
         max_length=120,
         allow_blank=False,

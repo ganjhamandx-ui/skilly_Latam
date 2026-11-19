@@ -1,3 +1,5 @@
+"""Valida y representa los recursos expuestos por la API de pagos."""
+
 from rest_framework import serializers
 from pathlib import Path
 
@@ -16,6 +18,8 @@ class PagoEstadoComunicableSerializer(
     serializers.ModelSerializer
 ):
     class Meta:
+        """Define la representación de Pago y protege sus campos de solo lectura."""
+
         model = Pago
 
         fields = [
@@ -36,6 +40,8 @@ class PagoResumenProfesionalSerializer(PagoEstadoComunicableSerializer):
     """Desglose historico de un pago accesible solo al profesional asociado."""
 
     class Meta(PagoEstadoComunicableSerializer.Meta):
+        """Delimita los campos que procesa `PagoResumenProfesionalSerializer`."""
+
         fields = PagoEstadoComunicableSerializer.Meta.fields + [
             "porcentaje_comision_aplicado",
             "monto_comision",
@@ -48,6 +54,8 @@ class PagoAdministracionSerializer(
     serializers.ModelSerializer
 ):
     class Meta:
+        """Define la representación de Pago y protege sus campos de solo lectura."""
+
         model = Pago
 
         fields = [
@@ -158,6 +166,8 @@ class HistorialEstadoPagoAdministracionSerializer(
     responsable_skilly = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de HistorialEstadoPago y protege sus campos de solo lectura."""
+
         model = HistorialEstadoPago
 
         fields = [
@@ -194,6 +204,8 @@ class ReversaPagoSerializer(
     responsable_skilly = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de ReversaPago y protege sus campos de solo lectura."""
+
         model = ReversaPago
 
         fields = [

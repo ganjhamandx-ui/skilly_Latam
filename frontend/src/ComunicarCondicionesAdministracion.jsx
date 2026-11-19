@@ -1,8 +1,10 @@
+// Publica condiciones administrativas únicamente sobre una prestación coordinada vigente.
 import { useState } from 'react'
 import CondicionesPrestacionE3 from './CondicionesPrestacionE3.jsx'
 
 const API = '/api'
 
+// Traduce el error devuelto por la API de condiciones antes de notificarlo.
 function extraerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -19,6 +21,7 @@ function extraerError(datos, codigo) {
   return `No fue posible registrar las condiciones (HTTP ${codigo}).`
 }
 
+// Permite comunicar a los actores las condiciones acordadas de la prestación.
 export default function ComunicarCondicionesAdministracion({
   idSolicitud,
   prestacion,
@@ -40,6 +43,7 @@ export default function ComunicarCondicionesAdministracion({
 
   if (!pendiente && !condicionesRegistradas) return null
 
+  // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
   async function registrar(evento) {
     evento.preventDefault()
     const texto = condiciones.trim()

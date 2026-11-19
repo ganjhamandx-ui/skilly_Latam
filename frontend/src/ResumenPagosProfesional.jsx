@@ -1,3 +1,4 @@
+// Presenta montos y estados calculados por el backend; no realiza cálculos contables propios.
 import './ResumenPagosProfesional.css'
 
 const etiquetas = {
@@ -28,15 +29,18 @@ const orden = [
   'referencia', 'observacion',
 ]
 
+// Distingue claves que se excluyen del detalle privado de recomendaciones.
 function esRestringido(clave) {
   return /password|contrasena|token|secret|hash|csrf|credential/i.test(clave)
 }
 
+// Presenta un nombre de campo obtenido de la API en una forma legible.
 function etiqueta(clave) {
   return etiquetas[clave] ?? clave.replaceAll('_', ' ')
     .replace(/^./, (letra) => letra.toUpperCase())
 }
 
+// Formatea el valor de un dato de pago antes de mostrarlo al profesional.
 function representar(valor) {
   if (valor == null || valor === '') return 'No informado'
   if (typeof valor === 'boolean') return valor ? 'Sí' : 'No'
@@ -50,6 +54,7 @@ function representar(valor) {
   return String(valor)
 }
 
+// Convierte un valor mostrado a número solo cuando puede usarse en un importe.
 function valorNumerico(valor) {
   if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null
   if (typeof valor !== 'string' || !/^-?\d+(?:\.\d+)?$/.test(valor.trim())) return null
@@ -57,11 +62,13 @@ function valorNumerico(valor) {
   return Number.isFinite(numero) ? numero : null
 }
 
+// Identifica la unidad monetaria del pago y aplica el formato correspondiente.
 function monedaDe(pago) {
   const codigo = String(pago.moneda || 'CLP').toUpperCase()
   return /^[A-Z]{3}$/.test(codigo) ? codigo : 'CLP'
 }
 
+// Formatea importes sin modificar los montos que maneja el backend.
 function dinero(valor, moneda) {
   const numero = valorNumerico(valor)
   if (numero === null) return 'No informado'
@@ -70,6 +77,7 @@ function dinero(valor, moneda) {
   }).format(numero)} ${moneda}`
 }
 
+// Presenta la tasa de comisión como porcentaje en el resumen profesional.
 function tasa(valor) {
   const numero = valorNumerico(valor)
   if (numero === null) return 'No informada'
@@ -78,6 +86,7 @@ function tasa(valor) {
   }).format(numero)} %`
 }
 
+// Presenta el momento del pago en el contexto regional chileno.
 function fechaChile(valor) {
   if (valor == null || valor === '') return 'No informada'
   const texto = String(valor)
@@ -94,6 +103,7 @@ function fechaChile(valor) {
   }).format(fecha)
 }
 
+// Agrupa los estados de pago para elegir su presentación en el resumen profesional.
 function clasificarEstado(estado) {
   const valor = String(estado ?? '').toUpperCase()
   if (/LIBERAD|PAGADO|COMPLETAD|APROBAD/.test(valor)) return 'positivo'
@@ -101,6 +111,7 @@ function clasificarEstado(estado) {
   return 'pendiente'
 }
 
+// Presenta los pagos de las prestaciones propias con su comisión y estado.
 export default function ResumenPagosProfesional({ pagos }) {
   if (!Array.isArray(pagos) || pagos.length === 0) {
     return <p>No hay pagos para mostrar.</p>
@@ -114,6 +125,7 @@ export default function ResumenPagosProfesional({ pagos }) {
       </p>
       <div className="rpp-listado">
         {pagos.map((pago, indice) => {
+          // Representa pagos completos y admite entradas simples con un texto legible.
           if (!pago || typeof pago !== 'object') {
             return <article className="rpp-tarjeta" key={indice}><p>{representar(pago)}</p></article>
           }

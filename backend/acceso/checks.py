@@ -19,6 +19,8 @@ ATOMICO_COMPARTIDO = {
 
 @register(Tags.security)
 def configuracion_limites_acceso(app_configs, **kwargs):
+    """Valida que todas las ventanas de limitación tengan formato y valores seguros."""
+
     errores = []
     try:
         for alcance in ("iniciar_sesion", "recuperar", "restablecer"):
@@ -63,6 +65,8 @@ def configuracion_limites_acceso(app_configs, **kwargs):
 
 @register(Tags.security, deploy=True)
 def cache_acceso_compartida(app_configs, **kwargs):
+    """Advierte cuando varios procesos usarían un contador de intentos no compartido."""
+
     configuracion = settings.CACHES.get(settings.ACCESO_CACHE_ALIAS, {})
     if configuracion.get("BACKEND") not in ATOMICO_COMPARTIDO:
         return [Warning(

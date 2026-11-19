@@ -1,3 +1,5 @@
+"""Expone las rutas de cuentas de cobro del profesional."""
+
 from django.urls import path
 from .cuentas_pago_api import MiCuentaPagoView, MisAbonosView, DestinoYAbonoAdministracionView
 

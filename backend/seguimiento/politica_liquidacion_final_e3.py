@@ -7,6 +7,8 @@ CENTAVO = Decimal('0.01')
 PESO = Decimal('1')
 
 def numero(valor):
+    """Convierte un importe a decimal finito y no negativo."""
+
     try:
         n = Decimal(str(valor))
     except (TypeError, ValueError, InvalidOperation) as error:
@@ -17,6 +19,8 @@ def numero(valor):
 
 def calcular_liquidacion(*, total, trabajo, porcentaje, decision, origen,
                          cargo_solicitado, aceptacion_previa, excepcion_legal=False):
+    """Calcula topes y distribución final sin persistir ni transferir fondos."""
+
     total, trabajo, porcentaje, cargo_solicitado = [numero(x) for x in
         (total, trabajo, porcentaje, cargo_solicitado)]
     if any(x < 0 for x in (total, trabajo, porcentaje, cargo_solicitado)) or porcentaje > 100:

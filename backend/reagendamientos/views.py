@@ -56,11 +56,14 @@ MIME_EVIDENCIA = {
 
 
 class BloqueNuevoSerializer(serializers.Serializer):
+    """Valida un nuevo bloque propuesto con fecha y horas consistentes."""
+
     fecha = serializers.DateField()
     hora_inicio = serializers.TimeField()
     hora_fin = serializers.TimeField()
 
     def validate(self, data):
+        """Valida que el bloque termine después de iniciar y permanezca en el futuro."""
         if data["hora_inicio"] >= data["hora_fin"]:
             raise serializers.ValidationError(
                 "La hora de inicio debe ser anterior a la hora de término."
@@ -74,10 +77,14 @@ class BloqueNuevoSerializer(serializers.Serializer):
 
 
 def error(mensaje, codigo=status.HTTP_409_CONFLICT):
+    """Construye una respuesta controlada para conflictos del flujo bilateral."""
+
     return Response({"mensaje": mensaje}, status=codigo)
 
 
 def primer_error_validacion(exc):
+    """Extrae un mensaje legible desde errores anidados de DRF."""
+
     detalle = exc.detail
     for _ in range(3):
         if isinstance(detalle, dict):
@@ -90,10 +97,14 @@ def primer_error_validacion(exc):
 
 
 def politica():
+    """Devuelve la versión y texto de política aceptados por el backend."""
+
     return {"version": POLITICA_VERSION, "texto": POLITICA_TEXTO}
 
 
 def politica_aceptada(data):
+    """Confirma consentimiento expreso y coincidencia de la versión vigente."""
+
     aceptada = data.get("acepta_politica")
     if isinstance(aceptada, str):
         aceptada = aceptada.strip().lower() in {"1", "true", "si", "sí", "on"}
@@ -101,6 +112,8 @@ def politica_aceptada(data):
 
 
 def horario(bloque):
+    """Serializa los campos horarios de un bloque o devuelve nulo."""
+
     if bloque is None:
         return None
     return {
@@ -112,6 +125,8 @@ def horario(bloque):
 
 
 def comienzo(bloque):
+    """Obtiene el inicio del bloque en la zona horaria configurada."""
+
     return timezone.make_aware(
         datetime.combine(bloque.fecha, bloque.hora_inicio),
         timezone.get_current_timezone(),
@@ -119,6 +134,8 @@ def comienzo(bloque):
 
 
 def disponible(bloque, prestacion, original_id):
+    """Revalida pertenencia, futuro, estado y reservas incompatibles del bloque."""
+
     return bool(
         bloque is not None
         and bloque.id_profesional_id == prestacion.id_profesional_id
@@ -140,6 +157,8 @@ def disponible(bloque, prestacion, original_id):
 
 
 def opciones(prestacion, original_id):
+    """Lista bloques futuros que pueden proponerse para la prestación."""
+
     bloques = Disponibilidad.objects.filter(
         id_profesional_id=prestacion.id_profesional_id,
         estado="DISPONIBLE",
@@ -149,6 +168,8 @@ def opciones(prestacion, original_id):
 
 
 def reserva_vigente(prestacion):
+    """Obtiene la única reserva activa de la solicitud asociada."""
+
     reservas = list(
         ReservaDisponibilidad.objects.filter(
             id_solicitud_id=prestacion.id_solicitud_id, estado="ACTIVA"
@@ -160,11 +181,15 @@ def reserva_vigente(prestacion):
 
 
 def inicio_vencido(prestacion, reserva=None):
+    """Indica si el horario original ya comenzó y no admite reagendamiento."""
+
     reserva = reserva if reserva is not None else reserva_vigente(prestacion)
     return reserva is not None and comienzo(reserva.id_disponibilidad) <= timezone.now()
 
 
 def acceso_solicitud(prestacion):
+    """Devuelve la causa que impide abrir un expediente o nulo si procede."""
+
     if prestacion.estado != "CONTRATADA":
         return "Solo una prestación contratada admite solicitar este cambio."
     reserva = reserva_vigente(prestacion)
@@ -180,6 +205,8 @@ def acceso_solicitud(prestacion):
 
 
 def evento(obj, actor, accion, detalle):
+    """Añade un evento trazable al historial del reagendamiento."""
+
     EventoReagendamiento.objects.create(
         reagendamiento=obj,
         actor=actor,
@@ -189,10 +216,14 @@ def evento(obj, actor, accion, detalle):
 
 
 def texto_motivo(valor):
+    """Normaliza un motivo textual sin aceptar valores de otros tipos."""
+
     return valor.strip() if isinstance(valor, str) else ""
 
 
 def prestar(solicitud_id):
+    """Resuelve la prestación contratada vinculada con una solicitud."""
+
     return (
         PrestacionServicio.objects.filter(id_solicitud_id=solicitud_id)
         .select_related("id_solicitud")
@@ -201,6 +232,8 @@ def prestar(solicitud_id):
 
 
 def evidencia_validada(archivo, obligatoria=True):
+    """Valida tamaño, extensión, firma y MIME antes de guardar evidencia privada."""
+
     if archivo is None:
         if obligatoria:
             raise serializers.ValidationError("Adjunta una evidencia justificativa.")
@@ -231,6 +264,8 @@ def evidencia_validada(archivo, obligatoria=True):
 
 
 def _lista_json(data, nombre):
+    """Interpreta una lista JSON enviada como campo multipart o estructura nativa."""
+
     valor = data.get(nombre, [])
     if valor in (None, ""):
         return []
@@ -245,6 +280,8 @@ def _lista_json(data, nombre):
 
 
 def alternativas_validadas(data):
+    """Valida y limita alternativas existentes y nuevos bloques del formulario."""
+
     existentes = _lista_json(data, "alternativas_existentes")
     nuevas = _lista_json(data, "alternativas_nuevas")
     try:
@@ -264,6 +301,8 @@ def alternativas_validadas(data):
 
 
 def _crear_bloque(profesional, datos):
+    """Crea bajo bloqueo un bloque nuevo sin solapar disponibilidad vigente."""
+
     conflicto = (
         Disponibilidad.objects.select_for_update()
         .filter(
@@ -289,6 +328,8 @@ def _crear_bloque(profesional, datos):
 
 
 def registrar_alternativas(obj, prestacion, profesional, data, origen, estado):
+    """Revalida, crea y asocia alternativas al expediente dentro de la transacción."""
+
     existentes, nuevas = alternativas_validadas(data)
     bloques = []
     for bloque_id in existentes:
@@ -317,6 +358,8 @@ def registrar_alternativas(obj, prestacion, profesional, data, origen, estado):
 
 
 def detalle_bloques(bloques):
+    """Construye una descripción auditable de los bloques propuestos."""
+
     return "; ".join(
         f"#{bloque.pk}: {bloque.fecha} {bloque.hora_inicio:%H:%M}–{bloque.hora_fin:%H:%M}"
         for bloque in bloques
@@ -324,6 +367,8 @@ def detalle_bloques(bloques):
 
 
 def serializar_alternativa(alternativa, prestacion, original_id):
+    """Combina el snapshot histórico con la disponibilidad actual del bloque."""
+
     bloque = Disponibilidad.objects.filter(pk=alternativa.bloque_id).first()
     if alternativa.fecha and alternativa.hora_inicio and alternativa.hora_fin:
         datos = {
@@ -343,6 +388,8 @@ def serializar_alternativa(alternativa, prestacion, original_id):
 
 
 def serializar(obj, actor="ADMINISTRACION", mostrar_eventos=True):
+    """Presenta el expediente respetando privacidad y capacidades del actor."""
+
     prestacion = PrestacionServicio.objects.filter(pk=obj.prestacion_id).first()
     propuesto = (
         Disponibilidad.objects.filter(pk=obj.bloque_propuesto_id).first()
@@ -397,6 +444,8 @@ def serializar(obj, actor="ADMINISTRACION", mostrar_eventos=True):
 
 
 def _prestaciones_habilitadas(profesional):
+    """Lista prestaciones futuras desde las que el profesional puede iniciar."""
+
     resultado = []
     prestaciones = (
         PrestacionServicio.objects.filter(
@@ -420,10 +469,13 @@ def _prestaciones_habilitadas(profesional):
 
 @method_decorator(csrf_protect, name="dispatch")
 class OrganizacionReagendamientoView(APIView):
+    """Consulta, inicia y selecciona alternativas mediante referencia empresarial."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def _prestacion(self, referencia):
+        """Resuelve la prestación vinculada a una referencia privada válida."""
         datos = leer_referencia_seguimiento(referencia)
         if not datos:
             return None
@@ -433,6 +485,7 @@ class OrganizacionReagendamientoView(APIView):
         return prestar(solicitud.pk) if solicitud else None
 
     def get(self, request, referencia):
+        """Lista expedientes y alternativas visibles para la organización autorizada."""
         prestacion = self._prestacion(referencia)
         if prestacion is None:
             return error("Referencia de seguimiento no válida.", 404)
@@ -458,6 +511,7 @@ class OrganizacionReagendamientoView(APIView):
         })
 
     def post(self, request, referencia):
+        """Procesa solicitudes, respuestas y confirmaciones organizacionales de forma atómica."""
         prestacion = self._prestacion(referencia)
         if prestacion is None:
             return error("Referencia de seguimiento no válida.", 404)
@@ -588,10 +642,13 @@ class OrganizacionReagendamientoView(APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class AdministracionReagendamientoView(APIView):
+    """Coordina, valida y confirma expedientes bajo responsabilidad administrativa."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
+        """Lista los expedientes bilaterales con sus alternativas disponibles."""
         items = (
             SolicitudReagendamiento.objects.defer("evidencia_contenido")
             .order_by("-fecha_creacion")[:100]
@@ -607,6 +664,7 @@ class AdministracionReagendamientoView(APIView):
         return Response({"solicitudes": registros})
 
     def post(self, request):
+        """Valida y coordina acciones administrativas bajo bloqueo transaccional."""
         try:
             pk = int(request.data.get("id"))
         except (TypeError, ValueError):
@@ -780,14 +838,18 @@ class AdministracionReagendamientoView(APIView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class ProfesionalReagendamientoView(APIView):
+    """Permite responder propuestas o iniciar con evidencia y alternativas propias."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def _profesional(self, request):
+        """Obtiene el perfil profesional asociado a la sesión autenticada."""
         return Profesional.objects.filter(id_usuario=request.user).first()
 
     def get(self, request):
+        """Lista expedientes y prestaciones habilitadas para el profesional autenticado."""
         profesional = self._profesional(request)
         if profesional is None:
             return error("Perfil profesional no encontrado.", 404)
@@ -816,6 +878,7 @@ class ProfesionalReagendamientoView(APIView):
         })
 
     def post(self, request):
+        """Procesa contrapropuestas y solicitudes profesionales con evidencia validada."""
         profesional = self._profesional(request)
         if profesional is None:
             return error("Perfil profesional no encontrado.", 404)
@@ -1009,11 +1072,14 @@ class ProfesionalReagendamientoView(APIView):
 
 
 class EvidenciaReagendamientoAdministracionView(APIView):
+    """Descarga evidencia privada solo para la administración responsable."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
     http_method_names = ["get", "head", "options"]
 
     def get(self, request, pk):
+        """Descarga evidencia privada tras revalidar permiso, integridad y expediente."""
         with transaction.atomic():
             obj = (
                 SolicitudReagendamiento.objects.defer("evidencia_contenido")

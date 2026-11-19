@@ -1,3 +1,4 @@
+// Presenta antecedentes de validación profesional sin modificar el expediente recibido.
 import './DatosValidacion.css'
 
 const nombres = {
@@ -20,12 +21,14 @@ const nombres = {
   validacion: 'Validaci\u00f3n',
 }
 
+// Convierte el identificador técnico del campo en una etiqueta legible.
 function tituloCampo(clave) {
   return nombres[clave] ?? clave
     .replaceAll('_', ' ')
     .replace(/^./, (letra) => letra.toUpperCase())
 }
 
+// Identifica campos técnicos o sensibles que la ficha no debe mostrar.
 function ocultarCampo(clave) {
   const nombre = clave.toLowerCase()
   return [
@@ -34,6 +37,7 @@ function ocultarCampo(clave) {
   ].some((palabra) => nombre.includes(palabra))
 }
 
+// Convierte el valor recibido en texto de ficha y maneja valores faltantes.
 function presentar(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No informado'
@@ -46,6 +50,7 @@ function presentar(valor) {
   return String(valor)
 }
 
+// Muestra un valor de validación con su etiqueta legible y el tratamiento correspondiente.
 function Campo({ nombre, valor, nivel = 0 }) {
   if (ocultarCampo(nombre)) return null
 
@@ -99,6 +104,7 @@ function Campo({ nombre, valor, nivel = 0 }) {
   )
 }
 
+// Aplica la selección de campos de la ficha antes de representarlos en pantalla.
 function Campos({ datos, nivel = 0 }) {
   if (datos === null || datos === undefined) {
     return <p>Informaci&oacute;n no disponible.</p>
@@ -149,6 +155,7 @@ function Campos({ datos, nivel = 0 }) {
   )
 }
 
+// Presenta los antecedentes de validación y omite claves que no corresponden a la ficha.
 export default function DatosValidacion({ titulo, datos }) {
   return (
     <div className="dv-contenedor">

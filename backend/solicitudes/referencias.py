@@ -1,3 +1,5 @@
+"""Genera referencias firmadas para consultar seguimiento sin exponer IDs."""
+
 from django.core import signing
 
 
@@ -7,6 +9,8 @@ SEGUIMIENTO_SOLICITUD_SALT = (
 
 
 def crear_referencia_seguimiento(solicitud):
+    """Firma una referencia opaca para consultar una solicitud sin exponer su ID."""
+
     return signing.dumps(
         {
             "id_solicitud": solicitud.id_solicitud,
@@ -18,6 +22,8 @@ def crear_referencia_seguimiento(solicitud):
 
 
 def leer_referencia_seguimiento(referencia):
+    """Verifica la firma y devuelve los identificadores contenidos en la referencia."""
+
     try:
         datos = signing.loads(
             referencia,

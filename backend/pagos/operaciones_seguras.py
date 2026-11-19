@@ -1,3 +1,4 @@
+"""Aplica protección CSRF explícita a operaciones administrativas de pago."""
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect

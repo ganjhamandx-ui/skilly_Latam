@@ -1,6 +1,7 @@
 import { agruparSeccionesCondiciones } from './condicionesPrestacionE3.mjs'
 import './CondicionesPrestacionE3.css'
 
+// Agrupa los datos de una sección de condiciones bajo su encabezado visible.
 function Seccion({ titulo, contenido }) {
   return (
     <div className="cp-e3-item">

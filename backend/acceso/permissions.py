@@ -1,7 +1,11 @@
+"""Expone permisos reutilizables basados en los roles de la sesión activa."""
+
 from rest_framework.permissions import BasePermission
 
 
 class EsUsuarioSkillyAutenticado(BasePermission):
+    """Autoriza únicamente identidades activas autenticadas por la sesión de SKILLY."""
+
     message = "Debe iniciar sesión para acceder a este recurso."
 
     def has_permission(self, request, view):
@@ -14,6 +18,8 @@ class EsUsuarioSkillyAutenticado(BasePermission):
 
 
 class EsProfesional(BasePermission):
+    """Restringe el recurso a una identidad activa con rol profesional."""
+
     message = "No tiene permisos para acceder a este recurso."
 
     def has_permission(self, request, view):
@@ -29,6 +35,8 @@ class EsProfesional(BasePermission):
 
 
 class EsAdministracionSkilly(BasePermission):
+    """Restringe el recurso al personal activo de administración SKILLY."""
+
     message = "No tiene permisos para acceder a este recurso."
 
     def has_permission(self, request, view):

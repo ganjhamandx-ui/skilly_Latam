@@ -16,6 +16,8 @@ from .authentication import SesionSkillyAuthentication
 
 @override_settings(ALLOWED_HOSTS=['testserver'], CSRF_TRUSTED_ORIGINS=[])
 class AutenticacionSesionCsrfTests(SimpleTestCase):
+    """Comprueba autenticación por sesión y exigencia CSRF en métodos inseguros."""
+
     def setUp(self):
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.usuario = SimpleNamespace(pk=1, estado='ACTIVO', rol='PROFESIONAL')

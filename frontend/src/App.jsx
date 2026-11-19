@@ -4,6 +4,7 @@ import './App.css'
 
 const API_SERVICIOS = '/api/marketplace/servicios/'
 
+// Selecciona un detalle visible para informar un fallo de catálogo o solicitud.
 function obtenerMensajeError(respuesta) {
   if (respuesta.status === 404) {
     return 'El servicio solicitado no existe o dejó de estar publicado.'
@@ -12,6 +13,7 @@ function obtenerMensajeError(respuesta) {
   return `No fue posible consultar Skilly (HTTP ${respuesta.status}).`
 }
 
+// Carga los servicios publicados desde el endpoint que consume el Marketplace.
 async function consultarServicios(busqueda, signal) {
   const parametros = new URLSearchParams()
 
@@ -42,6 +44,7 @@ async function consultarServicios(busqueda, signal) {
   return datos.servicios
 }
 
+// Traduce la modalidad del servicio para el catálogo sin alterar su valor de API.
 function obtenerModalidad(valor) {
   if (!valor) return 'Por confirmar'
 
@@ -54,6 +57,7 @@ function obtenerModalidad(valor) {
   return modalidades[valor.toUpperCase()] || valor
 }
 
+// Presenta el precio del servicio en moneda chilena para la ficha pública.
 function formatearPrecio(precio) {
   if (precio === null || precio === undefined || precio === '') {
     return 'Consultar condiciones'
@@ -93,11 +97,13 @@ function fechaBloqueChile(fecha) {
   return `${partes[2]}/${partes[1]}/${partes[0]}`
 }
 
+// Presenta la hora civil del bloque sin desplazarla por conversión de zona.
 function horaBloqueChile(hora) {
   if (typeof hora !== 'string') return ''
   return hora.slice(0, 5)
 }
 
+// Valida el dígito verificador del RUT mediante módulo 11 antes de enviar la solicitud.
 function rutChilenoValido(valor) {
   const rut = String(valor || '').toUpperCase().replace(/[.\s-]/g, '')
   if (!/^\d{1,8}[\dK]$/.test(rut)) return false
@@ -112,6 +118,7 @@ function rutChilenoValido(valor) {
   return digito === esperado
 }
 
+// Monta el catálogo y gestiona la ficha y la solicitud pública del servicio elegido.
 function App() {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('Todos')
@@ -159,7 +166,9 @@ function App() {
   // La portada pública no inicia ni cierra sesiones: solo consulta si ya hay
   // una sesión profesional válida para ofrecer el regreso al portal.
   useEffect(() => {
+    // Cancela la lectura de sesión al desmontar la pantalla del catálogo.
     const controlador = new AbortController()
+    // Consulta la sesión real para decidir qué acciones de acceso mostrar en el catálogo.
     async function comprobarSesionActiva() {
       try {
         const respuesta = await fetch('/api/acceso/sesion-actual/', {
@@ -193,8 +202,10 @@ function App() {
 
   // Consultar el catálogo completo para construir las categorías reales
   useEffect(() => {
+    // Carga los servicios iniciales y cancela la consulta al salir de la pantalla.
     const controlador = new AbortController()
 
+    // Actualiza el listado público y diferencia fallos de red de un catálogo vacío.
     async function cargarCatalogo() {
       try {
         const servicios = await consultarServicios('', controlador.signal)
@@ -215,6 +226,7 @@ function App() {
 
   // Disponibilidad actualizada al regresar al marketplace desde otra pestaña.
   useEffect(() => {
+    // Actualiza el frontend al recuperar el foco para reflejar cambios recientes.
     const refrescarAlRegresar = () => {
       if (document.visibilityState === 'visible') {
         setRecargar((anterior) => anterior + 1)
@@ -230,9 +242,11 @@ function App() {
 
   // Buscar en Django, no solamente en los elementos visibles de React
   useEffect(() => {
+    // Agrupa cambios rápidos de filtros antes de enviar otra consulta.
     const controlador = new AbortController()
 
     const temporizador = setTimeout(async () => {
+      // Consulta los resultados después de la pausa y comunica el fallo si corresponde.
       setCargando(true)
       setErrorCatalogo('')
 
@@ -261,6 +275,7 @@ function App() {
   }, [busqueda, recargar])
 
   const categorias = useMemo(() => {
+    // Deduplica categorías por identificador para armar los filtros del catálogo.
     const unicas = new Map()
 
     catalogo.forEach((servicio) => {
@@ -277,7 +292,9 @@ function App() {
   }, [catalogo])
 
   const serviciosFiltrados = useMemo(() => {
+    // Calcula el listado visible a partir de los resultados de la consulta.
     return resultados.filter((servicio) => {
+      // Contrasta cada servicio con los criterios de categoría y búsqueda.
       const categoriaCoincide =
         categoria === 'Todos' ||
         String(servicio.categoria?.id_categoria) === categoria
@@ -297,6 +314,7 @@ function App() {
     })
   }, [resultados, categoria, modalidadFiltro, soloDisponibles])
 
+  // Navega al catálogo y preserva la experiencia de regreso al listado.
   function irAlMarketplace() {
     document.getElementById('marketplace')?.scrollIntoView({
       behavior: 'smooth',
@@ -304,14 +322,19 @@ function App() {
     setMenuAbierto(false)
   }
 
+  // Vuelve a ejecutar la consulta después de un fallo en el listado.
   function reintentar() {
     setErrorCatalogo('')
     setRecargar((anterior) => anterior + 1)
-  }  function actualizarSolicitud(evento) {
+  }
+
+  // Conserva los demás campos mientras se actualiza el valor editado en la solicitud.
+  function actualizarSolicitud(evento) {
     const { name, value } = evento.target
     setDatosSolicitud((actual) => ({ ...actual, [name]: value }))
   }
 
+  // Relaciona el formulario con el servicio activo y envía la solicitud a la API.
   async function enviarSolicitud(evento) {
     evento.preventDefault()
 
@@ -421,6 +444,7 @@ function App() {
     }
   }
 
+  // Selecciona un registro y solicita sus datos antes de presentar el diálogo.
   async function abrirDetalle(idServicio) {
     servicioDisparadorId.current = idServicio
     devolverFocoAlCerrar.current = false
@@ -463,6 +487,7 @@ function App() {
     }
   }
 
+  // Descarta la selección del diálogo y evita dejar visible información anterior.
   function cerrarDetalle() {
     if (enviandoSolicitud || solicitudEnCurso.current) return
     devolverFocoAlCerrar.current = true
@@ -475,6 +500,7 @@ function App() {
     servicioActivo !== null || cargandoDetalle || Boolean(errorDetalle)
   useDialogoAccesible(modalVisible, modalPanelRef, cerrarDetalle, enviandoSolicitud)
   useEffect(() => {
+    // Restaura el foco cuando el diálogo se cierra y el foco no quedó en otro control.
     if (modalVisible || !devolverFocoAlCerrar.current) return
     devolverFocoAlCerrar.current = false
     const foco = document.activeElement
@@ -709,6 +735,7 @@ function App() {
               </button>
 
               {categorias.map((item) => {
+                // Presenta la opción de filtro y su selección para cada categoría.
                 const id = String(item.id_categoria)
 
                 return (

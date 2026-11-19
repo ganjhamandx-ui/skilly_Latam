@@ -1,4 +1,6 @@
 
+"""Coordina el registro transaccional de una cuenta y su perfil profesional."""
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -10,6 +12,8 @@ from profesionales.models import Profesional
 class RegistroProfesionalCompletoSerializer(
     RegistroProfesionalSerializer
 ):
+    """Crea cuenta y perfil profesional en una sola transacción consistente."""
+
     nombres = serializers.CharField(
         max_length=150,
         allow_blank=False,

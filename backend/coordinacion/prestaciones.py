@@ -1,3 +1,5 @@
+"""Construye y consulta prestaciones derivadas de solicitudes aprobadas."""
+
 from .control_responsable import requiere_responsable_solicitud
 from django.db import transaction
 from django.utils import timezone

@@ -16,12 +16,14 @@ const estadosCerrados = new Set([
   'CANCELADO', 'RECHAZADA', 'RECHAZADO',
 ])
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `La operación no se completó (HTTP ${codigo}).`
 }
 
+// Solicita un token CSRF con las cookies de la sesión antes de una escritura.
 async function obtenerCsrf() {
   const respuesta = await fetch(`${API}/acceso/csrf/`, {
     credentials: 'same-origin',
@@ -34,6 +36,7 @@ async function obtenerCsrf() {
   return datos.csrfToken
 }
 
+// Lee la respuesta de API y convierte respuestas rechazadas en errores para la vista.
 async function obtenerJson(ruta, opciones = {}) {
   const respuesta = await fetch(`${API}${ruta}`, {
     credentials: 'same-origin',
@@ -47,6 +50,7 @@ async function obtenerJson(ruta, opciones = {}) {
 }
 
 
+// Presenta los montos administrativos con formato local y conserva valores faltantes.
 function formatoMonto(valor, moneda) {
   if (valor == null || valor === '') return 'No informado'
 
@@ -60,6 +64,7 @@ function formatoMonto(valor, moneda) {
 }
 
 
+// Integra sesión administrativa, solicitudes, coordinación y pagos en el panel interno.
 function Administracion() {
   const [usuario, setUsuario] = useState(null)
   const [vistaGestion, setVistaGestion] = useState('solicitudes')
@@ -100,6 +105,7 @@ function Administracion() {
 
 
   const cargar = useCallback(async () => {
+    // Actualiza la bandeja junto con las asignaciones de sus solicitudes.
     setCargando(true)
     setError('')
     try {
@@ -109,6 +115,7 @@ function Administracion() {
       const lista = Array.isArray(datos.solicitudes) ? datos.solicitudes : []
       const pares = await Promise.all(
         lista.map(async (item) => {
+          // Consulta el responsable de cada expediente sin invalidar toda la bandeja si un dato falla.
           try {
             const respuesta = await obtenerJson(
               `/coordinacion/administracion/solicitudes/${item.id_solicitud}/asignacion/`,
@@ -140,7 +147,9 @@ function Administracion() {
   }, [])
 
   useEffect(() => {
+    // Valida la sesión al montar el panel y descarta respuestas tardías al salir.
     let vigente = true
+    // Consulta la sesión y actualiza la autorización antes de usar la bandeja administrativa.
     async function verificar() {
       try {
         const datos = await obtenerJson(
@@ -163,10 +172,12 @@ function Administracion() {
   }, [cargar])
 
   useEffect(() => {
+    // Recarga la coordinación al cambiar la solicitud o el usuario en sesión.
     if (!seleccion || !usuario) return undefined
 
     let vigente = true
 
+    // Carga la asignación, asociaciones y estado de agenda para la solicitud activa.
     async function consultarCoordinacion() {
       setCoordinacion(null)
       setErrorCoordinacion('')
@@ -194,6 +205,7 @@ function Administracion() {
 
 
   const cargarPagos = useCallback(async () => {
+    // Actualiza los pagos con un estado de consulta separado de las solicitudes.
     setCargandoPagos(true)
     setErrorPagos('')
 
@@ -214,10 +226,12 @@ function Administracion() {
   }, [])
 
   useEffect(() => {
+    // Prepara la bandeja de pagos cuando existe una sesión administrativa.
     if (!usuario) return undefined
 
     let vigente = true
 
+    // Carga la bandeja de pagos junto con los datos iniciales del panel.
     async function consultarPagosIniciales() {
       try {
         const datos = await obtenerJson('/pagos/administracion/')
@@ -245,6 +259,7 @@ function Administracion() {
 
 
 
+  // Solicita a la API el registro de verificación de la transferencia informada.
   async function verificarTransferencia() {
     const pago = detallePago?.pago
     if (!pago || verificandoPago || !recepcionComprobada) return
@@ -318,6 +333,7 @@ function Administracion() {
     }
   }
 
+  // Solicita la liberación al backend y actualiza el panel según la decisión devuelta.
   async function liberarPagoProfesional() {
     const pago = detallePago?.pago
     if (!pago || liberandoPago || verificandoPago) return
@@ -403,6 +419,7 @@ function Administracion() {
     }
   }
 
+  // Carga el estado y la trazabilidad del pago seleccionado.
   async function consultarDetallePago(idPago) {
     if (!Number.isSafeInteger(idPago) || idPago <= 0) {
       setErrorDetallePago('Identificador de pago no valido.')
@@ -435,6 +452,7 @@ function Administracion() {
   }
 
 
+  // Envía el bloque escogido para programar la primera reunión de la prestación.
   async function agendarPrimeraReunion() {
     const prestacion = coordinacion?.prestacion
 
@@ -526,6 +544,7 @@ function Administracion() {
     }
   }
 
+  // Solicita la preparación de una prestación para la solicitud seleccionada.
   async function prepararPrestacion(idProfesional) {
     if (!seleccion || preparandoPrestacion || !coordinacion) return
 
@@ -580,6 +599,7 @@ function Administracion() {
     }
   }
 
+  // Confirma el vínculo propuesto entre la solicitud y el profesional seleccionado.
   async function confirmarAsociacion(idProfesional) {
     if (!seleccion || confirmandoAsociacion || proponiendo) return
 
@@ -634,6 +654,7 @@ function Administracion() {
     }
   }
 
+  // Envía una propuesta de asociación para su aceptación por el profesional.
   async function proponerAsociacion() {
     if (!seleccion || proponiendo || !coordinacion) return
 
@@ -681,6 +702,7 @@ function Administracion() {
     }
   }
 
+  // Autentica la cuenta administrativa y actualiza el estado de sesión de la vista.
   async function iniciarSesion(evento) {
     evento.preventDefault()
     setCargando(true)
@@ -714,6 +736,7 @@ function Administracion() {
     }
   }
 
+  // Solicita que el administrador activo quede a cargo de la solicitud.
   async function autoasignar(solicitud) {
     if (asignando || !solicitud) return
 
@@ -762,6 +785,7 @@ function Administracion() {
     }
   }
 
+  // Finaliza la sesión en el backend y despeja el estado de acceso de la vista.
   async function cerrarSesion() {
     setError('')
     try {
@@ -784,16 +808,19 @@ function Administracion() {
     }
   }
 
+  // Obtiene al responsable de la asignación vigente, si existe.
   function responsable(item) {
     return asignaciones[item.id_solicitud]?.actual?.responsable ?? null
   }
 
+  // Identifica si el estado de la prestación debe mostrar el expediente como cerrado.
   function cerrada(item) {
     return estadosCerrados.has(String(item.estado ?? '').toUpperCase())
   }
 
 
   const pagosVisibles = pagos.filter((pago) => {
+    // Distingue las transferencias pendientes de verificación de los pagos en otros estados.
     const pendiente =
       pago.metodo_pago === 'TRANSFERENCIA' &&
       pago.estado_pago === 'PENDIENTE_VERIFICACION' &&
@@ -808,6 +835,7 @@ function Administracion() {
   })
 
   const visibles = solicitudes.filter((item) => {
+    // Filtra las solicitudes según el responsable y el criterio elegido.
     const asignacion = asignaciones[item.id_solicitud]
     const actual = asignacion?.actual
     const idResponsable = actual?.responsable?.id_usuario
@@ -1542,6 +1570,7 @@ function Administracion() {
                           idSolicitud={seleccion.id_solicitud}
                           prestacion={coordinacion.prestacion}
                           onRegistrado={(prestacionActualizada) => {
+                            // Aplica la prestación actualizada solo si el panel conserva ese expediente seleccionado.
                             setCoordinacion((anterior) =>
                               anterior?.prestacion?.id_prestacion ===
                               prestacionActualizada.id_prestacion

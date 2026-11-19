@@ -14,10 +14,14 @@ from .vigencia_asignacion import asignaciones_vigentes
 
 
 def _denegacion(mensaje, codigo):
+    """Crea una respuesta de denegación consistente para el control de responsable."""
+
     return Response({"mensaje": mensaje}, status=codigo)
 
 
 def _verificar_responsable(request, id_solicitud):
+    """Bloquea la solicitud y confirma que el administrador sea responsable vigente."""
+
     # Bloquear la misma fila que utiliza el procedimiento de asignación,
     # de modo que asignación y operación administrativa se serialicen.
     existe = (SolicitudServicio.objects.select_for_update(of=("self",))
@@ -47,6 +51,8 @@ def _verificar_responsable(request, id_solicitud):
 
 
 def requiere_responsable_solicitud(funcion):
+    """Protege una operación de solicitud con verificación transaccional de responsable."""
+
     @wraps(funcion)
     def protegido(self, request, id_solicitud, *args, **kwargs):
         with transaction.atomic():
@@ -58,6 +64,8 @@ def requiere_responsable_solicitud(funcion):
 
 
 def requiere_responsable_prestacion(funcion):
+    """Resuelve la solicitud de una prestación y aplica la misma protección de responsable."""
+
     @wraps(funcion)
     def protegido(self, request, id_prestacion, *args, **kwargs):
         with transaction.atomic():

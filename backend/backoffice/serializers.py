@@ -1,3 +1,5 @@
+"""Valida la configuración administrativa y sus reglas monetarias."""
+
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -12,9 +14,13 @@ from .models import (
 class EventoTrazabilidadSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta un evento auditable con la identidad legible del responsable."""
+
     responsable = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de EventoTrazabilidad y protege sus campos de solo lectura."""
+
         model = EventoTrazabilidad
 
         fields = [
@@ -48,6 +54,8 @@ class EventoTrazabilidadSerializer(
 class FiltroTrazabilidadSerializer(
     serializers.Serializer
 ):
+    """Valida filtros opcionales usados para consultar la trazabilidad."""
+
     entidad_tipo = serializers.CharField(
         max_length=60,
         required=False,
@@ -69,11 +77,15 @@ class FiltroTrazabilidadSerializer(
 class ParametroSistemaSerializer(
     serializers.ModelSerializer
 ):
+    """Expone un parámetro vigente junto con su responsable administrativo."""
+
     responsable_actualizacion = (
         serializers.SerializerMethodField()
     )
 
     class Meta:
+        """Define la representación de ParametroSistema y protege sus campos de solo lectura."""
+
         model = ParametroSistema
 
         fields = [
@@ -107,11 +119,15 @@ class ParametroSistemaSerializer(
 class HistorialParametroSerializer(
     serializers.ModelSerializer
 ):
+    """Serializa una modificación histórica sin permitir su escritura."""
+
     responsable_skilly = (
         serializers.SerializerMethodField()
     )
 
     class Meta:
+        """Define la representación de HistorialParametro y protege sus campos de solo lectura."""
+
         model = HistorialParametro
 
         fields = [
@@ -144,6 +160,8 @@ class HistorialParametroSerializer(
 class ActualizarComisionSerializer(
     serializers.Serializer
 ):
+    """Valida el nuevo porcentaje de comisión antes de actualizarlo."""
+
     valor_nuevo = serializers.DecimalField(
         max_digits=7,
         decimal_places=4,

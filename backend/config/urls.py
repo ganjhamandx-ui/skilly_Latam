@@ -1,6 +1,9 @@
+"""Compone las rutas HTTP de todos los módulos backend de SKILLY."""
+
 from django.urls import include, path
 
 
+# Punto único de registro de las APIs; cada aplicación gestiona sus rutas y permisos.
 urlpatterns = [
     path(
         "api/acceso/",

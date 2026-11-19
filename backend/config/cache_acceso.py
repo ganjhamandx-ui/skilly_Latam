@@ -11,6 +11,8 @@ REDIS_ATOMICO = 'acceso.cache.RedisIntentosCache'
 
 
 def ubicacion_redis_valida(value):
+    """Valida una URI Redis local sin separadores ni parámetros inseguros."""
+
     if not isinstance(value, str) or not value or value.strip() != value or any(c in value for c in '\r\n\t;,'):
         return False
     try:
@@ -24,6 +26,8 @@ def ubicacion_redis_valida(value):
 
 
 def timeout_redis(value):
+    """Convierte el tiempo de conexión Redis y rechaza valores fuera de rango."""
+
     try:
         result = float(value)
     except (TypeError, ValueError):
@@ -34,6 +38,8 @@ def timeout_redis(value):
 
 
 def configurar_cache_acceso(environment):
+    """Construye la caché de intentos desde variables locales validadas."""
+
     backend = environment.get('ACCESO_CACHE_BACKEND', LOCAL)
     if backend == REDIS_DJANGO:
         # Mantener compatible la seleccion anterior, pero garantizar el comando

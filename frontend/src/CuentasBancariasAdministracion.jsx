@@ -1,3 +1,4 @@
+// Administra cuentas receptoras y su vigencia mediante operaciones autenticadas con CSRF.
 import { useCallback, useState } from 'react'
 import useCargaAsincrona from './useCargaAsincrona.js'
 import AdminNavegacion from './AdminNavegacion.jsx'
@@ -9,6 +10,7 @@ const vacio = { titular:'', rut_titular:'', banco:'', tipo_cuenta:'', numero_cue
 const etiquetas = { titular:'Titular', rut_titular:'RUT del titular', banco:'Banco', tipo_cuenta:'Tipo de cuenta', numero_cuenta:'Número de cuenta', correo:'Correo de comprobantes' }
 const tipos = ['CORRIENTE','VISTA','CUENTA_RUT','AHORRO']
 
+// Administra cuentas bancarias e historial de SKILLY con las acciones permitidas por estado.
 export default function CuentasBancariasAdministracion() {
   const [cuentas,setCuentas]=useState([])
   const [historial,setHistorial]=useState([])
@@ -27,18 +29,22 @@ export default function CuentasBancariasAdministracion() {
   const aplicarConsulta=useCallback(d=>{setCuentas(d.cuentas || []);setError('');setCargando(false)},[])
   const fallarConsulta=useCallback(e=>{setError(e.message);setCargando(false)},[])
   const recargar=useCargaAsincrona(consultar,aplicarConsulta,fallarConsulta)
+  // Recupera las cuentas habilitadas para la sesión de administración.
   async function cargar(){setCargando(true);setError('');await recargar()}
+  // Carga los cambios registrados para la cuenta seleccionada en administración.
   async function historialCuentas(){
     try {const r=await fetch(`${API}historial/`,{credentials:'same-origin'});const d=await r.json();
       if(!r.ok)throw new Error(d.mensaje||`HTTP ${r.status}`);setHistorial(d.historial||[]);setVerHistorial(true)}
     catch(e){setError(e.message)}
   }
+  // Solicita un token CSRF con las cookies de la sesión antes de una escritura.
   async function obtenerCsrf(){
     const r=await fetch('/api/acceso/csrf/',{credentials:'same-origin',cache:'no-store'})
     const d=await r.json().catch(()=>({}))
     if(!r.ok||!d.csrfToken)throw new Error('No se pudo obtener el token de seguridad.')
     return d.csrfToken
   }
+  // Transmite operaciones de cuenta con el token CSRF y la sesión administrativa.
   async function enviar(url,method,body){
     setTrabajando(true);setError('')
     try {const csrf=await obtenerCsrf();const r=await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf},body:JSON.stringify(body)});
@@ -46,9 +52,11 @@ export default function CuentasBancariasAdministracion() {
       setForm(vacio);setEditando(null);await cargar();if(verHistorial) await historialCuentas()
     }catch(e){setError(e.message)}finally{setTrabajando(false)}
   }
+  // Valida y remite las modificaciones de la cuenta que se está administrando.
   function guardar(e){e.preventDefault();if(trabajando)return;
     enviar(editando?`${API}${editando}/`:API,editando?'PATCH':'POST',editando?{...form,accion:'MODIFICAR'}:form)
   }
+  // Envía la operación administrativa elegida sobre la cuenta bancaria seleccionada.
   function accion(c,accion){
     if(trabajando)return
     const descripcion={ACTIVAR:'activar',DESACTIVAR:'desactivar',PRINCIPAL:'seleccionar como principal'}[accion]

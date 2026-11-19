@@ -1,3 +1,4 @@
+"""Valida datos de perfiles, documentos y entrevistas profesionales."""
 
 from rest_framework import serializers
 from backoffice.models import EventoTrazabilidad
@@ -30,6 +31,8 @@ class PerfilProfesionalSerializer(serializers.ModelSerializer):
     competencias = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de Profesional y protege sus campos de solo lectura."""
+
         model = Profesional
 
         fields = [
@@ -117,6 +120,8 @@ class DocumentoProfesionalSerializer(
         return v.observacion if v else None
 
     class Meta:
+        """Define la representación de DocumentoProfesional y protege sus campos de solo lectura."""
+
         model = DocumentoProfesional
 
         fields = [
@@ -135,6 +140,8 @@ class DocumentoProfesionalSerializer(
 
 class EstadoValidacionSerializer(serializers.ModelSerializer):
     class Meta:
+        """Define la representación de SolicitudValidacion y protege sus campos de solo lectura."""
+
         model = SolicitudValidacion
 
         fields = [
@@ -156,6 +163,8 @@ class RevisionValidacionAdministracionSerializer(
     entrevista = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de SolicitudValidacion y protege sus campos de solo lectura."""
+
         model = SolicitudValidacion
 
         fields = [
@@ -276,6 +285,8 @@ class EntrevistaValidacionResumenSerializer(
         return evento.fecha_evento if evento else None
 
     class Meta:
+        """Define la representación de EntrevistaValidacion y protege sus campos de solo lectura."""
+
         model = EntrevistaValidacion
 
         fields = [
@@ -298,6 +309,8 @@ class BloqueEntrevistaAdministracionSerializer(
     disponibilidad = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de BloqueEntrevistaValidacion y protege sus campos de solo lectura."""
+
         model = BloqueEntrevistaValidacion
 
         fields = [
@@ -355,6 +368,8 @@ class EntrevistaProfesionalSerializer(
     bloque = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de EntrevistaValidacion y protege sus campos de solo lectura."""
+
         model = EntrevistaValidacion
 
         fields = [

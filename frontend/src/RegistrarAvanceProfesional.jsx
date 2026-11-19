@@ -24,6 +24,7 @@ const ESTADOS_SUGERIDOS = [
   { valor: 'HITO_COMPLETADO', nombre: 'Hito completado' },
 ]
 
+// Extrae detalles de validación del servidor para evitar mensajes genéricos.
 function obtenerMensaje(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -40,6 +41,7 @@ function obtenerMensaje(datos, codigo) {
   return errores || `No se pudo registrar el avance (HTTP ${codigo}).`
 }
 
+// Permite registrar avance o informar una incidencia en una prestación propia.
 export default function RegistrarAvanceProfesional({
   idPrestacion,
   estadoPrestacion,
@@ -70,6 +72,7 @@ export default function RegistrarAvanceProfesional({
     ? estadoPersonalizado.trim()
     : opcionEstado
 
+  // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
   async function registrar(evento) {
     evento.preventDefault()
 
@@ -161,6 +164,7 @@ export default function RegistrarAvanceProfesional({
     }
   }
 
+  // Envía la incidencia profesional al canal previsto sin registrarla como entrega.
   async function informarIncidencia(evento) {
     evento.preventDefault()
     if (!puedeInformarIncidencia || procesandoAviso || !idPrestacion) return

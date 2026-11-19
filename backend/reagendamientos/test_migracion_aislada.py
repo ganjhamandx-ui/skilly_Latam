@@ -1,3 +1,5 @@
+"""Valida la conversión histórica de reagendamientos en una base temporal aislada."""
+
 import json
 import os
 from pathlib import Path
@@ -111,7 +113,10 @@ print(json.dumps({"solicitudes": solicitudes, "alternativas": alternativas}))
 
 
 class MigracionBilateralAisladaTests(unittest.TestCase):
+    """Ejecuta 0001→0002 en una base temporal y contrasta casos históricos."""
+
     def test_migracion_preserva_y_adapta_expedientes_historicos(self):
+        """Verifica el escenario: migracion preserva y adapta expedientes históricos."""
         backend = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory(prefix="skilly-reagendamientos-") as temporal:
             entorno = os.environ.copy()

@@ -23,6 +23,7 @@ const estiloBoton = {
   cursor: 'pointer',
 }
 
+// Presenta el importe del pago según su moneda antes de mostrarlo a la empresa.
 function formatoDinero(valor, moneda = 'CLP') {
   const numero = Number(valor)
 
@@ -39,6 +40,7 @@ function formatoDinero(valor, moneda = 'CLP') {
   )
 }
 
+// Presenta los registros en formato local y conserva el día civil de las fechas sin hora.
 function formatoFecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -54,6 +56,7 @@ function formatoFecha(valor) {
   })
 }
 
+// Extrae detalles de validación del servidor para evitar mensajes genéricos.
 function obtenerMensaje(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -79,6 +82,7 @@ function obtenerMensaje(datos, codigo) {
   return `Operación no completada (HTTP ${codigo}).`
 }
 
+// Traduce el estado del pago en un mensaje comprensible para quien contrató.
 function descripcionPago(estado) {
   switch (estado) {
     case 'RETENIDO':
@@ -111,6 +115,7 @@ function descripcionPago(estado) {
   }
 }
 
+// Mantiene separada la vista de pago al cambiar la referencia de seguimiento.
 export default function PagoEmpresaSeguimiento({
   referencia,
   prestacion,
@@ -118,6 +123,7 @@ export default function PagoEmpresaSeguimiento({
   return <PagoEmpresa key={referencia} referencia={referencia} prestacion={prestacion} />
 }
 
+// Presenta el método, estado y pasos disponibles del pago de la organización.
 function PagoEmpresa({ referencia, prestacion }) {
   const [pago, setPago] = useState(null)
   const [sinPago, setSinPago] = useState(false)
@@ -163,8 +169,11 @@ function PagoEmpresa({ referencia, prestacion }) {
   const avisoBancario = consultarCuenta && cuentaConsultada ? consultaCuenta.mensaje : ''
   const cargandoCuenta = consultarCuenta && !cuentaConsultada
 
+  // Recuerda el cierre del aviso para esta referencia y versión sin registrar aceptación.
   function cerrarAvisoPolitica() { setClaveAvisoCerrado(clavePolitica); setClaveAvisoAbierto('') }
+  // Registra el método que la empresa eligió antes de iniciar el pago.
   function elegirMetodo(metodo) { setMetodoElegido(metodo); setConsultaCuenta(null) }
+  // Invalida el pago, la política y la cuenta mostrados antes de consultarlos de nuevo.
   function actualizarPago() {
     setCargando(true); setError(''); setPago(null); setSinPago(false)
     setPolitica(null); setPoliticaError(''); setAcepto(false); setConsultaCuenta(null)
@@ -172,6 +181,7 @@ function PagoEmpresa({ referencia, prestacion }) {
   }
 
   useEffect(() => {
+    // Lee la política vinculada a la referencia de la prestación.
     if (!referencia) return undefined
     const controller = new AbortController()
     fetch(`/api/seguimiento/empresa/${encodeURIComponent(referencia)}/politica-cancelacion/`, {
@@ -186,6 +196,7 @@ function PagoEmpresa({ referencia, prestacion }) {
   }, [referencia, revision])
 
   useEffect(() => {
+    // Consulta el estado de cancelación que puede limitar las opciones de pago.
     if (!referencia) return undefined
     const controller = new AbortController()
     fetch(`/api/seguimiento/empresa/${encodeURIComponent(referencia)}/cancelaciones/estado/`, {
@@ -196,6 +207,7 @@ function PagoEmpresa({ referencia, prestacion }) {
     return () => controller.abort()
   }, [referencia, revision])
 
+  // Envía la aceptación expresa de la política antes de habilitar el pago.
   async function aceptarPolitica() {
     if (!politica?.version || aceptando || !acepto) return
     setAceptando(true); setPoliticaError('')
@@ -218,10 +230,12 @@ function PagoEmpresa({ referencia, prestacion }) {
   }
 
   useEffect(() => {
+    // Vincula la consulta de pago a la referencia y cancela respuestas anteriores.
     if (!referencia) return undefined
 
     const controlador = new AbortController()
 
+    // Consulta el estado del pago para la referencia privada de la prestación.
     async function consultarPago() {
       try {
         const respuesta = await fetch(
@@ -294,6 +308,7 @@ function PagoEmpresa({ referencia, prestacion }) {
   }, [referencia, revision])
 
   useEffect(() => {
+    // Consulta la cuenta receptora cuando está habilitada la transferencia.
     if (!referencia || !habilitarFormulario || cargando || metodoElegido !== 'TRANSFERENCIA') {
       return undefined
     }
@@ -310,6 +325,7 @@ function PagoEmpresa({ referencia, prestacion }) {
         return datos
       })
       .then((datos) => {
+        // Aplica la cuenta devuelta solo si la consulta corresponde a la revisión activa.
         if (controlador.signal.aborted) return
         if (datos.disponible && datos.cuenta) {
           setConsultaCuenta({ revision, cuenta: datos.cuenta, mensaje: '' })
@@ -325,6 +341,7 @@ function PagoEmpresa({ referencia, prestacion }) {
     return () => controlador.abort()
   }, [referencia, habilitarFormulario, cargando, revision, metodoElegido])
 
+  // Solicita una sesión de Webpay y usa la respuesta para el flujo de redirección.
   async function iniciarWebpay() {
     if (guardando || cargando || !referencia) return
     if (!politica?.aceptada) { setError('Debes aceptar la política de cancelación antes de iniciar Webpay.'); return }
@@ -361,6 +378,7 @@ function PagoEmpresa({ referencia, prestacion }) {
     }
   }
 
+  // Solicita registrar el pago por transferencia desde el seguimiento privado.
   async function informarTransferencia(evento) {
     evento.preventDefault()
 

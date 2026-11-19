@@ -1,3 +1,5 @@
+"""Implementa consultas y acciones del portal profesional y administrativo."""
+
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 

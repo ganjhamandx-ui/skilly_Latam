@@ -1,3 +1,5 @@
+"""Valida datos de coordinación, agenda y contratación de prestaciones."""
+
 from rest_framework import serializers
 
 from solicitudes.models import (
@@ -22,6 +24,8 @@ class SolicitudEmpresarialAdministracionSerializer(
     servicio = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de SolicitudServicio y protege sus campos de solo lectura."""
+
         model = SolicitudServicio
 
         fields = [
@@ -83,6 +87,8 @@ class AsignacionSolicitudAdministracionSerializer(
     responsable = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de AsignacionSolicitud y protege sus campos de solo lectura."""
+
         model = AsignacionSolicitud
 
         fields = [
@@ -114,6 +120,8 @@ class AsociacionSolicitudProfesionalSerializer(
     profesional = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de SolicitudProfesional y protege sus campos de solo lectura."""
+
         model = SolicitudProfesional
 
         fields = [
@@ -158,6 +166,8 @@ class CoordinacionSolicitudAdministracionSerializer(
     responsable = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de CoordinacionSolicitud y protege sus campos de solo lectura."""
+
         model = CoordinacionSolicitud
 
         fields = [
@@ -188,6 +198,8 @@ class ReservaDisponibilidadAdministracionSerializer(
     disponibilidad = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de ReservaDisponibilidad y protege sus campos de solo lectura."""
+
         model = ReservaDisponibilidad
 
         fields = [
@@ -223,6 +235,8 @@ class ReunionSolicitudAdministracionSerializer(
     responsable_skilly = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de ReunionSolicitud y protege sus campos de solo lectura."""
+
         model = ReunionSolicitud
 
         fields = [
@@ -295,6 +309,8 @@ class PrestacionServicioAdministracionSerializer(
     profesional = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de PrestacionServicio y protege sus campos de solo lectura."""
+
         model = PrestacionServicio
 
         fields = [
@@ -330,6 +346,8 @@ class OportunidadProfesionalSerializer(
     estado_coordinacion = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de SolicitudProfesional y protege sus campos de solo lectura."""
+
         model = SolicitudProfesional
 
         fields = [
@@ -408,6 +426,8 @@ class ServicioCoordinadoProfesionalSerializer(
     solicitud = serializers.SerializerMethodField()
 
     class Meta:
+        """Define la representación de PrestacionServicio y protege sus campos de solo lectura."""
+
         model = PrestacionServicio
 
         fields = [

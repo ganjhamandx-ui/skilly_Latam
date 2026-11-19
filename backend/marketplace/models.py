@@ -1,3 +1,5 @@
+"""Modela servicios, categorías y competencias publicadas en el marketplace."""
+
 from django.db import models
 
 from acceso.models import Usuario
@@ -28,6 +30,8 @@ class CategoriaServicio(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `categoria_servicio`."""
+
         managed = False
         db_table = "categoria_servicio"
 
@@ -87,6 +91,8 @@ class Servicio(models.Model):
     fecha_actualizacion = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `servicio`."""
+
         managed = False
         db_table = "servicio"
 
@@ -113,6 +119,8 @@ class ServicioCompetencia(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `servicio_competencia`."""
+
         managed = False
         db_table = "servicio_competencia"
 
@@ -157,5 +165,7 @@ class RevisionServicio(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `revision_servicio`."""
+
         managed = False
         db_table = "revision_servicio"

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import './SolicitarValidacionProfesional.css'
 
+// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
 function obtenerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -8,6 +9,7 @@ function obtenerError(datos, codigo) {
   return `No fue posible completar la solicitud (HTTP ${codigo}).`
 }
 
+// Envía el expediente profesional cuando los antecedentes requeridos están disponibles.
 export default function SolicitarValidacionProfesional() {
   const [documentos, setDocumentos] = useState([])
   const [solicitud, setSolicitud] = useState(null)
@@ -18,6 +20,7 @@ export default function SolicitarValidacionProfesional() {
   const [exito, setExito] = useState('')
 
   const consultarEstado = useCallback(async () => {
+    // Actualiza el expediente de validación y distingue carga y error.
 
     setConsultando(true)
     setError('')
@@ -79,6 +82,7 @@ export default function SolicitarValidacionProfesional() {
   }, [])
 
   useEffect(() => {
+    // Omite la consulta inicial si el componente se desmontó antes de iniciarla.
     let activo = true
     // La consulta comienza tras el montaje del componente.
     Promise.resolve().then(() => {
@@ -87,6 +91,7 @@ export default function SolicitarValidacionProfesional() {
     return () => { activo = false }
   }, [consultarEstado])
 
+  // Solicita formalmente la validación del perfil y sus documentos.
   async function enviarSolicitud() {
     if (enviando || consultando || solicitud) return
 

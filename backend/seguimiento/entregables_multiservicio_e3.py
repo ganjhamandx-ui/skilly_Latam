@@ -43,6 +43,8 @@ EXTENSIONES={'.pdf':'application/pdf','.jpg':'image/jpeg','.jpeg':'image/jpeg','
 RAIZ_PRIVADA=Path(settings.BASE_DIR)/'entregas_privadas_e3'
 
 class ArchivoEntregaE3(models.Model):
+    """Registra metadatos de un archivo de entrega almacenado fuera del área pública."""
+
     id_archivo=models.BigAutoField(primary_key=True)
     id_entrega=models.ForeignKey(Entrega,models.DO_NOTHING,db_column='id_entrega')
     nombre_original=models.CharField(max_length=255)
@@ -51,6 +53,8 @@ class ArchivoEntregaE3(models.Model):
     tamanio_bytes=models.BigIntegerField()
     fecha_subida=models.DateTimeField()
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `archivo_entrega_e3`."""
+
         managed=False
         db_table='archivo_entrega_e3'
 
@@ -61,6 +65,8 @@ FORMATOS_TECNICOS=tuple(EXTENSIONES)
 SIN_ARCHIVOS=()
 
 def _normalizar(texto):
+    """Normaliza texto para clasificar servicios sin depender de tildes o mayúsculas."""
+
     texto=unicodedata.normalize('NFKD',str(texto or '').casefold())
     return ''.join(c for c in texto if not unicodedata.combining(c))
 
@@ -101,14 +107,20 @@ def politica_entrega_servicio(servicio):
             'orientacion':'Si el servicio genero informes o documentos, puedes adjuntarlos de forma opcional.'}
 
 def servicio_de_prestacion(prestacion):
+    """Obtiene el servicio publicado que originó una prestación."""
+
     return prestacion.id_solicitud.id_servicio
 
 def archivos_de_prestacion(prestacion):
+    """Lista metadatos de archivos asociados a las entregas de una prestación."""
+
     qs=ArchivoEntregaE3.objects.filter(id_entrega__id_prestacion=prestacion).order_by('id_entrega_id','id_archivo')
     return [dict(id_archivo=x.id_archivo,id_entrega=x.id_entrega_id,nombre=x.nombre_original,
                  tamano=x.tamanio_bytes,fecha=x.fecha_subida) for x in qs]
 
 def validar_archivo(archivo,formatos_permitidos=None):
+    """Valida nombre, extensión, tamaño y firma antes del almacenamiento privado."""
+
     nombre=str(archivo.name).replace('\\','/').split('/')[-1].strip()
     if not nombre or len(nombre)>180 or any(ord(c)<32 for c in nombre):
         raise ValueError('Nombre de archivo invalido.')
@@ -151,9 +163,13 @@ def validar_archivo(archivo,formatos_permitidos=None):
     return nombre, extension, EXTENSIONES[extension]
 
 def almacenamiento():
+    """Construye el almacenamiento privado sin URL pública."""
+
     return FileSystemStorage(location=str(RAIZ_PRIVADA),base_url=None)
 
 def abrir_privado(archivo):
+    """Abre un archivo validando que su ruta permanezca dentro del directorio privado."""
+
     ruta=archivo.ruta_privada
     if not ruta or '/' in ruta or '\\' in ruta or Path(ruta).name!=ruta:
         raise Http404()
@@ -168,9 +184,12 @@ def abrir_privado(archivo):
     return respuesta
 
 class EntregablesProfesionalE3View(APIView):
+    """Lista política y archivos de entregas propias del profesional."""
+
     authentication_classes=[SesionSkillyAuthentication]
     permission_classes=[EsProfesional]
     def get(self,request,id_prestacion):
+        """Lista entregas y adjuntos de una prestación perteneciente al profesional."""
         profesional=Profesional.objects.filter(id_usuario=request.user).first()
         prestacion=PrestacionServicio.objects.select_related('id_solicitud').filter(
             id_prestacion=id_prestacion,id_profesional=profesional).first() if profesional else None
@@ -182,10 +201,13 @@ class EntregablesProfesionalE3View(APIView):
 
 @method_decorator(csrf_protect,name='dispatch')
 class RegistrarEntregaConArchivosE3View(APIView):
+    """Registra entrega y adjuntos privados de forma transaccional."""
+
     authentication_classes=[SesionSkillyAuthentication]
     permission_classes=[EsProfesional]
     parser_classes=[MultiPartParser,FormParser]
     def post(self,request,id_prestacion):
+        """Registra una entrega y sus archivos privados tras validar política y propiedad."""
         profesional=Profesional.objects.filter(id_usuario=request.user).first()
         if not profesional:
             return Response({'mensaje':'Perfil profesional no disponible.'},status=403)
@@ -234,9 +256,12 @@ class RegistrarEntregaConArchivosE3View(APIView):
                          'entrega':EntregaSerializer(entrega).data},status=201)
 
 class EntregablesEmpresaE3View(APIView):
+    """Lista entregables para la empresa mediante su referencia privada."""
+
     authentication_classes=[]
     permission_classes=[AllowAny]
     def get(self,request,referencia):
+        """Lista entregas autorizadas por la referencia privada empresarial."""
         validada=leer_referencia_seguimiento(referencia)
         if not validada:
             return Response({'mensaje':'Referencia invalida.'},status=400)
@@ -248,9 +273,12 @@ class EntregablesEmpresaE3View(APIView):
 
 @method_decorator(never_cache,name='dispatch')
 class DescargaEntregaEmpresaE3View(APIView):
+    """Descarga un archivo cuando pertenece a la prestación empresarial referenciada."""
+
     authentication_classes=[]
     permission_classes=[AllowAny]
     def get(self,request,referencia,id_archivo):
+        """Descarga un adjunto solo si pertenece a la solicitud y contacto firmados."""
         validada=leer_referencia_seguimiento(referencia)
         if not validada:
             raise Http404()
@@ -263,9 +291,12 @@ class DescargaEntregaEmpresaE3View(APIView):
 
 @method_decorator(never_cache,name='dispatch')
 class DescargaEntregaProfesionalE3View(APIView):
+    """Descarga un archivo que pertenece al profesional autenticado."""
+
     authentication_classes=[SesionSkillyAuthentication]
     permission_classes=[EsProfesional]
     def get(self,request,id_archivo):
+        """Descarga un adjunto solo para el profesional propietario de la prestación."""
         profesional=Profesional.objects.filter(id_usuario=request.user).first()
         archivo=ArchivoEntregaE3.objects.filter(id_archivo=id_archivo,
             id_entrega__id_prestacion__id_profesional=profesional).first() if profesional else None
@@ -275,9 +306,12 @@ class DescargaEntregaProfesionalE3View(APIView):
 
 @method_decorator(never_cache,name='dispatch')
 class DescargaEntregaAdminE3View(APIView):
+    """Descarga archivos para administración con autorización sobre la prestación."""
+
     authentication_classes=[SesionSkillyAuthentication]
     permission_classes=[EsAdministracionSkilly]
     def get(self,request,id_archivo):
+        """Descarga un adjunto privado para una sesión administrativa autorizada."""
         archivo=ArchivoEntregaE3.objects.filter(id_archivo=id_archivo).first()
         if not archivo:
             raise Http404()

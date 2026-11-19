@@ -1,3 +1,5 @@
+"""Modela retroalimentación privada y recomendaciones de desarrollo."""
+
 from django.db import models
 
 from acceso.models import Usuario
@@ -7,6 +9,8 @@ from solicitudes.models import ContactoEmpresa
 
 
 class Retroalimentacion(models.Model):
+    """Registra la evaluación privada de una prestación finalizada."""
+
     id_feedback = models.BigAutoField(
         primary_key=True
     )
@@ -37,12 +41,18 @@ class Retroalimentacion(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `retroalimentacion`."""
+
         managed = False
         db_table = "retroalimentacion"
 
 
 class RecomendacionDesarrollo(models.Model):
+    """Conserva una recomendación administrativa comunicable al profesional."""
+
     class Estado(models.TextChoices):
+        """Enumera los estados de registro y comunicación de la recomendación."""
+
         REGISTRADA = (
             "REGISTRADA",
             "Registrada",
@@ -97,5 +107,7 @@ class RecomendacionDesarrollo(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `recomendacion_desarrollo`."""
+
         managed = False
         db_table = "recomendacion_desarrollo"

@@ -52,6 +52,7 @@ const NOMBRES_ACCION = {
     'Cambio de estado',
 }
 
+// Convierte el identificador de entidad auditada en una etiqueta para el historial.
 function etiquetaEntidad(codigo) {
   return (
     NOMBRES_ENTIDAD[codigo] ||
@@ -59,6 +60,7 @@ function etiquetaEntidad(codigo) {
   )
 }
 
+// Traduce el código de operación auditada para leer la cronología.
 function etiquetaAccion(codigo) {
   if (NOMBRES_ACCION[codigo]) {
     return NOMBRES_ACCION[codigo]
@@ -76,6 +78,7 @@ function etiquetaAccion(codigo) {
   )
 }
 
+// Recupera el mensaje de validación y usa un texto legible si la respuesta no lo trae.
 function textoError(datos, codigo) {
   return (
     datos?.mensaje ||
@@ -84,6 +87,7 @@ function textoError(datos, codigo) {
   )
 }
 
+// Presenta una fecha de registro con un formato regional legible.
 function fechaLegible(valor) {
   if (!valor) return 'Sin fecha'
 
@@ -130,8 +134,10 @@ export default function TrazabilidadAdministracion() {
   ] = useState('')
 
   useEffect(() => {
+    // Actualiza el historial y sus filtros mientras la vista permanece activa.
     let activo = true
 
+    // Centraliza la lectura de la API de trazabilidad y el manejo de errores HTTP.
     async function obtener(url) {
       const respuesta = await fetch(url, {
         method: 'GET',
@@ -161,6 +167,7 @@ export default function TrazabilidadAdministracion() {
       return datos.eventos
     }
 
+    // Consulta el historial de operaciones con los filtros activos.
     async function consultar() {
       try {
         // Consulta general: nombres reales
@@ -206,6 +213,7 @@ export default function TrazabilidadAdministracion() {
   }, [filtros, revision])
 
   useEffect(() => {
+    // Consulta los antecedentes del evento de auditoría seleccionado.
     if (idDetalle === null) {
       return undefined
     }
@@ -215,6 +223,7 @@ export default function TrazabilidadAdministracion() {
     const anterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
+    // Cierra el detalle de auditoría cuando se pulsa la tecla Escape.
     function alEscapar(evento) {
       if (evento.key === 'Escape') {
         setIdDetalle(null)
@@ -226,6 +235,7 @@ export default function TrazabilidadAdministracion() {
       alEscapar,
     )
 
+    // Obtiene los antecedentes autorizados del evento de auditoría seleccionado.
     async function consultarDetalle() {
       try {
         const respuesta = await fetch(
@@ -270,6 +280,7 @@ export default function TrazabilidadAdministracion() {
     void consultarDetalle()
 
     return () => {
+      // Desactiva la actualización pendiente y restaura el desplazamiento al cerrar.
       activo = false
 
       document.body.style.overflow =
@@ -317,6 +328,7 @@ export default function TrazabilidadAdministracion() {
     ),
   )
 
+  // Carga las opciones que permiten acotar el historial de auditoría.
   function consultarFiltros(evento) {
     evento.preventDefault()
 
@@ -353,6 +365,7 @@ export default function TrazabilidadAdministracion() {
     setFiltros(nuevos)
   }
 
+  // Restablece los criterios para recuperar el listado completo.
   function limpiarFiltros() {
     setTipo('')
     setAccion('')
@@ -363,6 +376,7 @@ export default function TrazabilidadAdministracion() {
     setFiltros({})
   }
 
+  // Vuelve a consultar la información visible sin recargar toda la aplicación.
   function recargar() {
     setError('')
     setCargando(true)
@@ -373,6 +387,7 @@ export default function TrazabilidadAdministracion() {
     )
   }
 
+  // Selecciona un registro y solicita sus datos antes de presentar el diálogo.
   function abrirDetalle(id) {
     setDetalle(null)
     setErrorDetalle('')
@@ -657,6 +672,7 @@ export default function TrazabilidadAdministracion() {
         <div
           role="presentation"
           onMouseDown={(evento) => {
+            // Cierra el diálogo solo si el clic fue sobre su fondo.
             if (
               evento.target ===
               evento.currentTarget

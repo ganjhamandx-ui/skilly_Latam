@@ -1,3 +1,4 @@
+// Normaliza entregas profesionales y aplica en interfaz los límites que revalida el backend.
 export function excedeLimitesDeArchivosEntrega(archivos) {
   return archivos.length > 3 ||
     archivos.some(archivo => archivo.size > 10 * 1024 * 1024) ||

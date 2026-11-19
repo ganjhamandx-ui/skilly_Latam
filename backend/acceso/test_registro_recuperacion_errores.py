@@ -16,6 +16,8 @@ from .views import SolicitarRecuperacionView
 
 
 class RegistroConcurrenteTests(SimpleTestCase):
+    """Simula registros simultáneos para mantener la unicidad sin respuestas ambiguas."""
+
     def setUp(self):
         self.datos = {"correo": "registro@example.invalid", "contrasena": "ficticia"}
         self.eventos = []
@@ -82,6 +84,8 @@ class RegistroConcurrenteTests(SimpleTestCase):
 
 
 class CorreoRecuperacionErroresTests(SimpleTestCase):
+    """Comprueba el manejo seguro de errores al enviar recuperación de acceso."""
+
     def solicitar(self, usuario, enviados=1, error=None):
         request = SimpleNamespace(data={"correo": "recuperacion@example.invalid"})
         with (

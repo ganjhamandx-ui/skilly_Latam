@@ -23,14 +23,20 @@ from seguimiento.entregables_multiservicio_e3 import (
 
 
 class FilasEnMemoria:
+    """Simula un queryset mínimo para probar pertenencia sin base de datos."""
+
     def __init__(self, *filas):
+        """Conserva las filas simuladas usadas por el gestor de consulta."""
         self.filas = filas
 
     def select_related(self, *campos):
+        """Describe el colaborador de prueba select_related."""
         return self
 
     def filter(self, **condiciones):
+        """Filtra la colección simulada según las condiciones recibidas."""
         def valor(fila, campo):
+            """Obtiene un atributo simple o relacionado de la fila simulada."""
             for parte in campo.split("__"):
                 fila = getattr(fila, parte)
             return fila
@@ -38,11 +44,15 @@ class FilasEnMemoria:
             if all(valor(fila, campo) == esperado for campo, esperado in condiciones.items())))
 
     def first(self):
+        """Describe el colaborador de prueba first."""
         return next(iter(self.filas), None)
 
 
 class DescargasPorObjetoTests(SimpleTestCase):
+    """Comprueba que cada actor descargue solo archivos de su objeto autorizado."""
+
     def setUp(self):
+        """Prepara dependencias y datos aislados antes de cada escenario."""
         self.factory = APIRequestFactory()
         self.usuario = SimpleNamespace(pk=901, estado="ACTIVO", rol="PROFESIONAL")
         self.propietario = SimpleNamespace(pk=902, id_usuario=self.usuario)
@@ -62,10 +72,12 @@ class DescargasPorObjetoTests(SimpleTestCase):
         self.storage.save(self.archivo.ruta_privada, ContentFile(b"%PDF-1.7\nEntrega sintetica"))
 
     def referencia(self, *, solicitud=905, contacto=906):
+        """Genera una referencia privada firmada para el escenario solicitado."""
         return signing.dumps({"id_solicitud": solicitud, "id_contacto": contacto},
                              salt=SEGUIMIENTO_SOLICITUD_SALT, compress=True)
 
     def descargar(self, vista, *, usuario=None, referencia=None, id_archivo=907):
+        """Invoca la vista de descarga con identidad y objeto controlados."""
         request = self.factory.get("/descarga-de-prueba/")
         request.session = SessionStore()
         if usuario is not None:
@@ -94,20 +106,24 @@ class DescargasPorObjetoTests(SimpleTestCase):
             return response.status_code
 
     def test_profesional_propietario_descarga_y_ajeno_no(self):
+        """Verifica el escenario: profesional propietario descarga y ajeno no."""
         self.assertEqual(self.descargar(DescargaEntregaProfesionalE3View, usuario=self.usuario), 200)
         self.assertEqual(self.descargar(DescargaEntregaProfesionalE3View, usuario=self.otro_usuario), 404)
         self.assertEqual(self.descargar(DescargaEntregaProfesionalE3View), 403)
 
     def test_empresa_solo_accede_a_objeto_de_su_solicitud_y_contacto(self):
+        """Verifica el escenario: empresa solo accede a objeto de su solicitud y contacto."""
         self.assertEqual(self.descargar(DescargaEntregaEmpresaE3View, referencia=self.referencia()), 200)
         for referencia in (self.referencia(solicitud=908), self.referencia(contacto=909)):
             self.assertEqual(self.descargar(DescargaEntregaEmpresaE3View, referencia=referencia), 404)
 
     def test_firma_alterada_y_archivo_inexistente_no_descargan(self):
+        """Verifica el escenario: firma alterada y archivo inexistente no descargan."""
         self.assertEqual(self.descargar(DescargaEntregaEmpresaE3View, referencia=self.referencia() + "x"), 404)
         self.assertEqual(self.descargar(DescargaEntregaEmpresaE3View, referencia=self.referencia(), id_archivo=999), 404)
 
     def test_solo_administracion_accede_a_descarga_administrativa(self):
+        """Verifica el escenario: solo administración accede a descarga administrativa."""
         self.assertEqual(self.descargar(DescargaEntregaAdminE3View, usuario=self.usuario), 403)
         self.assertEqual(self.descargar(DescargaEntregaAdminE3View), 403)
         admin = SimpleNamespace(pk=910, estado="ACTIVO", rol="ADMIN_SKILLY")

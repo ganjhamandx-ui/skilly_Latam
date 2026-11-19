@@ -10,6 +10,7 @@ const vacio = {
   hora_fin: '',
 }
 
+// Lee una cookie visible para enviar el encabezado requerido por el backend.
 function leerCookie(nombre) {
   const valor = document.cookie
     .split('; ')
@@ -17,12 +18,14 @@ function leerCookie(nombre) {
   return valor ? decodeURIComponent(valor.slice(nombre.length + 1)) : ''
 }
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
 
   if (datos && typeof datos === 'object') {
     const mensajes = Object.entries(datos).map(([campo, valor]) => {
+      // Reúne los mensajes del servidor para explicar por qué se rechazó el bloque.
       const texto = Array.isArray(valor)
         ? valor.join(', ')
         : typeof valor === 'string'
@@ -36,6 +39,7 @@ function mensajeError(datos, estado) {
   return `La operación no se completó (HTTP ${estado}).`
 }
 
+// Envía solicitudes de disponibilidad y adjunta CSRF al modificar bloques.
 async function peticion(url, opciones = {}) {
   const csrf = leerCookie('csrftoken')
   const headers = {
@@ -65,10 +69,12 @@ async function peticion(url, opciones = {}) {
   return datos
 }
 
+// Presenta la hora sin segundos para comparar bloques fácilmente.
 function horaCorta(valor) {
   return typeof valor === 'string' ? valor.slice(0, 5) : ''
 }
 
+// Presenta la fecha del bloque conservando el día almacenado.
 function fechaVisible(valor) {
   if (!valor || typeof valor !== 'string') return '-'
   const partes = valor.slice(0, 10).split('-')
@@ -82,6 +88,7 @@ function tieneReservaVigente(bloque) {
   return ['PENDIENTE_PAGO', 'ACTIVA'].includes(bloque.reserva_actual?.estado)
 }
 
+// Gestiona los bloques de disponibilidad del profesional en sesión.
 function Disponibilidad() {
   const [bloques, setBloques] = useState([])
   const [formulario, setFormulario] = useState(vacio)
@@ -92,6 +99,7 @@ function Disponibilidad() {
   const [exito, setExito] = useState('')
   const [sinAcceso, setSinAcceso] = useState(false)
 
+  // Actualiza los bloques de disponibilidad del profesional y su estado vigente.
   async function cargar() {
     setCargando(true)
     setError('')
@@ -120,8 +128,10 @@ function Disponibilidad() {
   }
 
   useEffect(() => {
+    // Sincroniza la disponibilidad inicial mientras la vista permanece activa.
     let activo = true
 
+    // Prepara la pantalla de disponibilidad y solicita sus bloques iniciales.
     async function iniciar() {
       try {
         const datos = await peticion(API)
@@ -150,6 +160,7 @@ function Disponibilidad() {
 
   // Sincroniza las reservas hechas desde otra pestaña o sesión.
   useEffect(() => {
+    // Actualiza los bloques visibles al volver a la pestaña.
     const refrescarAlVolver = () => {
       if (document.visibilityState === 'visible') {
         void peticion(API).then((datos) => {
@@ -167,6 +178,7 @@ function Disponibilidad() {
     }
   }, [])
 
+  // Finaliza la sesión en el backend y despeja el estado de acceso de la vista.
   async function cerrarSesion() {
     setError('')
     setExito('')
@@ -203,11 +215,13 @@ function Disponibilidad() {
     }
   }
 
+  // Actualiza el campo editado sin descartar los otros valores del formulario.
   function cambiar(evento) {
     const { name, value } = evento.target
     setFormulario((actual) => ({ ...actual, [name]: value }))
   }
 
+  // Copia los datos del bloque elegido al formulario antes de editarlo.
   function comenzarEdicion(bloque) {
     if (bloque.estado !== 'DISPONIBLE' || tieneReservaVigente(bloque)) return
     setEditando(bloque.id_disponibilidad)
@@ -221,12 +235,14 @@ function Disponibilidad() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // Restablece la edición local del bloque conservando la disponibilidad existente.
   function cancelarEdicion() {
     setEditando(null)
     setFormulario(vacio)
     setError('')
   }
 
+  // Crea o modifica el bloque según la edición vigente y actualiza el listado confirmado.
   async function guardar(evento) {
     evento.preventDefault()
     if (guardando || sinAcceso) return
@@ -281,6 +297,7 @@ function Disponibilidad() {
     }
   }
 
+  // Solicita retirar el bloque elegido y refleja el resultado del backend.
   async function eliminar(bloque) {
     if (guardando || sinAcceso || bloque.estado !== 'DISPONIBLE' || tieneReservaVigente(bloque)) return
 
@@ -432,6 +449,7 @@ function Disponibilidad() {
               ) : (
                 <div className="dp-lista">
                   {bloques.map((bloque) => {
+                    // Considera la reserva vigente antes de habilitar acciones del bloque.
                     const reservado = tieneReservaVigente(bloque)
                     const disponible = bloque.estado === 'DISPONIBLE' && !reservado
                     return (

@@ -6,6 +6,7 @@ import { ReagendamientosOrganizacion } from './ReagendamientosSkilly.jsx'
 import AdjuntosEntregaEmpresaE3 from './AdjuntosEntregaEmpresaE3.jsx'
 import CondicionesPrestacionE3 from './CondicionesPrestacionE3.jsx'
 
+// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
 function texto(valor, defecto = 'No informado') {
   if (valor === null || valor === undefined || valor === '') {
     return defecto
@@ -13,6 +14,7 @@ function texto(valor, defecto = 'No informado') {
   return String(valor)
 }
 
+// Presenta los registros en formato local y conserva el día civil de las fechas sin hora.
 function formatoFecha(valor) {
   if (!valor) return 'No informada'
   const fecha = String(valor).slice(0, 10)
@@ -21,6 +23,7 @@ function formatoFecha(valor) {
   return `${partes[2]}-${partes[1]}-${partes[0]}`
 }
 
+// Extrae el motivo del fallo de API para mostrarlo en el seguimiento.
 function mensajeDeApi(datos, estado, porDefecto) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -39,6 +42,7 @@ function mensajeDeApi(datos, estado, porDefecto) {
   return `${porDefecto} (HTTP ${estado}).`
 }
 
+// Renueva el token CSRF que acompañará la escritura desde el seguimiento.
 async function tokenCsrf() {
   const respuesta = await fetch('/api/acceso/csrf/', {
     method: 'GET',
@@ -56,9 +60,11 @@ async function tokenCsrf() {
   return datos.csrfToken
 }
 
+// Integra estado, agenda, pago, entregas y reclamos de la referencia empresarial.
 function Seguimiento() {
   const [webpayResultado] = useState(() => new URLSearchParams(window.location.search).get('webpay'))
   const [referencia, setReferencia] = useState(() => {
+    // Recupera la referencia desde la URL para abrir el seguimiento correspondiente.
     const parametros = new URLSearchParams(window.location.search)
     const codigo = parametros.get('referencia') || ''
 
@@ -105,6 +111,7 @@ function Seguimiento() {
   const [avisoFeedback, setAvisoFeedback] = useState('')
   const [feedbackEnviado, setFeedbackEnviado] = useState(false)
 
+  // Obtiene los datos de la prestación usando la referencia de seguimiento.
   async function consultar(evento) {
     evento.preventDefault()
     if (cargando) return
@@ -1022,6 +1029,7 @@ function Seguimiento() {
                               revisandoEntrega !== null
                             }
                             onClick={() => {
+                              // Prepara la observación de la entrega elegida y limpia el error anterior.
                               setErrorRevision('')
 
                               setObservandoEntrega(

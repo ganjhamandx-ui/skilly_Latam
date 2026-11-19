@@ -1,7 +1,11 @@
+"""Modela usuarios, sesiones y datos necesarios para el acceso a SKILLY."""
+
 from django.db import models
 
 
 class Usuario(models.Model):
+    """Representa la identidad autenticable y su rol operativo dentro de SKILLY."""
+
     id_usuario = models.BigAutoField(primary_key=True)
     correo = models.CharField(unique=True, max_length=150)
     password_hash = models.CharField(max_length=255)
@@ -11,6 +15,8 @@ class Usuario(models.Model):
     fecha_actualizacion = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `usuario`."""
+
         managed = False
         db_table = "usuario"
 
@@ -19,6 +25,8 @@ class Usuario(models.Model):
 
 
 class RecuperacionAcceso(models.Model):
+    """Conserva un token hash de recuperación con expiración y uso único."""
+
     id_recuperacion = models.BigAutoField(primary_key=True)
 
     id_usuario = models.ForeignKey(
@@ -33,6 +41,8 @@ class RecuperacionAcceso(models.Model):
     usado = models.BooleanField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `recuperacion_acceso`."""
+
         managed = False
         db_table = "recuperacion_acceso"
 

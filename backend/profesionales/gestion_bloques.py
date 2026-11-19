@@ -1,3 +1,4 @@
+"""Gestiona bloques de entrevista con validación transaccional de disponibilidad."""
 
 from django.db import transaction
 from django.utils import timezone

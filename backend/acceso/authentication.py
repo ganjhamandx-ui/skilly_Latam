@@ -1,3 +1,5 @@
+"""Define la autenticación de sesión con protección CSRF para la API."""
+
 from rest_framework.authentication import SessionAuthentication
 
 from .models import Usuario
@@ -5,6 +7,8 @@ from .sesiones import _sesion_contrasena_vigente
 
 
 class SesionSkillyAuthentication(SessionAuthentication):
+    """Autentica la sesión propia de SKILLY y exige un usuario activo y vigente."""
+
     def authenticate(self, request):
         id_usuario = request.session.get("id_usuario")
 

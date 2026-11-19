@@ -1,3 +1,5 @@
+"""Crea de forma interactiva una cuenta administrativa local de SKILLY."""
+
 from getpass import getpass
 
 from django.contrib.auth.hashers import make_password
@@ -11,6 +13,8 @@ from acceso.models import Usuario
 
 
 class Command(BaseCommand):
+    """Crea de forma interactiva una cuenta administrativa interna sin exponer claves."""
+
     help = "Crea una cuenta interna con rol ADMIN_SKILLY."
 
     def handle(self, *args, **options):

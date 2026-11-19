@@ -6,8 +6,10 @@ export default function AdjuntosEntregaEmpresaE3({ referencia, idEntrega }) {
   const [archivos, setArchivos] = useState([])
   const [error, setError] = useState('')
   useEffect(() => {
+    // Cancela la lectura de adjuntos al cambiar de entrega o desmontar la pantalla.
     if (!referencia || !idEntrega) return undefined
     const controller = new AbortController()
+    // Carga metadatos de los adjuntos disponibles mediante la referencia de seguimiento.
     const consultar = async () => {
       try {
         const r = await fetch(`/api/seguimiento/empresa/${encodeURIComponent(referencia)}/entregables/`, {

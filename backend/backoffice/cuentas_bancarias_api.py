@@ -30,12 +30,16 @@ def base_ensayo():
 
 
 def serializar(c):
+    """Convierte una cuenta bancaria en datos públicos para administración."""
+
     return {'id_cuenta': c.id_cuenta, **{x: getattr(c, x) for x in CAMPOS},
             'activa': c.activa, 'principal': c.principal,
             'fecha_modificacion': c.fecha_modificacion.isoformat()}
 
 
 def evento(alias, c, accion, antes, usuario):
+    """Registra en la misma base el cambio bancario y sus valores anterior y nuevo."""
+
     Cambio.objects.using(alias).create(
         id_cuenta=c, accion=accion, datos_anteriores=antes,
         datos_nuevos=serializar(c), id_usuario_skilly=usuario,
@@ -44,11 +48,15 @@ def evento(alias, c, accion, antes, usuario):
 
 
 def usuario_id(request):
+    """Obtiene la identidad administrativa autenticada que ejecuta la operación."""
+
     return request.user.pk
 
 
 @method_decorator(csrf_protect, name='dispatch')
 class CuentasBancariasView(APIView):
+    """Lista y crea cuentas receptoras bajo autenticación administrativa y CSRF."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
@@ -85,6 +93,8 @@ class CuentasBancariasView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class CuentaBancariaDetalleView(APIView):
+    """Modifica una cuenta y protege la unicidad de la principal dentro de una transacción."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
@@ -142,6 +152,8 @@ class CuentaBancariaDetalleView(APIView):
 
 
 class HistorialCuentasBancariasView(APIView):
+    """Expone el historial inmutable de cambios bancarios al personal autorizado."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 

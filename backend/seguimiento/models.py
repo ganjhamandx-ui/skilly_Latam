@@ -1,3 +1,5 @@
+"""Modela avances, entregas, reclamos y cierres de prestaciones."""
+
 from django.db import models
 
 from acceso.models import Usuario
@@ -6,6 +8,8 @@ from solicitudes.models import ContactoEmpresa
 
 
 class AvanceServicio(models.Model):
+    """Registra un avance o incidencia comunicado durante la prestación."""
+
     id_avance = models.BigAutoField(
         primary_key=True
     )
@@ -28,11 +32,15 @@ class AvanceServicio(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `avance_servicio`."""
+
         managed = False
         db_table = "avance_servicio"
 
 
 class Entrega(models.Model):
+    """Conserva una versión de entrega presentada por el profesional."""
+
     id_entrega = models.BigAutoField(
         primary_key=True
     )
@@ -62,11 +70,15 @@ class Entrega(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `entrega`."""
+
         managed = False
         db_table = "entrega"
 
 
 class ObservacionEntrega(models.Model):
+    """Guarda la observación empresarial asociada a una entrega."""
+
     id_observacion = models.BigAutoField(
         primary_key=True
     )
@@ -92,11 +104,15 @@ class ObservacionEntrega(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `observacion_entrega`."""
+
         managed = False
         db_table = "observacion_entrega"
 
 
 class ReclamoPrestacion(models.Model):
+    """Representa un reclamo abierto sobre una prestación contratada."""
+
     id_reclamo = models.BigAutoField(
         primary_key=True
     )
@@ -131,11 +147,15 @@ class ReclamoPrestacion(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `reclamo_prestacion`."""
+
         managed = False
         db_table = "reclamo_prestacion"
 
 
 class ResolucionReclamo(models.Model):
+    """Conserva la decisión administrativa que cierra un reclamo."""
+
     id_resolucion = models.BigAutoField(
         primary_key=True
     )
@@ -175,5 +195,7 @@ class ResolucionReclamo(models.Model):
     fecha_resolucion = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `resolucion_reclamo`."""
+
         managed = False
         db_table = "resolucion_reclamo"

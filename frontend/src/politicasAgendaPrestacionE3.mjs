@@ -5,12 +5,14 @@ export const ACCIONES = Object.freeze({
   CANCELAR: 'Cancelar definitivamente la prestación',
 })
 
+// Determina qué decisiones de agenda corresponden al estado de la prestación.
 export function accionesDisponibles(estado) {
   if (estado === 'CONTRATADA') return ['REAGENDAR', 'POSTERGAR', 'CANCELAR']
   if (estado === 'POSTERGADA') return ['REAGENDAR']
   return []
 }
 
+// Filtra bloques compatibles con la acción y el expediente activo.
 export function bloquesElegibles(bloques, ahora = new Date()) {
   if (!Array.isArray(bloques)) return []
   return bloques.filter((bloque) => {
@@ -22,6 +24,7 @@ export function bloquesElegibles(bloques, ahora = new Date()) {
   })
 }
 
+// Comprueba los datos de la operación de agenda antes de enviarla.
 export function validarCambioAgenda({ estado, accion, motivo, bloqueId, bloques }) {
   if (!accionesDisponibles(estado).includes(accion)) {
     return 'La acción no corresponde al estado actual de la prestación.'

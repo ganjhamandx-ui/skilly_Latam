@@ -1,3 +1,5 @@
+"""Implementa el ciclo de solicitudes y reservas con control transaccional."""
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -32,6 +34,8 @@ from .serializers import (
 
 
 def obtener_profesional(usuario):
+    """Resuelve el perfil profesional activo del usuario autenticado."""
+
     return Profesional.objects.filter(
         id_usuario=usuario
     ).first()
@@ -44,6 +48,8 @@ def existe_conflicto_disponibilidad(
     hora_fin,
     excluir_id=None,
 ):
+    """Detecta solapamientos de bloques vigentes para un mismo profesional."""
+
     bloques = Disponibilidad.objects.filter(
         id_profesional=profesional,
         fecha=fecha,
@@ -62,6 +68,8 @@ def existe_conflicto_disponibilidad(
 class MiDisponibilidadProfesionalView(
     APIView
 ):
+    """Lista y registra disponibilidad del profesional autenticado."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -71,6 +79,7 @@ class MiDisponibilidadProfesionalView(
     ]
 
     def get(self, request):
+        """Lista los bloques de disponibilidad del profesional autenticado."""
         profesional = obtener_profesional(
             request.user
         )
@@ -113,6 +122,7 @@ class MiDisponibilidadProfesionalView(
         )
 
     def post(self, request):
+        """Crea un bloque profesional tras validar conflictos y fechas."""
         profesional = obtener_profesional(
             request.user
         )
@@ -226,6 +236,8 @@ class MiDisponibilidadProfesionalView(
 class DetalleDisponibilidadProfesionalView(
     APIView
 ):
+    """Actualiza o deshabilita un bloque propio cuando no está reservado."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -239,6 +251,7 @@ class DetalleDisponibilidadProfesionalView(
         request,
         id_disponibilidad,
     ):
+        """Obtiene un bloque que pertenece al profesional autenticado."""
         profesional = obtener_profesional(
             request.user
         )
@@ -297,6 +310,7 @@ class DetalleDisponibilidadProfesionalView(
         request,
         id_disponibilidad,
     ):
+        """Actualiza un bloque propio si no existe reserva ni conflicto horario."""
         profesional = obtener_profesional(
             request.user
         )
@@ -499,6 +513,7 @@ class DetalleDisponibilidadProfesionalView(
         request,
         id_disponibilidad,
     ):
+        """Retira un bloque propio solo cuando no mantiene reservas protegidas."""
         profesional = obtener_profesional(
             request.user
         )
@@ -602,6 +617,8 @@ class DetalleDisponibilidadProfesionalView(
 class EnviarSolicitudServicioPublicaView(
     APIView
 ):
+    """Recibe una solicitud pública y devuelve una referencia privada de seguimiento."""
+
     authentication_classes = []
     permission_classes = [
         AllowAny
@@ -611,6 +628,7 @@ class EnviarSolicitudServicioPublicaView(
         self,
         request,
     ):
+        """Crea solicitud y reserva pendiente de pago dentro de una transacción."""
         entrada_serializer = (
             EnviarSolicitudServicioSerializer(
                 data=request.data

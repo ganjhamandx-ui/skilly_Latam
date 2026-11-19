@@ -1,3 +1,4 @@
+// Gestiona bloques y contactos de entrevista; el backend conserva la autoridad sobre reservas.
 import { useEffect, useState } from 'react'
 
 const RUTA_AGENDA = '/api/profesionales/administracion/entrevistas/'
@@ -28,10 +29,12 @@ const estiloGrilla = {
   gap: 14,
 }
 
+// Presenta el tramo de entrevista con la hora civil registrada.
 function mostrarHora(valor) {
   return valor ? String(valor).slice(0, 5) : 'Sin hora'
 }
 
+// Presenta el día de entrevista sin cambiarlo por la zona horaria del navegador.
 function mostrarFecha(valor) {
   if (!valor) return 'Sin fecha'
   const partes = String(valor).slice(0, 10).split('-')
@@ -40,6 +43,7 @@ function mostrarFecha(valor) {
     : String(valor)
 }
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -57,10 +61,12 @@ function mensajeError(datos, codigo) {
   return `La operación no se completó (HTTP ${codigo}).`
 }
 
+// Obtiene las reservas asociadas a un bloque de la agenda de entrevistas.
 function reservasDe(bloque) {
   return Array.isArray(bloque?.reservas) ? bloque.reservas : []
 }
 
+// Inicializa los campos de entrevista con los datos de la selección actual.
 function datosFormulario(bloque) {
   return {
     fecha: String(bloque.fecha ?? '').slice(0, 10),
@@ -71,6 +77,7 @@ function datosFormulario(bloque) {
   }
 }
 
+// Coordina el calendario y las reservas de entrevista desde la bandeja administrativa.
 export default function EntrevistasAdministracion({ onProcesandoChange }) {
   const [bloques, setBloques] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -84,8 +91,10 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
   const [aviso, setAviso] = useState('')
 
   useEffect(() => {
+    // Cancela la lectura de agenda cuando cambia la pantalla.
     const controlador = new AbortController()
 
+    // Consulta bloques y reservas de entrevista para reconstruir la agenda.
     async function consultarAgenda() {
       setCargando(true)
       setError('')
@@ -119,11 +128,13 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     return () => controlador.abort()
   }, [revision])
 
+  // Actualiza un campo de la entrevista conservando la fecha y las demás entradas.
   function actualizarCampo(nombre, valor) {
     setFormulario((anterior) => ({ ...anterior, [nombre]: valor }))
     setErrorAccion('')
   }
 
+  // Prepara el formulario vacío para crear un bloque de entrevista.
   function iniciarCreacion() {
     if (guardando) return
     setModo('crear')
@@ -133,6 +144,7 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     setAviso('')
   }
 
+  // Carga un bloque de entrevista existente en el formulario de edición.
   function iniciarEdicion(bloque) {
     if (guardando) return
     setModo('editar')
@@ -142,6 +154,7 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     setAviso('')
   }
 
+  // Descarta la edición local del bloque y cierra el formulario.
   function cancelarFormulario() {
     if (guardando) return
     setModo(null)
@@ -149,6 +162,7 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     setErrorAccion('')
   }
 
+  // Crea o modifica un bloque tras validar sus fechas y horas.
   async function guardar(evento) {
     evento.preventDefault()
     if (guardando || cargando || !modo) return
@@ -272,6 +286,7 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     }
   }
 
+  // Registra el contacto administrativo con el profesional de la entrevista.
   async function marcarContactado(reserva) {
     if (guardando) return
     if (!window.confirm(`¿Confirmas que SKILLY ya contactó al profesional de la entrevista #${reserva.id_entrevista}?`)) return
@@ -345,6 +360,7 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
       {!cargando && !error && bloques.length > 0 && (
         <div className="va-lista" style={{ marginTop: 18 }}>
           {bloques.map((bloque) => {
+            // Calcula la ocupación sin contar entrevistas canceladas.
             const reservas = reservasDe(bloque)
             const reservasVigentes = reservas.filter((item) => item.estado !== 'CANCELADA')
             const capacidad = Number(bloque.capacidad) || 0

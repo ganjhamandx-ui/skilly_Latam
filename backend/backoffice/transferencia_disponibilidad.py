@@ -15,6 +15,8 @@ from pagos.models import Pago
 
 
 class DisponibilidadTransferenciaEmpresaView(APIView):
+    """Informa si la transferencia está habilitada sin revelar cuentas receptoras."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 

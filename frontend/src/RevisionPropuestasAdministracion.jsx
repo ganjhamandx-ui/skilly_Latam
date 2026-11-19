@@ -5,12 +5,14 @@ import './RevisionPropuestasAdministracion.css'
 
 const API = '/api/marketplace/administracion'
 
+// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
 function obtenerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
 
   if (datos && typeof datos === 'object') {
     const campos = Object.entries(datos).map(([clave, valor]) => {
+      // Extrae detalles de respuesta de listas o mensajes simples.
       const contenido = Array.isArray(valor)
         ? valor.map((item) =>
             typeof item === 'string'
@@ -30,6 +32,7 @@ function obtenerError(datos, codigo) {
   return `No se completó la operación (HTTP ${codigo}).`
 }
 
+// Centraliza la lectura de la API de propuestas y el tratamiento de errores.
 async function consultar(ruta, opciones = {}) {
   const respuesta = await fetch(ruta, {
     credentials: 'same-origin',
@@ -50,6 +53,7 @@ async function consultar(ruta, opciones = {}) {
   return datos
 }
 
+// Presenta la fecha almacenada en un formato adecuado para la ficha.
 function fecha(valor) {
   if (!valor) return 'Sin fecha'
 
@@ -60,6 +64,7 @@ function fecha(valor) {
     : convertido.toLocaleString('es-CL')
 }
 
+// Proyecta los datos de la propuesta revisada a los campos editables.
 function formularioDesdeServicio(servicio) {
   return {
     nombre: servicio.nombre ?? '',
@@ -76,6 +81,7 @@ function formularioDesdeServicio(servicio) {
   }
 }
 
+// Carga propuestas pendientes y prepara la decisión sobre la versión revisada.
 export default function RevisionPropuestasAdministracion() {
   const [sesion, setSesion] = useState('cargando')
 
@@ -97,6 +103,7 @@ export default function RevisionPropuestasAdministracion() {
   const [guardando, setGuardando] = useState(false)
 
   const cargar = useCallback(async () => {
+    // Actualiza la bandeja de revisión y permite reintentar después de un fallo.
     setConsultando(true)
     setError('')
 
@@ -140,8 +147,10 @@ export default function RevisionPropuestasAdministracion() {
 
   // Verificar que la sesión corresponda a administración.
   useEffect(() => {
+    // Carga los datos iniciales que necesita la revisión administrativa.
     let activo = true
 
+    // Inicia la consulta de propuestas y las opciones disponibles para revisión.
     async function iniciar() {
       try {
         const datos = await consultar(
@@ -174,6 +183,7 @@ export default function RevisionPropuestasAdministracion() {
   const detalleRef = useRef(null)
   useDialogoAccesible(Boolean(seleccionado && formulario), detalleRef, () => setSeleccionado(null), guardando)
 
+  // Abre el detalle de la versión que se va a revisar.
   function abrir(servicio) {
     setSeleccionado(servicio)
     setDecision('')
@@ -182,6 +192,7 @@ export default function RevisionPropuestasAdministracion() {
     setAviso('')
   }
 
+  // Actualiza el campo editado sin descartar los otros valores del formulario.
   function cambiar(campo, valor) {
     setFormulario((anterior) => ({
       ...anterior,
@@ -189,6 +200,7 @@ export default function RevisionPropuestasAdministracion() {
     }))
   }
 
+  // Añade o retira la competencia elegida del borrador de revisión.
   function marcarCompetencia(id, marcado) {
     setFormulario((anterior) => ({
       ...anterior,
@@ -353,6 +365,7 @@ export default function RevisionPropuestasAdministracion() {
       ? pendientes
       : historial
   ).filter((item) => {
+    // Aplica búsqueda a los servicios de la bandeja seleccionada.
     const servicio = vista === 'pendientes'
       ? item
       : item.servicio
@@ -517,6 +530,7 @@ export default function RevisionPropuestasAdministracion() {
 
           <div className="rp-lista">
             {lista.map((item) => {
+              // Identifica el servicio de cada propuesta o revisión antes de representar la fila.
               const servicio = vista === 'pendientes'
                 ? item
                 : item.servicio

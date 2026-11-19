@@ -1,3 +1,5 @@
+"""Define las rutas HTTP del módulo de pagos y conciliación."""
+
 from .comprobantes_api import ComprobanteTransferenciaAdministracionView
 
 from django.urls import path

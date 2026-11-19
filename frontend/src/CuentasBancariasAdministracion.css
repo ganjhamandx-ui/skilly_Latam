@@ -1,3 +1,4 @@
+/* Delimita la administración bancaria y diferencia estados sensibles mediante color y espaciado. */
 .bancos-root { max-width: 1200px; margin: 0 auto; padding: 24px; color: #263f35; }
 .bancos-root .sk-admin-menu { padding-inline: 0; padding-top: 0; }
 .bancos-root > header { margin: 30px 0 26px; max-width: 850px; }

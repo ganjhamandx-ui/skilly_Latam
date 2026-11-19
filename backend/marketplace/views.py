@@ -1,3 +1,5 @@
+"""Implementa catálogo, propuestas y administración del marketplace."""
+
 from django.db import transaction
 from django.db.models import Max, Q
 from django.utils import timezone

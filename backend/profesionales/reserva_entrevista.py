@@ -1,3 +1,4 @@
+"""Reserva entrevistas evitando solapamientos y cupos concurrentes."""
 
 from datetime import datetime, timedelta
 

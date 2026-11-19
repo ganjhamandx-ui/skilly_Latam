@@ -1,3 +1,5 @@
+"""Valida credenciales, registro y cambios de acceso expuestos por la API."""
+
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -10,6 +12,8 @@ from .models import Usuario
 
 
 class RegistroProfesionalSerializer(serializers.Serializer):
+    """Valida correo y contraseña antes de crear una identidad profesional única."""
+
     correo = serializers.EmailField(max_length=150)
 
     contrasena = serializers.CharField(
@@ -95,6 +99,8 @@ class RegistroProfesionalSerializer(serializers.Serializer):
 
 
 class InicioSesionSerializer(serializers.Serializer):
+    """Autentica sin revelar si una cuenta existe, está inactiva o usa otra clave."""
+
     correo = serializers.EmailField(
         max_length=150
     )
@@ -142,6 +148,8 @@ class InicioSesionSerializer(serializers.Serializer):
 class SolicitarRecuperacionSerializer(
     serializers.Serializer
 ):
+    """Normaliza el correo utilizado para solicitar recuperación de acceso."""
+
     correo = serializers.EmailField(
         max_length=150
     )
@@ -153,6 +161,8 @@ class SolicitarRecuperacionSerializer(
 class RestablecerContrasenaSerializer(
     serializers.Serializer
 ):
+    """Valida token, confirmación y política de la nueva contraseña."""
+
     token = serializers.CharField(
         write_only=True,
         max_length=255,

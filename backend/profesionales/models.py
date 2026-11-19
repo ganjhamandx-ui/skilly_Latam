@@ -1,3 +1,5 @@
+"""Modela perfiles, documentos, competencias y entrevistas profesionales."""
+
 from django.db import models
 
 from acceso.models import Usuario
@@ -43,6 +45,8 @@ class Profesional(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `profesional`."""
+
         managed = False
         db_table = "profesional"
 
@@ -71,6 +75,8 @@ class Competencia(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `competencia`."""
+
         managed = False
         db_table = "competencia"
 
@@ -99,6 +105,8 @@ class ProfesionalCompetencia(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `profesional_competencia`."""
+
         managed = False
         db_table = "profesional_competencia"
 
@@ -137,6 +145,8 @@ class DocumentoProfesional(models.Model):
     fecha_carga = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `documento_profesional`."""
+
         managed = False
         db_table = "documento_profesional"
 
@@ -185,6 +195,8 @@ class SolicitudValidacion(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `solicitud_validacion`."""
+
         managed = False
         db_table = "solicitud_validacion"
 
@@ -217,6 +229,8 @@ class ValidacionDocumento(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `validacion_documento`."""
+
         managed = False
         db_table = "validacion_documento"
 
@@ -245,6 +259,8 @@ class BloqueEntrevistaValidacion(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `bloque_entrevista_validacion`."""
+
         managed = False
         db_table = "bloque_entrevista_validacion"
 
@@ -278,6 +294,8 @@ class EntrevistaValidacion(models.Model):
     )
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `entrevista_validacion`."""
+
         managed = False
         db_table = "entrevista_validacion"
 
@@ -297,6 +315,8 @@ class CuentaPagoProfesional(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Define `cuenta_pago_profesional` como tabla de persistencia del modelo."""
+
         db_table = 'cuenta_pago_profesional'
 
 
@@ -317,4 +337,6 @@ class AbonoPagoProfesional(models.Model):
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Define `abono_pago_profesional` como tabla de persistencia del modelo."""
+
         db_table = 'abono_pago_profesional'

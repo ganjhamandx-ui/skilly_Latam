@@ -1,3 +1,5 @@
+"""Valida y representa evaluaciones y recomendaciones de servicio."""
+
 from rest_framework import serializers
 
 from .models import (
@@ -9,7 +11,11 @@ from .models import (
 class RetroalimentacionSerializer(
     serializers.ModelSerializer
 ):
+    """Serializa la retroalimentación visible para su organización propietaria."""
+
     class Meta:
+        """Define la representación de Retroalimentacion y protege sus campos de solo lectura."""
+
         model = Retroalimentacion
 
         fields = [
@@ -27,7 +33,11 @@ class RetroalimentacionSerializer(
 class RetroalimentacionAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Añade a la retroalimentación los datos requeridos por administración."""
+
     class Meta:
+        """Define la representación de Retroalimentacion y protege sus campos de solo lectura."""
+
         model = Retroalimentacion
 
         fields = [
@@ -46,6 +56,8 @@ class RetroalimentacionAdministracionSerializer(
 class RegistrarRetroalimentacionSerializer(
     serializers.Serializer
 ):
+    """Valida calificación y comentario antes de registrar una evaluación."""
+
     contenido = serializers.CharField(
         trim_whitespace=True
     )
@@ -54,7 +66,11 @@ class RegistrarRetroalimentacionSerializer(
 class RecomendacionDesarrolloSerializer(
     serializers.ModelSerializer
 ):
+    """Representa recomendaciones en las vistas administrativas."""
+
     class Meta:
+        """Define la representación de RecomendacionDesarrollo y protege sus campos de solo lectura."""
+
         model = RecomendacionDesarrollo
 
         fields = [
@@ -75,6 +91,8 @@ class RecomendacionDesarrolloSerializer(
 class RegistrarRecomendacionDesarrolloSerializer(
     serializers.Serializer
 ):
+    """Valida el contenido de una recomendación creada por administración."""
+
     titulo = serializers.CharField(
         max_length=150,
         trim_whitespace=True,
@@ -88,7 +106,11 @@ class RegistrarRecomendacionDesarrolloSerializer(
 class RecomendacionDesarrolloProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Limita la recomendación a los campos comunicados al profesional."""
+
     class Meta:
+        """Define la representación de RecomendacionDesarrollo y protege sus campos de solo lectura."""
+
         model = RecomendacionDesarrollo
 
         fields = [

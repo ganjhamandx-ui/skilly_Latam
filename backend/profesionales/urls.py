@@ -1,3 +1,5 @@
+"""Define las rutas de perfiles, documentos y validación profesional."""
+
 from django.urls import path
 
 from .views import (

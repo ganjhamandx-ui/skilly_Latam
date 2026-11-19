@@ -1,3 +1,4 @@
+// Bandeja administrativa para revisar antecedentes, entrevistas y documentos profesionales.
 import AdminNavegacion from './AdminNavegacion.jsx'
 import VentanaAdministracion from './VentanaAdministracion.jsx'
 import EntrevistasAdministracion from './EntrevistasAdministracion.jsx'
@@ -14,12 +15,14 @@ const FILTROS = [
   { valor: 'RECHAZADA', texto: 'Rechazadas' },
 ]
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `No se pudo completar la consulta (HTTP ${estado}).`
 }
 
+// Normaliza la colección devuelta por la API para presentar la bandeja.
 function extraerLista(datos) {
   if (Array.isArray(datos)) return datos
 
@@ -32,6 +35,7 @@ function extraerLista(datos) {
   return null
 }
 
+// Presenta una fecha de registro con un formato regional legible.
 function fechaLegible(valor) {
   if (!valor) return 'No informada'
   const fecha = new Date(valor)
@@ -39,6 +43,7 @@ function fechaLegible(valor) {
   return fecha.toLocaleString('es-CL')
 }
 
+// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
 function texto(valor) {
   if (valor == null || valor === '') return 'No informado'
   if (typeof valor === 'boolean') return valor ? 'S\u00ed' : 'No'
@@ -55,6 +60,7 @@ function texto(valor) {
   return String(valor)
 }
 
+// Compone un nombre legible para identificar al profesional de la validación.
 function nombreProfesional(valor) {
   if (!valor || typeof valor !== 'object') return texto(valor)
 
@@ -69,6 +75,7 @@ function nombreProfesional(valor) {
   return nombre || correo || texto(valor)
 }
 
+// Muestra el bloque y el estado de entrevista para la revisión administrativa.
 function EntrevistaResumen({ entrevista }) {
   if (!entrevista || typeof entrevista !== 'object' || Array.isArray(entrevista)) {
     return <span>{texto(entrevista)}</span>
@@ -106,11 +113,13 @@ function EntrevistaResumen({ entrevista }) {
   )
 }
 
+// Presenta versiones documentales y acciones autorizadas para la validación.
 function DocumentosRevision({ documentos, idValidacion, onResolver, procesando, editable }) {
   const [comentarios, setComentarios] = useState({})
   const [descargando, setDescargando] = useState(null)
   const [error, setError] = useState('')
 
+  // Solicita el documento al endpoint de administración usando la sesión vigente.
   async function descargar(documento) {
     const id = documento.id_documento
 
@@ -173,6 +182,7 @@ function DocumentosRevision({ documentos, idValidacion, onResolver, procesando, 
       )}
 
       {documentos.map((item, indice) => {
+        // Normaliza la estructura del documento antes de presentar sus datos y descarga.
         const documento = item.documento &&
           typeof item.documento === 'object'
           ? item.documento
@@ -256,6 +266,7 @@ function DocumentosRevision({ documentos, idValidacion, onResolver, procesando, 
   )
 }
 
+// Presenta validaciones documentales y los resultados de entrevista en la bandeja administrativa.
 export default function ValidacionesAdministracion() {
   const [solicitudes, setSolicitudes] = useState([])
   const [seleccionada, setSeleccionada] = useState(null)
@@ -276,8 +287,10 @@ export default function ValidacionesAdministracion() {
 
 
   useEffect(() => {
+    // Actualiza la bandeja al cambiar el filtro y evita mostrar respuestas tardías.
     let vigente = true
 
+    // Actualiza la bandeja de validaciones de acuerdo con el filtro activo.
     async function cargar() {
       try {
         const sesion = await fetch('/api/acceso/sesion-actual/', {
@@ -341,6 +354,7 @@ export default function ValidacionesAdministracion() {
     }
   }, [])
 
+  // Envía la decisión administrativa con los datos del expediente seleccionado.
   async function ejecutarAccion(id, accion, comentario = '', extra = {}) {
     if (procesando) return
 
@@ -407,6 +421,7 @@ export default function ValidacionesAdministracion() {
     }
   }
 
+  // Registra el resultado de la entrevista y actualiza el estado de validación asociado.
   async function resolverEntrevista(id, resultado) {
     if (procesandoEntrevista || procesando || !confirmoEntrevista ||
         !observacionEntrevista.trim()) return
@@ -471,6 +486,7 @@ export default function ValidacionesAdministracion() {
     }
   }
 
+  // Abre el detalle de antecedentes del profesional seleccionado.
   async function abrirAntecedentes(id) {
     if (id == null || cargandoDetalle || procesando) return
 
@@ -516,6 +532,7 @@ export default function ValidacionesAdministracion() {
     }
   }
 
+  // Actualiza el criterio de la bandeja y vuelve a consultar sus registros.
   function cambiarFiltro(valor) {
     setFiltro(valor)
     setObservacionEntrevista('')
@@ -630,6 +647,7 @@ export default function ValidacionesAdministracion() {
 
           <div className="va-lista">
             {visibles.map((solicitud) => {
+              // Identifica la solicitud antes de asociarla al control que abre sus antecedentes.
               const id =
                 solicitud.id_validacion ?? solicitud.id
 

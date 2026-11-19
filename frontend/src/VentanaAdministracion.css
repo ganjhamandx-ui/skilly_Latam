@@ -1,3 +1,4 @@
+/* Implementa la capa modal administrativa con foco visual y desplazamiento interno seguro. */
 .vam-fondo {
   position: fixed;
   inset: 0;

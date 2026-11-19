@@ -4,6 +4,8 @@ from decimal import Decimal, InvalidOperation
 
 
 def porcentaje_valido(valor):
+    """Normaliza el porcentaje configurable y exige el rango permitido."""
+
     try:
         pct = Decimal(str(valor))
     except (ValueError, TypeError, InvalidOperation) as exc:
@@ -13,6 +15,8 @@ def porcentaje_valido(valor):
     return pct.quantize(Decimal('0.0001'))
 
 def texto_versionado(pct):
+    """Genera el texto contractual estable asociado al porcentaje vigente."""
+
     valor = porcentaje_valido(pct)
     legible = format(valor.normalize(), 'f')
     return (
@@ -26,4 +30,6 @@ def texto_versionado(pct):
     )
 
 def firma_politica(texto):
+    """Calcula la huella SHA-256 que identifica el texto aceptado."""
+
     return hashlib.sha256(texto.encode('utf-8')).hexdigest()

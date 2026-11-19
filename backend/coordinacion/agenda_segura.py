@@ -1,3 +1,5 @@
+"""Aplica cambios de agenda con bloqueos, permisos y validación de reservas."""
+
 from .control_responsable import requiere_responsable_prestacion
 from datetime import datetime
 
@@ -21,10 +23,14 @@ from .views import (
 
 
 def conflicto(mensaje, codigo=status.HTTP_409_CONFLICT):
+    """Construye una respuesta de conflicto uniforme para cambios de agenda."""
+
     return Response({"mensaje": mensaje}, status=codigo)
 
 
 def inicio_bloque(bloque):
+    """Combina fecha y hora del bloque en la zona horaria configurada."""
+
     return timezone.make_aware(
         datetime.combine(bloque.fecha, bloque.hora_inicio),
         timezone.get_current_timezone(),
@@ -32,6 +38,8 @@ def inicio_bloque(bloque):
 
 
 def registrar_cambio(usuario, tipo, identificador, accion, detalle):
+    """Registra la trazabilidad administrativa del cambio confirmado."""
+
     registrar_evento_trazabilidad(
         usuario=usuario,
         entidad_tipo=tipo,
@@ -45,6 +53,8 @@ def registrar_cambio(usuario, tipo, identificador, accion, detalle):
 class GestionAgendaPrestacionSeguraAdministracionView(
     GestionAgendaPrestacionAdministracionView
 ):
+    """Revalida el bloque autorizado antes de modificar reserva y reunión."""
+
     # GET y AGENDAR_PRIMERA_REUNION conservan su funcionamiento original.
     @requiere_responsable_prestacion
     def post(self, request, id_prestacion):

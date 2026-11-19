@@ -1,4 +1,6 @@
 
+"""Gestiona tokens y límites del flujo seguro de recuperación de acceso."""
+
 import hashlib
 import secrets
 from datetime import timedelta, timezone as datetime_timezone
@@ -14,6 +16,8 @@ from .models import RecuperacionAcceso, Usuario
 
 
 def convertir_fecha_bd(fecha):
+    """Normaliza fechas legacy sin zona para compararlas con el reloj consciente de Django."""
+
     if timezone.is_naive(fecha):
         return timezone.make_aware(
             fecha,
@@ -24,6 +28,8 @@ def convertir_fecha_bd(fecha):
 
 
 def crear_recuperacion_acceso(usuario):
+    """Genera un token de un solo uso y guarda únicamente su huella criptográfica."""
+
     token = secrets.token_urlsafe(32)
 
     token_hash = hashlib.sha256(
@@ -49,6 +55,8 @@ def crear_recuperacion_acceso(usuario):
 
 
 def enviar_correo_recuperacion(usuario, token):
+    """Envía el enlace de recuperación al correo de la identidad solicitante."""
+
     asunto = "Skilly - Recuperacion de contraseña"
 
     mensaje = (
@@ -89,6 +97,8 @@ def _revocar_sesiones_usuario(id_usuario, ahora):
 
 
 def restablecer_contrasena(token, nueva_contrasena):
+    """Consume atómicamente el token, actualiza la clave y revoca sesiones previas."""
+
     token_hash = hashlib.sha256(
         token.encode("utf-8")
     ).hexdigest()

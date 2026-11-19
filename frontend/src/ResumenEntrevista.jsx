@@ -1,3 +1,4 @@
+// Presenta el estado y horario de entrevista sin inferir decisiones no devueltas por la API.
 import './ResumenEntrevista.css'
 
 const etiquetas = {
@@ -18,12 +19,14 @@ const etiquetas = {
   id_bloque_entrevista: 'Bloque de entrevista',
 }
 
+// Genera una etiqueta legible para los campos del resumen de entrevista.
 function titulo(clave) {
   return etiquetas[clave] ??
     clave.replaceAll('_', ' ')
       .replace(/^./, (letra) => letra.toUpperCase())
 }
 
+// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
 function texto(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No informado'
@@ -47,10 +50,12 @@ function texto(valor) {
   return String(valor)
 }
 
+// Evita presentar identificadores y datos internos en el resumen.
 function campoOculto(nombre) {
   return /token|secret|password|hash|csrf|credential/i.test(nombre)
 }
 
+// Acota la presentación de la entrevista a fecha, horario y antecedentes comunicables.
 export default function ResumenEntrevista({ datos }) {
   if (!datos || typeof datos !== 'object') {
     return <p>La informaci&oacute;n de la entrevista no est&aacute; disponible.</p>

@@ -6,6 +6,7 @@ import './Administracion.css'
 
 const URL = '/api/backoffice/configuracion/comision/'
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   return datos?.mensaje || datos?.detail ||
     (datos?.valor_nuevo
@@ -13,6 +14,7 @@ function mensajeError(datos, codigo) {
       : `Error HTTP ${codigo}.`)
 }
 
+// Presenta la tasa de comisión con precisión suficiente para su revisión.
 function porcentaje(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No configurado'
@@ -26,6 +28,7 @@ function porcentaje(valor) {
     : 'No disponible'
 }
 
+// Presenta la fecha de registro con formato regional para interpretar el historial.
 function fechaLocal(valor) {
   if (!valor) return 'Sin información'
 
@@ -39,6 +42,7 @@ function fechaLocal(valor) {
       })
 }
 
+// Expone la comisión vigente e inicia la edición de su valor administrativo.
 export default function ComisionAdministracion() {
   const [parametro, setParametro] = useState(null)
   const [historial, setHistorial] = useState([])
@@ -57,8 +61,10 @@ export default function ComisionAdministracion() {
   const [errorFormulario, setErrorFormulario] = useState('')
 
   useEffect(() => {
+    // Trae la configuración de comisión mientras la consulta sigue vigente.
     let activo = true
 
+    // Consulta la comisión efectiva y su historial para sincronizar el formulario.
     async function cargar() {
       try {
         const respuesta = await fetch(URL, {
@@ -125,11 +131,13 @@ export default function ComisionAdministracion() {
   }, [revision])
 
   useEffect(() => {
+    // Controla desplazamiento y teclado durante la edición de la comisión.
     if (!modo) return undefined
 
     const anterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
+    // Permite activar la interacción del registro con teclado.
     function tecla(evento) {
       if (evento.key === 'Escape' && !guardando) {
         setModo(
@@ -146,6 +154,7 @@ export default function ComisionAdministracion() {
     }
   }, [modo, guardando])
 
+  // Vuelve a consultar la información visible sin recargar toda la aplicación.
   function recargar() {
     setError('')
     setAviso('')
@@ -153,6 +162,7 @@ export default function ComisionAdministracion() {
     setRevision((anterior) => anterior + 1)
   }
 
+  // Inicializa los campos con el parámetro vigente antes de editarlo.
   function abrirEdicion() {
     setValorNuevo(
       parametro ? String(parametro.valor_actual).replace('.', ',') : '',
@@ -466,6 +476,7 @@ export default function ComisionAdministracion() {
         <div
           role="presentation"
           onMouseDown={(evento) => {
+            // Admite cerrar desde el fondo si no hay una escritura en curso.
             if (
               evento.target === evento.currentTarget &&
               !guardando

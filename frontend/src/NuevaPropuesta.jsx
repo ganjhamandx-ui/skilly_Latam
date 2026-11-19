@@ -1,3 +1,4 @@
+// Crea propuestas con categorías y competencias válidas antes de enviarlas a revisión.
 import { useState } from 'react'
 import './NuevaPropuesta.css'
 
@@ -11,12 +12,14 @@ const formularioInicial = {
   ids_competencias: [],
 }
 
+// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
 function obtenerError(datos, codigo) {
   if (typeof datos.mensaje === 'string') return datos.mensaje
   if (typeof datos.detail === 'string') return datos.detail
 
   const campos = Object.entries(datos)
     .map(([campo, valor]) => {
+      // Actualiza las métricas mientras corresponde a la revisión activa.
       const texto = Array.isArray(valor)
         ? valor.join(', ')
         : typeof valor === 'string'
@@ -30,6 +33,7 @@ function obtenerError(datos, codigo) {
   return campos || `Error HTTP ${codigo}`
 }
 
+// Recibe la primera versión del servicio y sus categorías y competencias asociadas.
 export default function NuevaPropuesta({ onCreada }) {
   const [formulario, setFormulario] = useState(formularioInicial)
   const [abierto, setAbierto] = useState(false)
@@ -41,6 +45,7 @@ export default function NuevaPropuesta({ onCreada }) {
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
 
+  // Actualiza el campo editado sin descartar los otros valores del formulario.
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -48,6 +53,7 @@ export default function NuevaPropuesta({ onCreada }) {
     }))
   }
 
+  // Obtiene categorías y competencias que sirven como opciones autorizadas del formulario.
   async function cargarCatalogos() {
     if (cargandoCatalogos) return
 
@@ -88,6 +94,7 @@ export default function NuevaPropuesta({ onCreada }) {
     }
   }
 
+  // Abre o cierra el formulario sin enviar la propuesta.
   function alternarFormulario() {
     if (!abierto && !catalogosCargados) {
       void cargarCatalogos()
@@ -95,6 +102,7 @@ export default function NuevaPropuesta({ onCreada }) {
     setAbierto((actual) => !actual)
   }
 
+  // Actualiza la selección de competencias sin duplicar identificadores.
   function alternarCompetencia(idCompetencia, seleccionado) {
     setFormulario((actual) => ({
       ...actual,
@@ -104,6 +112,7 @@ export default function NuevaPropuesta({ onCreada }) {
     }))
   }
 
+  // Envía la propuesta nueva con su categoría, competencias y detalles.
   async function guardar(evento) {
     evento.preventDefault()
 

@@ -22,6 +22,8 @@ CLAVE_CARGO_CANCELACION = "cancelacion_injustificada_porcentaje"
 
 
 class ActualizarCargoCancelacionSerializer(serializers.Serializer):
+    """Valida el porcentaje configurable aplicado a cancelaciones injustificadas."""
+
     valor_nuevo = serializers.DecimalField(
         max_digits=7,
         decimal_places=4,
@@ -32,6 +34,8 @@ class ActualizarCargoCancelacionSerializer(serializers.Serializer):
 
 @method_decorator(csrf_protect, name='dispatch')
 class ConfiguracionCargoCancelacionView(APIView):
+    """Consulta y actualiza el cargo de cancelación con trazabilidad administrativa."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 

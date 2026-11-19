@@ -21,6 +21,8 @@ from .politica_liquidacion_final_e3 import calcular_liquidacion
 
 
 class LiquidacionCancelacionE3(models.Model):
+    """Registra montos y enlaces económicos derivados de una cancelación."""
+
     id_liquidacion = models.BigAutoField(primary_key=True)
     id_expediente = models.OneToOneField(ExpedienteCancelacion, models.DO_NOTHING, db_column='id_expediente')
     id_pago = models.OneToOneField(Pago, models.DO_NOTHING, db_column='id_pago')
@@ -37,11 +39,15 @@ class LiquidacionCancelacionE3(models.Model):
     fecha_registro = models.DateTimeField()
 
     class Meta:
+        """Vincula el modelo con la tabla SQL preexistente `liquidacion_cancelacion_e3`."""
+
         managed = False
         db_table = 'liquidacion_cancelacion_e3'
 
 
 class LiquidacionSerializer(serializers.Serializer):
+    """Valida cargo y fundamento antes de liquidar el expediente."""
+
     cargo_autorizado = serializers.DecimalField(min_value=Decimal('0'), max_digits=12, decimal_places=2)
     fundamento = serializers.CharField(min_length=30, max_length=2000, trim_whitespace=True)
     derechos_verificados = serializers.BooleanField()
@@ -50,6 +56,8 @@ class LiquidacionSerializer(serializers.Serializer):
 
 
 def datos_liquidacion(l):
+    """Serializa el resultado económico sin exponer datos bancarios."""
+
     return {'id_liquidacion':l.pk,'id_expediente':l.id_expediente_id,
       'id_pago':l.id_pago_id,'id_reversa':l.id_reversa_id,
       'porcentaje_contratado':str(l.porcentaje_contratado),
@@ -61,14 +69,18 @@ def datos_liquidacion(l):
 
 @method_decorator(csrf_protect, name='dispatch')
 class LiquidarCancelacionE3View(APIView):
+    """Calcula y persiste una liquidación idempotente bajo bloqueo transaccional."""
+
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
+        """Consulta la liquidación documentada para un expediente."""
         liq = LiquidacionCancelacionE3.objects.filter(id_expediente_id=id_expediente).first()
         return Response({'liquidacion':datos_liquidacion(liq) if liq else None})
 
     def post(self, request, id_expediente):
+        """Crea la liquidación y solicita su reversa bajo validaciones transaccionales."""
         s = LiquidacionSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         entrada = s.validated_data

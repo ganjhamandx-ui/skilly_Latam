@@ -1,3 +1,5 @@
+"""Expone catálogos de apoyo usados por formularios del marketplace."""
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { ACCIONES, accionesDisponibles, bloquesElegibles, validarCambioAgenda } from './politicasAgendaPrestacionE3.mjs'
 import './AgendaPrestacionAdministracionE3.css'
 
+// Recupera el mensaje de validación y usa un texto legible si la respuesta no lo trae.
 function textoError(datos, codigo) {
   return datos?.mensaje || datos?.detail || `No se completó la operación (HTTP ${codigo}).`
 }
 
+// Combina el día y las horas del bloque al presentarlo para selección.
 function fechaBloque(b) {
   const fecha = new Date(`${b.fecha}T${b.hora_inicio}`)
   const inicio = Number.isNaN(fecha.getTime())
@@ -29,8 +31,10 @@ export default function AgendaPrestacionAdministracionE3({ idPrestacion, estadoP
   const ruta = `/api/coordinacion/administracion/prestaciones/${encodeURIComponent(idPrestacion)}/agenda/`
 
   useEffect(() => {
+    // Vincula la lectura de agenda a la apertura actual del diálogo.
     if (!abierto) return undefined
     const controlador = new AbortController()
+    // Consulta la agenda y las opciones disponibles para la prestación.
     async function cargar() {
       setCargando(true)
       setError('')
@@ -60,6 +64,7 @@ export default function AgendaPrestacionAdministracionE3({ idPrestacion, estadoP
   const bloques = bloquesElegibles(datos?.bloques_profesional)
   const reservaActiva = (datos?.reservas ?? []).find((reserva) => reserva.estado === 'ACTIVA')
 
+  // Envía la acción de agenda seleccionada con sus campos y actualiza el expediente.
   async function ejecutar(evento) {
     evento.preventDefault()
     if (guardando || cargando || !datos) return

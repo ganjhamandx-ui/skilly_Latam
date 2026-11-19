@@ -1,3 +1,4 @@
+"""Entrega documentos privados solo a personal administrativo autorizado."""
 
 from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404

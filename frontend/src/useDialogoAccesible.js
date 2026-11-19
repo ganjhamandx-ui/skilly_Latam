@@ -4,6 +4,7 @@ const dialogos = []
 let overflowAnterior = ''
 const selectorFoco = 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex], [contenteditable="true"]'
 
+// Localiza controles disponibles para construir el recorrido de teclado del diálogo.
 function elementosFoco(panel) {
   return [...panel.querySelectorAll(selectorFoco)].filter(elemento =>
     !elemento.matches(':disabled, [tabindex="-1"]') &&
@@ -12,6 +13,7 @@ function elementosFoco(panel) {
   )
 }
 
+// Mueve el foco al primer control útil o al panel si no hay controles.
 function enfocarInicio(panel) {
   const destino = panel.querySelector('[data-dialogo-foco-inicial]:not(:disabled)') || elementosFoco(panel)[0] || panel
   destino.focus({ preventScroll: true })
@@ -23,6 +25,7 @@ export default function useDialogoAccesible(abierto, panelRef, onCerrar, bloquea
   useEffect(() => { acciones.current = { onCerrar, bloqueado } }, [onCerrar, bloqueado])
 
   useEffect(() => {
+    // Registra el diálogo activo y el disparador antes de enfocar el contenido.
     const panel = panelRef.current
     if (!abierto || !panel) return undefined
     const disparador = document.activeElement
@@ -34,6 +37,7 @@ export default function useDialogoAccesible(abierto, panelRef, onCerrar, bloquea
     dialogos.push(dialogo)
     enfocarInicio(panel)
 
+    // Controla las teclas del diálogo para cerrar o mantener una navegación de foco accesible.
     function manejarTeclado(evento) {
       if (dialogos.at(-1) !== dialogo || evento.defaultPrevented) return
       if (evento.key === 'Escape') {
@@ -61,6 +65,7 @@ export default function useDialogoAccesible(abierto, panelRef, onCerrar, bloquea
     }
     document.addEventListener('keydown', manejarTeclado)
     return () => {
+      // Retira el diálogo del registro y restituye el foco que corresponda.
       document.removeEventListener('keydown', manejarTeclado)
       const superior = dialogos.at(-1) === dialogo
       dialogos.splice(dialogos.indexOf(dialogo), 1)

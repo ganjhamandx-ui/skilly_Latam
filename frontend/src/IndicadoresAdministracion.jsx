@@ -1,4 +1,5 @@
 
+// Consolida indicadores administrativos de solo lectura y descarta respuestas obsoletas.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import AdminNavegacion from './AdminNavegacion.jsx'
@@ -28,6 +29,7 @@ const TARJETAS = [
   },
 ]
 
+// Presenta los importes en la unidad indicada por los indicadores administrativos.
 function monto(valor) {
   const numero = Number(valor ?? 0)
 
@@ -40,6 +42,7 @@ function monto(valor) {
   }).format(numero)} CLP`
 }
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   return (
     datos?.mensaje ||
@@ -48,6 +51,7 @@ function mensajeError(datos, codigo) {
   )
 }
 
+// Presenta las métricas agregadas que el backend habilita para administración.
 export default function IndicadoresAdministracion() {
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -56,8 +60,10 @@ export default function IndicadoresAdministracion() {
   const [revision, setRevision] = useState(0)
 
   useEffect(() => {
+    // Aplana los detalles de validación del formulario de propuesta nueva.
     let activo = true
 
+    // Recupera los indicadores agregados y distingue error de consulta de falta de datos.
     async function consultar() {
       try {
         const respuesta = await fetch(
@@ -117,6 +123,7 @@ export default function IndicadoresAdministracion() {
     }
   }, [revision])
 
+  // Vuelve a consultar la información visible sin recargar toda la aplicación.
   function recargar() {
     setError('')
     setCargando(true)

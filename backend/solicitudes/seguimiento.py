@@ -1,3 +1,5 @@
+"""Resuelve el seguimiento privado de una solicitud mediante referencia firmada."""
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -13,6 +15,8 @@ from .serializers import (
 class SeguimientoSolicitudServicioPublicaView(
     APIView
 ):
+    """Consulta el estado de una solicitud mediante su referencia privada firmada."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -21,6 +25,7 @@ class SeguimientoSolicitudServicioPublicaView(
         request,
         referencia,
     ):
+        """Devuelve el seguimiento acotado asociado a una referencia privada válida."""
         datos_referencia = (
             leer_referencia_seguimiento(
                 referencia

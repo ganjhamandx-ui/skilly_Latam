@@ -1,4 +1,5 @@
 
+// Menú administrativo accesible que conserva el módulo activo y el foco al navegar.
 import { useEffect, useRef } from 'react'
 import './AdminNavegacion.css'
 
@@ -93,6 +94,7 @@ const modulos = [
   },
 ]
 
+// Presenta el menú administrativo y sincroniza selección y foco con la navegación.
 export default function AdminNavegacion({ activo }) {
   const activoRef = useRef(null)
   useEffect(() => {

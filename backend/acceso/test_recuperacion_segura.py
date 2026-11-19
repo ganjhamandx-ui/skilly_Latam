@@ -11,6 +11,8 @@ from .recuperacion import _revocar_sesiones_usuario, restablecer_contrasena
 
 
 class RestablecimientoSeguroTests(SimpleTestCase):
+    """Comprueba consumo único, expiración y atomicidad del restablecimiento."""
+
     def setUp(self):
         self.ahora = timezone.now()
         self.token = "token-sintetico-de-prueba"
@@ -139,6 +141,8 @@ class RestablecimientoSeguroTests(SimpleTestCase):
 
 
 class RevocacionSesionesTests(SimpleTestCase):
+    """Comprueba que cambiar la contraseña revoque solo sesiones del usuario afectado."""
+
     @patch("acceso.recuperacion.Session.objects")
     def test_revoca_ids_enteros_o_texto_y_conserva_otros_usuarios(self, sesiones):
         def sesion(clave, contenido):

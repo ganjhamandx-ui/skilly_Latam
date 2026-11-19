@@ -1,3 +1,5 @@
+"""Implementa el registro privado y transaccional de retroalimentación."""
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -32,6 +34,8 @@ from .serializers import (
 
 
 class RetroalimentacionPrivadaEmpresaView(APIView):
+    """Permite registrar y consultar feedback mediante referencia privada empresarial."""
+
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -40,6 +44,7 @@ class RetroalimentacionPrivadaEmpresaView(APIView):
         request,
         referencia,
     ):
+        """Consulta la retroalimentación privada asociada a la referencia empresarial."""
         datos_referencia = (
             leer_referencia_seguimiento(
                 referencia
@@ -139,6 +144,7 @@ class RetroalimentacionPrivadaEmpresaView(APIView):
         request,
         referencia,
     ):
+        """Registra una retroalimentación privada validando referencia y unicidad."""
         datos_referencia = (
             leer_referencia_seguimiento(
                 referencia
@@ -286,6 +292,8 @@ class RetroalimentacionPrivadaEmpresaView(APIView):
 class RetroalimentacionesAdministracionView(
     APIView
 ):
+    """Lista retroalimentaciones para revisión administrativa autorizada."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -298,6 +306,7 @@ class RetroalimentacionesAdministracionView(
         self,
         request,
     ):
+        """Lista retroalimentaciones privadas para revisión administrativa."""
         retroalimentaciones = (
             Retroalimentacion.objects
             .select_related(
@@ -353,6 +362,8 @@ class RetroalimentacionesAdministracionView(
 class GestionRetroalimentacionAdministracionView(
     APIView
 ):
+    """Gestiona el estado y la recomendación asociada a una retroalimentación."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -366,6 +377,7 @@ class GestionRetroalimentacionAdministracionView(
         request,
         id_feedback,
     ):
+        """Obtiene el detalle administrativo de una retroalimentación."""
         feedback = (
             Retroalimentacion.objects
             .select_related(
@@ -443,6 +455,7 @@ class GestionRetroalimentacionAdministracionView(
         request,
         id_feedback,
     ):
+        """Registra la recomendación administrativa vinculada a la retroalimentación."""
         entrada_serializer = (
             RegistrarRecomendacionDesarrolloSerializer(
                 data=request.data
@@ -559,6 +572,8 @@ class GestionRetroalimentacionAdministracionView(
 class ComunicarRecomendacionAdministracionView(
     APIView
 ):
+    """Marca una recomendación como comunicada y registra su trazabilidad."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -572,6 +587,7 @@ class ComunicarRecomendacionAdministracionView(
         request,
         id_recomendacion,
     ):
+        """Comunica una recomendación y registra su transición de estado."""
         with transaction.atomic():
             recomendacion = (
                 RecomendacionDesarrollo.objects

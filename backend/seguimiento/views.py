@@ -29,6 +29,7 @@ class SeguimientoPrestacionProfesionalView(APIView):
     permission_classes = [EsProfesional]
 
     def get(self, request, id_prestacion):
+        """Devuelve el seguimiento de una prestación perteneciente al profesional."""
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -40,6 +41,7 @@ class SeguimientoPrestacionProfesionalView(APIView):
         return Response({'prestacion': {'id_prestacion': prestacion.id_prestacion, 'id_solicitud': prestacion.id_solicitud_id, 'estado': prestacion.estado, 'fecha_inicio': prestacion.fecha_inicio, 'fecha_fin': prestacion.fecha_fin, 'fecha_cierre': prestacion.fecha_cierre}, 'avances': serializer.data}, status=status.HTTP_200_OK)
 
     def post(self, request, id_prestacion):
+        """Registra un avance profesional tras validar propiedad y estado."""
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -70,6 +72,7 @@ class SeguimientoPrestacionEmpresaView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
+        """Devuelve avances públicos a la empresa mediante referencia privada."""
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -141,6 +144,7 @@ class SeguimientoPrestacionAdministracionView(APIView):
 
     @staticmethod
     def datos_prestacion(prestacion):
+        """Construye el resumen administrativo de la prestación y su solicitud."""
         return {
             'id_prestacion': prestacion.id_prestacion,
             'id_solicitud': prestacion.id_solicitud_id,
@@ -152,6 +156,7 @@ class SeguimientoPrestacionAdministracionView(APIView):
         }
 
     def get(self, request, id_prestacion):
+        """Obtiene el seguimiento integral de una prestación para administración."""
         prestacion = PrestacionServicio.objects.select_related('id_solicitud', 'id_profesional').filter(id_prestacion=id_prestacion).first()
         if prestacion is None:
             return Response({'mensaje': 'La prestación solicitada no existe.'}, status=status.HTTP_404_NOT_FOUND)
@@ -177,6 +182,7 @@ class SeguimientoPrestacionAdministracionView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request, id_prestacion):
+        """Procesa el cierre administrativo con las precondiciones del expediente."""
         if request.data.get('accion') != 'FINALIZAR_PRESTACION':
             return Response({'mensaje': 'Acción de cierre inválida.'}, status=status.HTTP_400_BAD_REQUEST)
         with transaction.atomic():
@@ -211,6 +217,7 @@ class EntregasPrestacionProfesionalView(APIView):
     permission_classes = [EsProfesional]
 
     def get(self, request, id_prestacion):
+        """Lista entregas de una prestación asignada al profesional."""
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -227,6 +234,7 @@ class EntregasPrestacionProfesionalView(APIView):
 
 
     def post(self, request, id_prestacion):
+        """Registra una nueva versión de entrega para la prestación autorizada."""
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -266,6 +274,7 @@ class RevisionEntregaEmpresaView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, referencia, id_entrega):
+        """Obtiene una entrega que pertenece a la referencia empresarial."""
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -276,6 +285,7 @@ class RevisionEntregaEmpresaView(APIView):
         return Response({'entrega': EntregaSerializer(entrega).data, 'observaciones': ObservacionEntregaSerializer(observaciones, many=True).data}, status=status.HTTP_200_OK)
 
     def post(self, request, referencia, id_entrega):
+        """Acepta u observa la entrega desde la referencia empresarial autorizada."""
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -315,6 +325,7 @@ class GestionReclamoAdministracionView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_reclamo):
+        """Obtiene un reclamo y su resolución para gestión administrativa."""
         reclamo = ReclamoPrestacion.objects.select_related('id_prestacion', 'id_contacto').filter(id_reclamo=id_reclamo).first()
         if reclamo is None:
             return Response({'mensaje': 'El reclamo solicitado no existe.'}, status=status.HTTP_404_NOT_FOUND)
@@ -329,6 +340,7 @@ class GestionReclamoAdministracionView(APIView):
         return Response({'reclamo': ReclamoPrestacionSerializer(reclamo).data, 'prestacion': {'id_prestacion': reclamo.id_prestacion_id, 'estado': reclamo.id_prestacion.estado, 'id_profesional': reclamo.id_prestacion.id_profesional_id}, 'pago': pago_data, 'resolucion': resolucion_data}, status=status.HTTP_200_OK)
 
     def post(self, request, id_reclamo):
+        """Resuelve el reclamo y registra su efecto bajo control administrativo."""
         entrada_serializer = ResolverReclamoSerializer(data=request.data)
         if not entrada_serializer.is_valid():
             return Response(entrada_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -357,6 +369,7 @@ class RegistrarReclamoEmpresaView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, referencia):
+        """Registra un reclamo empresarial validando referencia y duplicidad."""
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)

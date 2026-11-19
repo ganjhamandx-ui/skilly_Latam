@@ -14,6 +14,7 @@ from .cache_acceso import configurar_cache_acceso
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
 
+# La configuración privada se lee desde la raíz del proyecto; nunca va al repositorio.
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -47,6 +48,7 @@ def obtener_lista(nombre, valor_por_defecto=""):
     ]
 
 
+# Impedir el arranque sin clave protege las sesiones y los tokens firmados.
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 if not SECRET_KEY:

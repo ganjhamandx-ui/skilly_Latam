@@ -1,3 +1,5 @@
+"""Valida publicaciones, propuestas y datos visibles del marketplace."""
+
 import json
 import re
 
@@ -461,6 +463,8 @@ class ServicioProfesionalSerializer(
     )
 
     class Meta:
+        """Define la representación de Servicio y protege sus campos de solo lectura."""
+
         model = Servicio
 
         fields = [
@@ -590,6 +594,8 @@ class RevisionServicioAdministracionSerializer(
     )
 
     class Meta:
+        """Define la representación de RevisionServicio y protege sus campos de solo lectura."""
+
         model = RevisionServicio
 
         fields = [
@@ -746,6 +752,8 @@ class VersionRevisadaProfesionalSerializer(
     )
 
     class Meta:
+        """Define la representación de RevisionServicio y protege sus campos de solo lectura."""
+
         model = RevisionServicio
 
         fields = [
@@ -819,6 +827,8 @@ class ServicioMarketplaceSerializer(
     )
 
     class Meta:
+        """Define la representación de Servicio y protege sus campos de solo lectura."""
+
         model = Servicio
 
         fields = [

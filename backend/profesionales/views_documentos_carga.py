@@ -1,3 +1,5 @@
+"""Recibe y valida nuevas versiones de documentos profesionales."""
+
 from acceso.authentication import SesionSkillyAuthentication
 
 import uuid

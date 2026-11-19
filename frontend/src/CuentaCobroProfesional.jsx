@@ -1,3 +1,4 @@
+// Consulta y actualiza la cuenta de cobro del profesional sin exponer datos de otros titulares.
 import { useCallback, useState } from 'react'
 import useCargaAsincrona from './useCargaAsincrona.js'
 import './CuentaCobroProfesional.css'
@@ -5,6 +6,7 @@ import './CuentaCobroProfesional.css'
 const API = '/api/profesionales/'
 const inicial = { titular: '', rut_titular: '', banco: '', tipo_cuenta: 'VISTA', numero_cuenta: '', correo: '' }
 
+// Convierte el momento de registro a una fecha legible para el profesional.
 function fechaRegistroChile(fecha) {
   if (!fecha) return 'No registrada'
   const fechaValida = new Date(fecha)
@@ -15,6 +17,7 @@ function fechaRegistroChile(fecha) {
 }
 
 
+// Interpreta el resultado de la API de cuenta de cobro y propaga fallos HTTP.
 async function jsonRespuesta(respuesta) {
   const datos = await respuesta.json().catch(() => ({}))
   if (!respuesta.ok) {
@@ -24,6 +27,7 @@ async function jsonRespuesta(respuesta) {
   return datos
 }
 
+// Presenta al profesional su cuenta de destino y el formulario para actualizarla.
 export default function CuentaCobroProfesional() {
   const [cuenta, setCuenta] = useState(null)
   const [abonos, setAbonos] = useState([])
@@ -35,6 +39,7 @@ export default function CuentaCobroProfesional() {
   const [aviso, setAviso] = useState('')
 
   const consultar = useCallback(async (signal) => {
+      // Consulta en paralelo la cuenta y sus abonos con la misma señal de cancelación.
       const [a, b] = await Promise.all([
         fetch(`${API}mi-cuenta-bancaria/`, { credentials: 'same-origin', cache: 'no-store', signal }),
         fetch(`${API}mis-abonos/`, { credentials: 'same-origin', cache: 'no-store', signal }),
@@ -56,6 +61,7 @@ export default function CuentaCobroProfesional() {
   }, [])
   useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
 
+  // Envía la cuenta de cobro con las credenciales y validaciones de la sesión.
   async function guardar(evento) {
     evento.preventDefault()
     if (guardando) return
@@ -80,6 +86,7 @@ export default function CuentaCobroProfesional() {
     finally { setGuardando(false) }
   }
 
+  // Vincula un campo del formulario con su valor actual y su edición.
   const campo = (nombre, valor) => setFormulario((anterior) => ({ ...anterior, [nombre]: valor }))
 
   return <section className="ccp-modulo">

@@ -57,6 +57,7 @@ function presentar(valor) {
     if (valor.length === 0) return 'Ninguna'
 
     return valor.map((elemento) => {
+      // Extrae valores legibles de elementos compuestos de la propuesta.
       if (
         elemento &&
         typeof elemento === 'object'
@@ -192,6 +193,7 @@ function presentarCompetencias(
   ).join(', ')
 }
 
+// Muestra el contenido enviado a revisión con las acciones administrativas habilitadas.
 export default function DetalleRevision({ revision }) {
   const [catalogos, setCatalogos] = useState(null)
   const [errorCatalogos, setErrorCatalogos] = useState(false)
@@ -199,8 +201,10 @@ export default function DetalleRevision({ revision }) {
   // Consultar los catálogos reales desde la sesión
   // profesional. No modifica ningún registro.
   useEffect(() => {
+    // Carga los catálogos para interpretar los identificadores de la propuesta.
     let activo = true
 
+    // Obtiene categorías y competencias que sirven como opciones autorizadas del formulario.
     async function cargarCatalogos() {
       try {
         const respuesta = await fetch(
@@ -285,6 +289,7 @@ export default function DetalleRevision({ revision }) {
     !errorCatalogos
   )
 
+  // Da formato al dato de propuesta revisada según su uso en la ficha.
   function presentarCampo(clave, valor) {
     if (clave === 'id_categoria') {
       return obtenerNombreCatalogo(

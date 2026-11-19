@@ -1,4 +1,6 @@
 
+"""Declara rutas administrativas de coordinación, agenda y asociaciones."""
+
 from django.urls import path
 
 from .asociaciones import (

@@ -1,3 +1,4 @@
+/* Presenta la agenda administrativa como panel compacto sin alterar los estilos globales. */
 .sk-agenda-e3{margin:22px 0;padding:20px;border:1px solid #dbe7df;border-radius:16px;background:#f8fbf8;color:#25423b}
 .sk-agenda-e3-header{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .sk-agenda-e3-header h3{margin:0 0 6px;font-size:18px}

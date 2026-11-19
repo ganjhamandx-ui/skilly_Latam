@@ -1,3 +1,4 @@
+// Resume la prestación visible para el profesional y normaliza campos opcionales de la API.
 import './DetalleSeguimientoProfesional.css'
 
 const etiquetas = {
@@ -22,17 +23,20 @@ const etiquetas = {
   alcance: 'Alcance',
 }
 
+// Presenta un nombre de campo obtenido de la API en una forma legible.
 function etiqueta(nombre) {
   return etiquetas[nombre] ??
     nombre.replaceAll('_', ' ')
       .replace(/^./, (letra) => letra.toUpperCase())
 }
 
+// Filtra claves de antecedentes internos que no corresponden a la vista profesional.
 function esDatoRestringido(nombre) {
   return /password|contrasena|token|secret|hash|csrf|credential/i
     .test(nombre)
 }
 
+// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
 function texto(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No informado'
@@ -45,6 +49,7 @@ function texto(valor) {
   return String(valor)
 }
 
+// Presenta la colección de datos permitidos para la vista sin mostrar claves técnicas.
 function Valores({ datos, profundidad = 0 }) {
   if (datos === null || datos === undefined) {
     return <p>No hay informaci&oacute;n disponible.</p>
@@ -85,6 +90,7 @@ function Valores({ datos, profundidad = 0 }) {
   return (
     <dl className="dsp-campos">
       {campos.map(([nombre, valor]) => {
+        // Presenta antecedentes estructurados o valores simples en el mismo detalle.
         const compuesto = valor !== null &&
           typeof valor === 'object'
 
@@ -111,6 +117,7 @@ function Valores({ datos, profundidad = 0 }) {
   )
 }
 
+// Organiza el seguimiento de una prestación propia y oculta antecedentes restringidos.
 export default function DetalleSeguimientoProfesional({ datos }) {
   if (!datos || typeof datos !== 'object') {
     return (

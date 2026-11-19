@@ -1,3 +1,5 @@
+"""Expone las rutas del flujo bilateral según el actor autenticado."""
+
 from django.urls import path
 from .views import (
     AdministracionReagendamientoView,

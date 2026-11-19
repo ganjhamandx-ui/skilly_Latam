@@ -1,3 +1,5 @@
+"""Define las rutas de solicitudes, agenda y seguimiento firmado."""
+
 from django.urls import path
 
 from .seguimiento import (

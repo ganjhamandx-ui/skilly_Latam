@@ -1,3 +1,5 @@
+"""Crea asociaciones profesionales después de validar permisos y estado."""
+
 from .control_responsable import requiere_responsable_solicitud
 from django.db import transaction
 from django.utils import timezone

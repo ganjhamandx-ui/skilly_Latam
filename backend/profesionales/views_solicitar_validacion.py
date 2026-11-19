@@ -1,3 +1,4 @@
+"""Inicia la validación profesional cuando se cumplen sus precondiciones."""
 
 from django.db import transaction
 from django.utils import timezone

@@ -14,10 +14,14 @@ CAMPOS_SNAPSHOT = (
 )
 
 class ErrorInstruccionBancaria(Exception):
+    """Indica que no puede emitirse una instrucción bancaria interna segura."""
+
     pass
 
 
 def _verificar_alias(alias):
+    """Exige una conexión aislada explícita antes de consultar datos bancarios."""
+
     if not isinstance(alias, str) or not alias or alias == 'default':
         raise ErrorInstruccionBancaria('Se exige un alias aislado explícito.')
     if alias not in connections.databases:
@@ -30,6 +34,8 @@ def _verificar_alias(alias):
 
 
 def _serializar(fila):
+    """Transforma la fila inmutable de instrucción en un contrato serializable."""
+
     return {
         'id_instruccion': fila[0], 'id_pago': fila[1],
         'titular': fila[2], 'rut_titular': fila[3], 'banco': fila[4],

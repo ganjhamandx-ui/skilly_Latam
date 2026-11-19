@@ -1,3 +1,5 @@
+"""Implementa consultas y operaciones protegidas del backoffice."""
+
 from decimal import Decimal, InvalidOperation
 
 from django.db import connection, transaction
@@ -31,6 +33,8 @@ from profesionales.models import Profesional
 from solicitudes.models import SolicitudServicio
 
 class PanelIndicadoresView(APIView):
+    """Resume indicadores operativos para administración sin efectuar cambios."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -195,6 +199,8 @@ class PanelIndicadoresView(APIView):
 
 
 class ConfiguracionComisionAdministracionView(APIView):
+    """Consulta y modifica la comisión dentro de una transacción auditable."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -402,6 +408,8 @@ class ConfiguracionComisionAdministracionView(APIView):
 
 
 class TrazabilidadOperacionalView(APIView):
+    """Lista eventos operativos aplicando filtros validados y permisos administrativos."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -489,6 +497,8 @@ class TrazabilidadOperacionalView(APIView):
 
 
 class DetalleEventoTrazabilidadView(APIView):
+    """Devuelve un evento específico de trazabilidad al personal autorizado."""
+
     authentication_classes = [
         SesionSkillyAuthentication
     ]

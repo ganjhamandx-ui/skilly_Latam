@@ -1,3 +1,5 @@
+"""Implementa operaciones administrativas de coordinación y agenda segura."""
+
 from datetime import datetime
 
 from django.db import transaction

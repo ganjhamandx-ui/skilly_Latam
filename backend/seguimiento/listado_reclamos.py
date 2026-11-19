@@ -1,3 +1,4 @@
+"""Lista reclamos para administración aplicando permisos por rol."""
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -27,6 +28,7 @@ class ListadoReclamosAdministracionView(APIView):
     ]
 
     def get(self, request):
+        """Lista reclamos con sus relaciones para la bandeja administrativa."""
         reclamos = (
             ReclamoPrestacion.objects
             .order_by(

@@ -6,6 +6,7 @@ import './Administracion.css'
 
 const API = '/api/seguimiento/administracion/reclamos/'
 
+// Identifica reclamos terminales para restringir operaciones de resolución redundantes.
 function estaResuelto(reclamo) {
   return (
     reclamo?.estado === 'RESUELTO' ||
@@ -14,6 +15,7 @@ function estaResuelto(reclamo) {
   )
 }
 
+// Presenta la fecha almacenada en un formato adecuado para la ficha.
 function fecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -29,6 +31,7 @@ function fecha(valor) {
   })
 }
 
+// Formatea importes sin modificar los montos que maneja el backend.
 function dinero(valor, moneda = 'CLP') {
   if (valor === null || valor === undefined) {
     return 'No informado'
@@ -45,6 +48,7 @@ function dinero(valor, moneda = 'CLP') {
   }).format(numero)} ${moneda}`
 }
 
+// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -73,6 +77,7 @@ function mensajeError(datos, codigo) {
   return `La operación no pudo completarse (HTTP ${codigo}).`
 }
 
+// Presenta la bandeja de reclamos y permite revisar o resolver el caso seleccionado.
 export default function ReclamosAdministracion() {
   const [reclamos, setReclamos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -96,8 +101,10 @@ export default function ReclamosAdministracion() {
 
   // Consultar la bandeja administrativa existente.
   useEffect(() => {
+    // Consulta la bandeja para la sesión administrativa activa.
     let activo = true
 
+    // Recupera la bandeja de reclamos que corresponde a la sesión de administración.
     async function consultar() {
       try {
         const respuesta = await fetch(API, {
@@ -151,6 +158,7 @@ export default function ReclamosAdministracion() {
 
   // Consultar el detalle de un reclamo seleccionado.
   useEffect(() => {
+    // Actualiza el historial del reclamo cuando cambia la selección.
     if (idSeleccionado === null) {
       return undefined
     }
@@ -162,6 +170,7 @@ export default function ReclamosAdministracion() {
 
     document.body.style.overflow = 'hidden'
 
+    // Permite activar la interacción del registro con teclado.
     function tecla(evento) {
       if (evento.key === 'Escape' && !guardando) {
         setIdSeleccionado(null)
@@ -170,6 +179,7 @@ export default function ReclamosAdministracion() {
 
     document.addEventListener('keydown', tecla)
 
+    // Carga el caso y la información necesaria para la resolución administrativa.
     async function consultarDetalle() {
       try {
         const respuesta = await fetch(
@@ -220,6 +230,7 @@ export default function ReclamosAdministracion() {
     void consultarDetalle()
 
     return () => {
+      // Desactiva las actualizaciones y restaura el fondo al cerrar el detalle.
       activo = false
 
       document.body.style.overflow =
@@ -229,12 +240,14 @@ export default function ReclamosAdministracion() {
     }
   }, [idSeleccionado, guardando])
 
+  // Vuelve a consultar la información visible sin recargar toda la aplicación.
   function recargar() {
     setError('')
     setCargando(true)
     setRevision((actual) => actual + 1)
   }
 
+  // Selecciona un registro y solicita sus datos antes de presentar el diálogo.
   function abrirDetalle(id) {
     setDetalle(null)
     setErrorDetalle('')
@@ -248,6 +261,7 @@ export default function ReclamosAdministracion() {
     setIdSeleccionado(id)
   }
 
+  // Descarta la selección del diálogo y evita dejar visible información anterior.
   function cerrarDetalle() {
     if (guardando) return
     setIdSeleccionado(null)
@@ -398,6 +412,7 @@ export default function ReclamosAdministracion() {
   )
 
   const filtrados = reclamos.filter((reclamo) => {
+    // Aplica el criterio de estado sobre el listado visible de reclamos.
     if (
       pestana === 'PENDIENTES' &&
       estaResuelto(reclamo)

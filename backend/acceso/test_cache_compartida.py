@@ -18,10 +18,14 @@ from .intentos import ControlIntentosNoDisponible, LimiteIntentosAcceso
 
 
 def configuracion(**extra):
+    """Construye una configuración Redis ficticia para pruebas sin red real."""
+
     return {'BACKEND': REDIS_ATOMICO, 'LOCATION': 'redis://127.0.0.1:49123/0', **extra}
 
 
 class ConfiguracionRedisAccesoTests(SimpleTestCase):
+    """Valida selección y parámetros seguros del backend de intentos compartido."""
+
     def test_configuracion_local_sigue_siendo_default_y_no_abre_conexiones(self):
         with patch('socket.socket', side_effect=AssertionError('No network expected')):
             result = configurar_cache_acceso({})
@@ -78,6 +82,8 @@ class ConfiguracionRedisAccesoTests(SimpleTestCase):
 
 
 class ContadorRedisAccesoTests(SimpleTestCase):
+    """Comprueba ventanas atómicas usando un cliente Redis simulado."""
+
     def setUp(self):
         self.cache = RedisIntentosCache('redis://127.0.0.1:49123/0', {
             'KEY_PREFIX': 'skilly-fixture', 'VERSION': 7,
