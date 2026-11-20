@@ -39,6 +39,7 @@ class EventoTrazabilidadSerializer(
         self,
         evento,
     ):
+        """Devuelve identificador, correo y rol del responsable de evento, o None si falta."""
         usuario = evento.id_usuario
 
         if usuario is None:
@@ -104,6 +105,7 @@ class ParametroSistemaSerializer(
         self,
         parametro,
     ):
+        """Devuelve identificador, correo y rol de quien actualizó parametro, o None si falta."""
         usuario = parametro.id_usuario_actualiza
 
         if usuario is None:
@@ -145,6 +147,7 @@ class HistorialParametroSerializer(
         self,
         historial,
     ):
+        """Devuelve identificador, correo y rol del responsable de historial, o None si falta."""
         usuario = historial.id_usuario_skilly
 
         if usuario is None:

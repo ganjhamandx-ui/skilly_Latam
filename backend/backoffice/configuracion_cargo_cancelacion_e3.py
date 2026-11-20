@@ -40,6 +40,15 @@ class ConfiguracionCargoCancelacionView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
+        """Consulta el porcentaje de cancelación y su historial administrativo.
+
+        Args:
+            request: Petición administrativa autenticada.
+
+        Returns:
+            Response: 200 con parámetro e historial; si no está configurado,
+            devuelve parametro None e historial vacío, sin fijar un valor por defecto.
+        """
         parametro = (
             ParametroSistema.objects
             .select_related("id_usuario_actualiza")
@@ -65,6 +74,19 @@ class ConfiguracionCargoCancelacionView(APIView):
         })
 
     def patch(self, request):
+        """Actualiza el porcentaje independiente de cancelación con historial.
+
+        Args:
+            request: Petición con valor_nuevo entre 0 y 100, hasta cuatro decimales.
+
+        Returns:
+            Response: 200 con el parámetro guardado o 409 si el valor numérico ya
+            era el vigente. Conserva el valor anterior y el responsable dentro de
+            la transacción, sin aplicar cargos ni modificar liquidaciones existentes.
+
+        Raises:
+            serializers.ValidationError: Si el porcentaje es inválido; DRF devuelve 400.
+        """
         entrada = ActualizarCargoCancelacionSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         valor = entrada.validated_data["valor_nuevo"]

@@ -1,5 +1,3 @@
-"""Registra en Django los modelos internos de administración de SKILLY."""
+"""Punto de integración con Django Admin; no registra modelos en este módulo."""
 
 from django.contrib import admin
-
-# Register your models here.

@@ -15,7 +15,15 @@ CAMPOS = ('titular', 'rut_titular', 'banco', 'tipo_cuenta', 'numero_cuenta', 'co
 
 
 def base_ensayo():
-    """Exige la base configurada, esquema/rol autorizados y tablas bancarias."""
+    """Comprueba identidad de la conexión principal y existencia de tablas bancarias.
+
+    Returns:
+        str | None: Alias default si coinciden base, esquema y rol autorizados
+        y existen ambas tablas; None si las comprobaciones no se cumplen.
+
+    Los errores de conexión o de consulta se propagan; esta función no inicia
+    una base de ensayo ni modifica el esquema.
+    """
     alias = 'default'
     conexion = connections[alias]
     with conexion.cursor() as cursor:
@@ -30,7 +38,15 @@ def base_ensayo():
 
 
 def serializar(c):
-    """Convierte una cuenta bancaria en datos públicos para administración."""
+    """Representa una cuenta completa para administración y su historial privado.
+
+    Args:
+        c (CuentaBancariaSkilly): Cuenta que se representará.
+
+    Returns:
+        dict: Datos bancarios, incluido el número sin enmascarar, indicadores
+        activa/principal y fecha de modificación en formato ISO.
+    """
 
     return {'id_cuenta': c.id_cuenta, **{x: getattr(c, x) for x in CAMPOS},
             'activa': c.activa, 'principal': c.principal,
@@ -38,7 +54,19 @@ def serializar(c):
 
 
 def evento(alias, c, accion, antes, usuario):
-    """Registra en la misma base el cambio bancario y sus valores anterior y nuevo."""
+    """Inserta una instantánea del cambio bancario en la base indicada.
+
+    Args:
+        alias (str): Conexión usada también para modificar la cuenta.
+        c (CuentaBancariaSkilly): Cuenta con los valores posteriores al cambio.
+        accion (str): Acción administrativa realizada.
+        antes (dict | None): Valores anteriores; None durante la creación.
+        usuario (int): Identificador del administrador responsable.
+
+    Returns:
+        None: El historial se persiste mediante el ORM. El llamador mantiene
+        la transacción que engloba la cuenta y su evento.
+    """
 
     Cambio.objects.using(alias).create(
         id_cuenta=c, accion=accion, datos_anteriores=antes,
@@ -48,7 +76,7 @@ def evento(alias, c, accion, antes, usuario):
 
 
 def usuario_id(request):
-    """Obtiene la identidad administrativa autenticada que ejecuta la operación."""
+    """Devuelve la clave primaria del usuario autenticado de request."""
 
     return request.user.pk
 
@@ -61,12 +89,32 @@ class CuentasBancariasView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
+        """Lista las cuentas receptoras completas para administración.
+
+        Args:
+            request: Petición administrativa autenticada.
+
+        Returns:
+            Response: 200 con cuentas ordenadas por principal, activa e identificador,
+            o 503 cuando la identidad o las tablas requeridas no están habilitadas.
+        """
         alias = base_ensayo()
         if alias is None:
             return Response({'mensaje': 'Modulo bancario no disponible: compruebe conexion y esquema autorizados.'}, status=503)
         return Response({'cuentas': [serializar(c) for c in Cuenta.objects.using(alias).order_by('-principal', '-activa', 'id_cuenta')]})
 
     def post(self, request):
+        """Crea una cuenta inactiva y no principal junto con su evento histórico.
+
+        Args:
+            request: Petición con los campos bancarios exigidos por validar_cuenta.
+
+        Returns:
+            Response: 201 con la cuenta, 400 por datos inválidos o intento de
+            activación en la creación, 409 por conflicto de integridad o 503 si
+            la instalación no está habilitada. Activar y elegir principal requieren
+            operaciones posteriores.
+        """
         alias = base_ensayo()
         if alias is None:
             return Response({'mensaje': 'Modulo bancario no disponible: compruebe conexion y esquema autorizados.'}, status=503)
@@ -99,6 +147,20 @@ class CuentaBancariaDetalleView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def patch(self, request, id_cuenta):
+        """Modifica datos o estado de una cuenta bajo bloqueo de la tabla bancaria.
+
+        Args:
+            request: Petición con accion MODIFICAR, ACTIVAR, DESACTIVAR o PRINCIPAL;
+                MODIFICAR requiere los campos bancarios completos.
+            id_cuenta (int): Cuenta destinataria de la acción.
+
+        Returns:
+            Response: 200 con la cuenta, 400 por entrada inválida, 404 si falta,
+            409 por estado incompatible o integridad y 503 si no está habilitada.
+            Solo modifica datos de cuentas inactivas y no principales; elegir una
+            principal exige que esté activa y retira esa condición de las anteriores,
+            conservando el historial de cada cambio.
+        """
         alias = base_ensayo()
         if alias is None:
             return Response({'mensaje': 'Modulo bancario no disponible: compruebe conexion y esquema autorizados.'}, status=503)
@@ -158,6 +220,15 @@ class HistorialCuentasBancariasView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
+        """Consulta los cien cambios bancarios más recientes.
+
+        Args:
+            request: Petición administrativa autenticada.
+
+        Returns:
+            Response: 200 con valores anteriores y posteriores, incluidos los
+            números completos de cuenta, o 503 si la instalación no está habilitada.
+        """
         alias = base_ensayo()
         if alias is None:
             return Response({'mensaje': 'Modulo bancario no disponible: compruebe conexion y esquema autorizados.'}, status=503)

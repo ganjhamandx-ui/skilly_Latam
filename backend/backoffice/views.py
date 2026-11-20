@@ -44,7 +44,26 @@ class PanelIndicadoresView(APIView):
     ]
 
     def get(self, request):
+        """Agrupa conteos y montos registrados para el panel administrativo.
+
+        Args:
+            request: Petición administrativa autenticada.
+
+        Returns:
+            Response: 200 con indicadores, agrupaciones por estado, resumen de
+            pagos RETENIDO/LIBERADO y detalle de retenciones. Las sumas usan los
+            importes almacenados, sin ejecutar cobros ni verificar saldos bancarios.
+        """
         def agrupar_estados(modelo, campo):
+            """Cuenta registros de modelo por los valores de campo.
+
+            Args:
+                modelo: Clase de modelo Django consultada.
+                campo (str): Campo por el que se agrupan y ordenan los registros.
+
+            Returns:
+                list[dict]: Pares estado/cantidad, sin crear categorías vacías.
+            """
             registros = (
                 modelo.objects
                 .values(campo)
@@ -61,6 +80,7 @@ class PanelIndicadoresView(APIView):
             ]
 
         def formato_clp(valor):
+            """Devuelve valor con dos decimales como texto, usando cero cuando es None."""
             return format(valor if valor is not None else 0, ".2f")
 
         indicadores = {
@@ -210,6 +230,15 @@ class ConfiguracionComisionAdministracionView(APIView):
     ]
 
     def get(self, request):
+        """Consulta la comisión vigente y todas sus modificaciones anteriores.
+
+        Args:
+            request: Petición administrativa autenticada.
+
+        Returns:
+            Response: 200 con parámetro e historial descendente por fecha, o 404
+            si comision_porcentaje todavía no está configurado.
+        """
         parametro = (
             ParametroSistema.objects
             .select_related(
@@ -268,6 +297,17 @@ class ConfiguracionComisionAdministracionView(APIView):
         )
 
     def patch(self, request):
+        """Crea o cambia el porcentaje de comisión y conserva su historial.
+
+        Args:
+            request: Petición con valor_nuevo entre 0 y 100, con hasta cuatro
+                decimales, según ActualizarComisionSerializer.
+
+        Returns:
+            Response: 200 con el parámetro persistido, 400 por entrada inválida
+            o 409 si el valor numérico ya es el vigente. El parámetro y su historial
+            se guardan en una transacción; no recalcula pagos existentes.
+        """
         entrada_serializer = ActualizarComisionSerializer(
             data=request.data
         )
@@ -419,6 +459,16 @@ class TrazabilidadOperacionalView(APIView):
     ]
 
     def get(self, request):
+        """Consulta eventos por entidad, identificador y acción opcionales.
+
+        Args:
+            request: Petición con filtros en query_params; entidad_id debe ser
+                positivo y los filtros textuales se comparan sin distinguir mayúsculas.
+
+        Returns:
+            Response: 200 con eventos por fecha e identificador descendentes,
+            incluso si la lista está vacía, o 400 por filtros inválidos.
+        """
         filtro_serializer = FiltroTrazabilidadSerializer(
             data=request.query_params
         )
@@ -508,6 +558,15 @@ class DetalleEventoTrazabilidadView(APIView):
     ]
 
     def get(self, request, id_evento):
+        """Obtiene el evento solicitado con la representación de su responsable.
+
+        Args:
+            request: Petición administrativa autenticada.
+            id_evento (int): Identificador del evento consultado.
+
+        Returns:
+            Response: 200 con el evento o 404 si no existe.
+        """
         evento = (
             EventoTrazabilidad.objects
             .select_related(
