@@ -152,6 +152,13 @@ class CierreSimuladoCancelacionE3View(APIView):
             if not rev:
                 return Response({'mensaje': 'La reversa no corresponde al pago.'}, status=409)
             existente = ConciliacionReversaE3.objects.select_for_update().filter(id_liquidacion=liq).first()
+            if existente and (
+                    existente.id_pago_id != pago.pk or existente.id_reversa_id != rev.pk
+                    or existente.monto_total != liq.monto_total
+                    or existente.monto_devolucion != liq.monto_devolucion
+                    or existente.monto_trabajo != liq.monto_trabajo
+                    or existente.monto_cargo != liq.cargo_autorizado):
+                return Response({'mensaje': 'La conciliacion y la liquidacion no coinciden.'}, status=409)
             terminado = liq.estado == 'DISTRIBUCION_SIMULADA'
             try:
                 plan = detalles(liq, pago, terminado=terminado)
@@ -160,6 +167,7 @@ class CierreSimuladoCancelacionE3View(APIView):
             # Un reintento solo es idempotente si pago, reversa y conciliación coinciden.
             if terminado:
                 if (not existente or existente.estado != 'DISTRIBUCION_SIMULADA'
+                        or existente.remanente_pendiente != Decimal('0')
                         or rev.estado_reversa != 'SIMULADA'
                         or pago.estado_pago != 'DISTRIBUIDO_SIMULADO'):
                     return Response({'mensaje': 'Cierre parcial inconsistente. Requiere revision.'}, status=409)

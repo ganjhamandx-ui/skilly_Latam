@@ -136,7 +136,7 @@ CREATE TABLE liquidacion_cancelacion_e3 (
     monto_trabajo numeric(12,2) NOT NULL CHECK (monto_trabajo >= 0),
     cargo_autorizado numeric(12,2) NOT NULL CHECK (cargo_autorizado >= 0),
     monto_devolucion numeric(12,2) NOT NULL CHECK (monto_devolucion >= 0),
-    estado varchar(45) NOT NULL CHECK (estado IN ('REVERSA_SOLICITADA', 'PENDIENTE_CONCILIACION')),
+    estado varchar(45) NOT NULL CHECK (estado IN ('REVERSA_SOLICITADA', 'PENDIENTE_CONCILIACION', 'DISTRIBUCION_SIMULADA')),
     fundamento text NOT NULL,
     fecha_registro timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT ck_e3_liq_sum CHECK (monto_trabajo + cargo_autorizado + monto_devolucion = monto_total)
@@ -155,12 +155,12 @@ CREATE TABLE conciliacion_reversa_e3 (
     monto_trabajo numeric(12,2) NOT NULL CHECK (monto_trabajo >= 0),
     monto_cargo numeric(12,2) NOT NULL CHECK (monto_cargo >= 0),
     remanente_pendiente numeric(12,2) NOT NULL CHECK (remanente_pendiente >= 0),
-    estado varchar(35) NOT NULL CHECK (estado = 'SIMULACION_DOCUMENTAL'),
+    estado varchar(35) NOT NULL CHECK (estado IN ('SIMULACION_DOCUMENTAL', 'DISTRIBUCION_SIMULADA')),
     fundamento text NOT NULL CHECK (length(trim(fundamento)) >= 30),
     fecha_registro timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT ck_e3_conciliacion_cuadra CHECK (monto_total = monto_devolucion + monto_trabajo + monto_cargo),
     CONSTRAINT ck_e3_conciliacion_parcial CHECK (monto_devolucion < monto_total),
-    CONSTRAINT ck_e3_conciliacion_remanente CHECK (remanente_pendiente = monto_trabajo + monto_cargo)
+    CONSTRAINT ck_e3_conciliacion_remanente CHECK ((estado = 'SIMULACION_DOCUMENTAL' AND remanente_pendiente = monto_trabajo + monto_cargo) OR (estado = 'DISTRIBUCION_SIMULADA' AND remanente_pendiente = 0))
 );
 
 COMMIT;
