@@ -17,6 +17,7 @@ from marketplace.views import (
 class CatalogosPropuestasView(APIView):
 
     # Reconocer la sesion propia de SKILLY.
+    """Proporciona categorías y competencias al profesional autenticado."""
     authentication_classes = [
         SesionSkillyAuthentication,
     ]
@@ -37,6 +38,16 @@ class CatalogosPropuestasView(APIView):
     def get(self, request):
 
         # Obtener categorias habilitadas.
+        """Consulta catálogos excluyendo estados inactivos o deshabilitados conocidos.
+
+        Args:
+            request (Request): Sesión con permiso profesional.
+
+        Returns:
+            Response: HTTP 200 con categorías, competencias y totales por nombre e id.
+            Excluye variantes masculinas/femeninas sin distinguir mayúsculas; no exige
+            que el estado restante sea exactamente ACTIVA.
+        """
         categorias = (
             CategoriaServicio.objects
             .exclude(estado__iexact="INACTIVO")

@@ -23,6 +23,22 @@ def normalizar_precio_clp(
     value,
     permitir_vacio=True,
 ):
+    """Normaliza un precio positivo de hasta diez dígitos seguido de CLP.
+
+    Args:
+        value (str | None): Precio sin separadores de miles, decimales ni símbolos.
+        permitir_vacio (bool): Permite ausencia o texto vacío.
+
+    Returns:
+        str | None: Importe y CLP separados por un espacio, o ausencia admitida.
+
+    Raises:
+        serializers.ValidationError: Si falta el precio requerido o su formato es inválido.
+
+    Example:
+        >>> normalizar_precio_clp(" 140000clp ")
+        '140000 CLP'
+    """
     if value is None:
         if permitir_vacio:
             return None
@@ -62,6 +78,18 @@ def construir_contenido_revision_servicio(
     version_propuesta,
     resumen=None,
 ):
+    """Codifica la versión comercial con su marcador de formato y resumen.
+
+    Args:
+        version_propuesta (dict): Datos previamente validados de la versión final.
+        resumen (str | None): Texto opcional de administración, vacío por defecto.
+
+    Returns:
+        str: JSON compacto que conserva Unicode, sin validar sus campos.
+
+    Raises:
+        TypeError: Si algún valor no puede serializarse a JSON.
+    """
     contenido = {
         "formato": FORMATO_REVISION_SERVICIO,
         "resumen": resumen or "",
@@ -78,6 +106,16 @@ def construir_contenido_revision_servicio(
 def leer_contenido_revision_servicio(
     contenido_revisado,
 ):
+    """Reconoce una revisión estructurada sin interpretar texto histórico como contrato.
+
+    Args:
+        contenido_revisado (str): Contenido persistido, normalmente JSON o texto heredado.
+
+    Returns:
+        dict | None: Objeto con formato reconocido y version_propuesta de tipo dict;
+        None si está vacío, no es JSON válido o no cumple esa estructura.
+        No valida los campos internos de la propuesta.
+    """
     if not contenido_revisado:
         return None
 
@@ -120,6 +158,15 @@ def leer_contenido_revision_servicio(
 def extraer_version_propuesta_revision(
     contenido_revisado,
 ):
+    """Extrae la versión final de un contenido reconocido.
+
+    Args:
+        contenido_revisado (str): Contenido persistido de la revisión.
+
+    Returns:
+        dict | None: Versión propuesta sin validar su contenido comercial;
+        None si no se reconoce el formato.
+    """
     contenido = leer_contenido_revision_servicio(
         contenido_revisado
     )
@@ -135,6 +182,7 @@ def extraer_version_propuesta_revision(
 class CrearPropuestaServicioSerializer(
     serializers.Serializer
 ):
+    """Valida la propuesta inicial; permite omitir precio y competencias."""
     nombre = serializers.CharField(
         max_length=150,
         allow_blank=False,
@@ -182,6 +230,7 @@ class CrearPropuestaServicioSerializer(
         self,
         value,
     ):
+        """Devuelve los ids recibidos sin duplicados, conservando su primer orden."""
         return list(
             dict.fromkeys(value)
         )
@@ -190,6 +239,7 @@ class CrearPropuestaServicioSerializer(
         self,
         value,
     ):
+        """Devuelve precio CLP normalizado o None; lanza ValidationError por formato inválido."""
         return normalizar_precio_clp(
             value,
             permitir_vacio=True,
@@ -199,6 +249,7 @@ class CrearPropuestaServicioSerializer(
 class ActualizarPropuestaServicioSerializer(
     serializers.Serializer
 ):
+    """Valida campos opcionales de edición y exige al menos un cambio reconocido."""
     nombre = serializers.CharField(
         max_length=150,
         required=False,
@@ -248,6 +299,7 @@ class ActualizarPropuestaServicioSerializer(
         self,
         value,
     ):
+        """Deduplica los ids de competencias sin alterar su orden de entrada."""
         return list(
             dict.fromkeys(value)
         )
@@ -256,12 +308,24 @@ class ActualizarPropuestaServicioSerializer(
         self,
         value,
     ):
+        """Normaliza el precio opcional; devuelve None si está vacío y rechaza formatos inválidos."""
         return normalizar_precio_clp(
             value,
             permitir_vacio=True,
         )
 
     def validate(self, attrs):
+        """Rechaza una edición sin campos reconocidos.
+
+        Args:
+            attrs (dict): Campos de edición validados por DRF.
+
+        Returns:
+            dict: Mismos campos recibidos, sin completar valores desde el modelo.
+
+        Raises:
+            serializers.ValidationError: Si el diccionario está vacío.
+        """
         if not attrs:
             raise serializers.ValidationError(
                 "Debe indicar al menos un campo "
@@ -274,6 +338,11 @@ class ActualizarPropuestaServicioSerializer(
 class VersionPropuestaServicioSerializer(
     serializers.Serializer
 ):
+    """Valida la versión final con precio obligatorio.
+
+    Las vistas comprueban la existencia de categoría y competencias; los campos
+    IntegerField solo validan la forma y el rango de sus identificadores.
+    """
     nombre = serializers.CharField(
         max_length=150,
         allow_blank=False,
@@ -320,6 +389,7 @@ class VersionPropuestaServicioSerializer(
         self,
         value,
     ):
+        """Devuelve ids únicos conservando el orden de la propuesta recibida."""
         return list(
             dict.fromkeys(value)
         )
@@ -328,6 +398,7 @@ class VersionPropuestaServicioSerializer(
         self,
         value,
     ):
+        """Exige precio CLP válido; devuelve su forma canónica o lanza ValidationError."""
         return normalizar_precio_clp(
             value,
             permitir_vacio=False,
@@ -337,6 +408,7 @@ class VersionPropuestaServicioSerializer(
 class RevisarPropuestaServicioSerializer(
     serializers.Serializer
 ):
+    """Distingue devolución para correcciones de versión final para aprobación profesional."""
     DECISION_APROBAR = (
         "APROBAR_REVISION"
     )
@@ -375,6 +447,19 @@ class RevisarPropuestaServicioSerializer(
     )
 
     def validate(self, attrs):
+        """Construye el contenido de revisión según la decisión administrativa.
+
+        Args:
+            attrs (dict): Decisión y campos previamente validados por DRF.
+
+        Returns:
+            dict: Datos con contenido_revisado. Para corrección usa observación si falta
+            contenido; para aprobación codifica la versión en JSON estructurado.
+
+        Raises:
+            serializers.ValidationError: Si la corrección carece de observación o incluye
+                versión final, o la aprobación no contiene una versión.
+        """
         decision = attrs.get(
             "decision"
         )
@@ -450,6 +535,7 @@ class RevisarPropuestaServicioSerializer(
 class ServicioProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta la oferta actual con categoría, competencias y resumen de última revisión."""
     categoria = (
         serializers.SerializerMethodField()
     )
@@ -488,6 +574,7 @@ class ServicioProfesionalSerializer(
         self,
         servicio,
     ):
+        """Devuelve id, nombre y estado de la categoría del servicio recibido."""
         categoria = servicio.id_categoria
 
         return {
@@ -502,6 +589,7 @@ class ServicioProfesionalSerializer(
         self,
         servicio,
     ):
+        """Devuelve ids y nombres de competencias del servicio ordenadas por nombre."""
         relaciones = (
             ServicioCompetencia.objects
             .filter(
@@ -533,6 +621,10 @@ class ServicioProfesionalSerializer(
         self,
         servicio,
     ):
+        """Devuelve el resumen de la revisión de mayor versión, o None si no existe.
+
+        Incluye id, versión, estado y fechas; desempata por fecha e id descendentes.
+        """
         revision = (
             RevisionServicio.objects
             .filter(
@@ -573,6 +665,11 @@ class ServicioProfesionalSerializer(
 class RevisionServicioAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta revisión histórica y relaciones actuales del servicio a administración.
+
+    propuesta_skilly procede del contenido revisado; servicio, categoría y
+    competencias reflejan el modelo actual, no una copia de aquella versión.
+    """
     servicio = (
         serializers.SerializerMethodField()
     )
@@ -620,6 +717,7 @@ class RevisionServicioAdministracionSerializer(
         self,
         revision,
     ):
+        """Extrae el dict de versión final, o None si el contenido no es reconocido."""
         return (
             extraer_version_propuesta_revision(
                 revision.contenido_revisado
@@ -630,6 +728,7 @@ class RevisionServicioAdministracionSerializer(
         self,
         revision,
     ):
+        """Devuelve datos comerciales, estado y fechas actuales del servicio revisado."""
         servicio = revision.id_servicio
 
         return {
@@ -662,6 +761,7 @@ class RevisionServicioAdministracionSerializer(
         self,
         revision,
     ):
+        """Devuelve id, nombres, apellidos y validación del profesional del servicio."""
         profesional = (
             revision
             .id_servicio
@@ -687,6 +787,7 @@ class RevisionServicioAdministracionSerializer(
         self,
         revision,
     ):
+        """Devuelve id, nombre y estado de la categoría actual del servicio revisado."""
         categoria = (
             revision
             .id_servicio
@@ -705,6 +806,7 @@ class RevisionServicioAdministracionSerializer(
         self,
         revision,
     ):
+        """Lista ids, nombres y estados de competencias actuales por nombre ascendente."""
         relaciones = (
             ServicioCompetencia.objects
             .filter(
@@ -743,6 +845,7 @@ class RevisionServicioAdministracionSerializer(
 class VersionRevisadaProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Muestra la revisión propuesta y la oferta actual al profesional para compararlas."""
     servicio = (
         serializers.SerializerMethodField()
     )
@@ -774,6 +877,7 @@ class VersionRevisadaProfesionalSerializer(
         self,
         revision,
     ):
+        """Extrae la versión estructurada de la revisión o devuelve None para texto heredado."""
         return (
             extraer_version_propuesta_revision(
                 revision.contenido_revisado
@@ -784,6 +888,7 @@ class VersionRevisadaProfesionalSerializer(
         self,
         revision,
     ):
+        """Devuelve datos comerciales actuales y estado de publicación del servicio revisado."""
         servicio = revision.id_servicio
 
         return {
@@ -810,6 +915,10 @@ class VersionRevisadaProfesionalSerializer(
 class ServicioMarketplaceSerializer(
     serializers.ModelSerializer
 ):
+    """Distingue fichas públicas completas de tarjetas resumidas del catálogo.
+
+    La vista debe filtrar servicios PUBLICADO; el serializador no autoriza objetos.
+    """
     categoria = (
         serializers.SerializerMethodField()
     )
@@ -851,6 +960,15 @@ class ServicioMarketplaceSerializer(
         self,
         instance,
     ):
+        """Resume tarjetas en many=True y conserva el detalle individual.
+
+        Args:
+            instance (Servicio): Servicio cuya publicación ya comprobó la vista.
+
+        Returns:
+            dict: Id, nombre, categoría, modalidad y marca de disponibilidad en listas;
+            representación completa declarada por el serializador en una ficha individual.
+        """
         if isinstance(
             self.parent,
             serializers.ListSerializer,
@@ -890,6 +1008,15 @@ class ServicioMarketplaceSerializer(
         self,
         servicio,
     ):
+        """Comprueba bloques visibles sin reservas PENDIENTE_PAGO o ACTIVA.
+
+        Args:
+            servicio (Servicio): Oferta cuyo profesional aporta los bloques.
+
+        Returns:
+            bool: Si existe un bloque DISPONIBLE desde hoy cuyo término aún no pasó.
+            Puede incluir un bloque ya iniciado; el alta de solicitud revalida el inicio.
+        """
         from solicitudes.models import (
             Disponibilidad,
             ReservaDisponibilidad,
@@ -927,6 +1054,7 @@ class ServicioMarketplaceSerializer(
         self,
         servicio,
     ):
+        """Devuelve id y nombre de categoría para la ficha pública del servicio."""
         categoria = servicio.id_categoria
 
         return {
@@ -940,6 +1068,7 @@ class ServicioMarketplaceSerializer(
         self,
         servicio,
     ):
+        """Lista ids y nombres de competencias asociadas en orden alfabético."""
         relaciones = (
             ServicioCompetencia.objects
             .filter(
@@ -971,6 +1100,7 @@ class ServicioMarketplaceSerializer(
         self,
         servicio,
     ):
+        """Resume identidad, nombres, título y validación sin datos privados de contacto."""
         profesional = (
             servicio.id_profesional
         )
@@ -997,6 +1127,16 @@ class ServicioMarketplaceSerializer(
         self,
         servicio,
     ):
+        """Lista bloques visibles del profesional sin reservas pendientes o activas.
+
+        Args:
+            servicio (Servicio): Servicio que aporta el profesional consultado.
+
+        Returns:
+            list[dict]: Id, fecha y horas por orden cronológico. Excluye días pasados
+            y bloques de hoy terminados, pero no los que comenzaron y aún no terminan.
+            La disponibilidad definitiva se comprueba al enviar la solicitud.
+        """
         from solicitudes.models import (
             Disponibilidad,
             ReservaDisponibilidad,

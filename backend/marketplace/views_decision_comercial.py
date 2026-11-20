@@ -27,11 +27,28 @@ MOTIVOS = {
 
 @method_decorator(csrf_protect, name="dispatch")
 class RechazarVersionComercialProfesionalView(APIView):
+    """Registra el rechazo de condiciones propias con una sola reconsideración posible."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     http_method_names = ["post", "head", "options"]
 
     def post(self, request, id_servicio):
+        """Rechaza la versión pendiente y cierra el servicio tras el segundo rechazo.
+
+        Args:
+            request (Request): Sesión profesional con CSRF, motivo_categoria admitido
+                y motivo_detalle de 10 a 600 caracteres después de recortar espacios.
+            id_servicio (int): Servicio propio pendiente de aprobación profesional.
+
+        Returns:
+            Response: HTTP 200 con estado, ronda e id de revisión; 400 por motivo
+            inválido, 404 por perfil o servicio propio ausente y 409 por estado o límite.
+
+        Note:
+            Bloquea servicio y última revisión. Marca la versión RECHAZADA_PROFESIONAL
+            y crea una decisión histórica: el primer rechazo vuelve a EN_REVISION;
+            el segundo deja CERRADA_SIN_ACUERDO. No modifica precios ni publica la oferta.
+        """
         categoria = request.data.get("motivo_categoria")
         detalle = request.data.get("motivo_detalle")
         if not isinstance(categoria, str) or categoria not in MOTIVOS:

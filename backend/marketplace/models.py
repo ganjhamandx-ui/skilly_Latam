@@ -10,6 +10,7 @@ from profesionales.models import (
 
 
 class CategoriaServicio(models.Model):
+    """Clasifica servicios mediante un nombre único y un estado de catálogo."""
     id_categoria = models.BigAutoField(
         primary_key=True
     )
@@ -36,10 +37,16 @@ class CategoriaServicio(models.Model):
         db_table = "categoria_servicio"
 
     def __str__(self):
+        """Devuelve el nombre de la categoría para representaciones legibles."""
         return self.nombre
 
 
 class Servicio(models.Model):
+    """Conserva la oferta actual de un profesional y su estado de publicación.
+
+    Las versiones comerciales se guardan en RevisionServicio; el visto bueno
+    profesional aplica sus datos antes de permitir la publicación.
+    """
     id_servicio = models.BigAutoField(
         primary_key=True
     )
@@ -97,10 +104,12 @@ class Servicio(models.Model):
         db_table = "servicio"
 
     def __str__(self):
+        """Devuelve el nombre comercial del servicio."""
         return self.nombre
 
 
 class ServicioCompetencia(models.Model):
+    """Relaciona servicio y competencia con clave primaria compuesta, sin duplicados."""
     pk = models.CompositePrimaryKey(
         "id_servicio",
         "id_competencia",
@@ -126,6 +135,12 @@ class ServicioCompetencia(models.Model):
 
 
 class RevisionServicio(models.Model):
+    """Conserva versiones de revisión y decisiones comerciales del servicio.
+
+    contenido_revisado admite texto heredado o JSON estructurado. El autor
+    administrativo es opcional en decisiones profesionales. La fecha de
+    aprobación profesional acredita el visto bueno previo a publicar.
+    """
     id_revision_servicio = models.BigAutoField(
         primary_key=True
     )

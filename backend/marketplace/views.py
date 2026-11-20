@@ -41,12 +41,25 @@ from .serializers import (
 
 
 def obtener_profesional(usuario):
+    """Devuelve el primer perfil del usuario recibido, o None si todavía no existe.
+
+    No comprueba aquí el estado de validación ni sustituye los permisos de la vista.
+    """
     return Profesional.objects.filter(
         id_usuario=usuario
     ).first()
 
 
 def obtener_competencias(ids_competencias):
+    """Resuelve competencias y detecta identificadores inexistentes.
+
+    Args:
+        ids_competencias (list[int]): Identificadores previamente validados por DRF.
+
+    Returns:
+        tuple[list[Competencia], list[int]]: Modelos por id ascendente y ids faltantes
+        en el orden de entrada. No filtra el estado de las competencias.
+    """
     competencias = list(
         Competencia.objects.filter(
             id_competencia__in=ids_competencias
@@ -69,10 +82,30 @@ def obtener_competencias(ids_competencias):
 class MarketplaceServiciosPublicosView(
     APIView
 ):
+    """Expone tarjetas de servicios publicados con filtros de catálogo y disponibilidad."""
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):
+        """Busca servicios publicados y devuelve tarjetas resumidas del catálogo.
+
+        Args:
+            request (Request): Petición pública con q, id_categoria, id_competencia,
+                modalidad, fecha y pareja hora_inicio/hora_fin opcionales.
+
+        Returns:
+            Response: HTTP 200 con cantidad y servicios por publicación e id descendentes;
+            HTTP 400 por ids no convertibles, filtros temporales inválidos o franja incoherente.
+
+        Raises:
+            ValueError: Si parse_date o parse_time recibe una fecha/hora bien formada
+                pero imposible; esas excepciones no se capturan en este método.
+
+        Note:
+            La búsqueda textual cubre nombre, descripción y competencias. El filtro horario
+            exige bloques que contengan toda la franja y excluye reservas pendientes/activas.
+            La selección final vuelve a validar el inicio; la tarjeta no constituye reserva.
+        """
         servicios = (
             Servicio.objects
             .filter(
@@ -417,6 +450,7 @@ class MarketplaceServiciosPublicosView(
 class DetalleServicioMarketplaceView(
     APIView
 ):
+    """Expone la ficha pública solo si el servicio permanece PUBLICADO."""
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -425,6 +459,15 @@ class DetalleServicioMarketplaceView(
         request,
         id_servicio,
     ):
+        """Consulta una oferta publicada con profesional, competencias y disponibilidad.
+
+        Args:
+            request (Request): Petición pública sin sesión obligatoria.
+            id_servicio (int): Identificador del servicio solicitado.
+
+        Returns:
+            Response: HTTP 200 con ficha completa o 404 si falta el servicio publicado.
+        """
         servicio = (
             Servicio.objects
             .select_related(
@@ -467,6 +510,7 @@ class DetalleServicioMarketplaceView(
 class MisServiciosProfesionalesView(
     APIView
 ):
+    """Consulta ofertas propias y permite crear borradores a profesionales aprobados."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -475,6 +519,15 @@ class MisServiciosProfesionalesView(
     ]
 
     def get(self, request):
+        """Lista todos los estados de ofertas del perfil autenticado.
+
+        Args:
+            request (Request): Sesión con permiso profesional.
+
+        Returns:
+            Response: HTTP 200 con servicios por actualización e id descendentes;
+            HTTP 404 si falta el perfil profesional.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -517,6 +570,19 @@ class MisServiciosProfesionalesView(
         )
 
     def post(self, request):
+        """Crea un borrador con categoría y competencias existentes.
+
+        Args:
+            request (Request): Sesión profesional con CSRF, nombre, descripción, categoría
+                y campos comerciales opcionales; el perfil debe estar APROBADO.
+
+        Returns:
+            Response: HTTP 201 con BORRADOR y trazabilidad, 400 por entrada o relaciones
+            inexistentes, 404 si falta perfil y 409 si no está aprobado.
+
+        Raises:
+            Servicio.DoesNotExist: Si desaparece antes de recargar la respuesta.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -701,6 +767,7 @@ class MisServiciosProfesionalesView(
 class DetalleServicioProfesionalPropioView(
     APIView
 ):
+    """Consulta la oferta propia y permite correcciones antes de la revisión final."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -713,6 +780,16 @@ class DetalleServicioProfesionalPropioView(
         request,
         id_servicio,
     ):
+        """Obtiene la oferta propia y el historial de rechazos comerciales.
+
+        Args:
+            request (Request): Sesión con permiso profesional.
+            id_servicio (int): Servicio que debe pertenecer a su perfil.
+
+        Returns:
+            Response: HTTP 200 con oferta e historial de rechazos/cierre sin acuerdo;
+            HTTP 404 si no existe perfil o servicio propio.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -783,6 +860,20 @@ class DetalleServicioProfesionalPropioView(
         request,
         id_servicio,
     ):
+        """Actualiza un borrador o propuesta devuelta para corrección bajo bloqueo.
+
+        Args:
+            request (Request): Sesión profesional con CSRF y al menos un campo editable.
+            id_servicio (int): Servicio propio BORRADOR o CORRECCION_SOLICITADA.
+
+        Returns:
+            Response: HTTP 200 con oferta actualizada, 400 por campos o relaciones inválidos,
+            404 por perfil/servicio propio ausente y 409 por estado incompatible. Si se envían
+            competencias, reemplaza el conjunto completo, incluso para dejarlo vacío.
+
+        Raises:
+            Servicio.DoesNotExist: Si desaparece antes de recargar la respuesta.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -1010,6 +1101,7 @@ class DetalleServicioProfesionalPropioView(
 class EnviarServicioRevisionProfesionalView(
     APIView
 ):
+    """Envía propuestas propias a revisión administrativa conservando su contenido."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -1022,6 +1114,16 @@ class EnviarServicioRevisionProfesionalView(
         request,
         id_servicio,
     ):
+        """Pasa un borrador o corrección solicitada a EN_REVISION.
+
+        Args:
+            request (Request): Sesión profesional con CSRF; no requiere contenido adicional.
+            id_servicio (int): Servicio propio que se bloqueará durante la transición.
+
+        Returns:
+            Response: HTTP 200 con oferta y trazabilidad; 404 por perfil/servicio ausente
+            y 409 si el estado no permite enviar. No crea todavía una RevisionServicio.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -1132,6 +1234,7 @@ class EnviarServicioRevisionProfesionalView(
 class VersionRevisadaProfesionalView(
     APIView
 ):
+    """Consulta la última revisión y aplica su versión final tras el visto bueno del propietario."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -1144,6 +1247,16 @@ class VersionRevisadaProfesionalView(
         request,
         id_servicio,
     ):
+        """Consulta la revisión de mayor versión del servicio propio.
+
+        Args:
+            request (Request): Sesión con permiso profesional.
+            id_servicio (int): Servicio del perfil autenticado.
+
+        Returns:
+            Response: HTTP 200 con revisión, propuesta estructurada y oferta actual;
+            HTTP 404 si falta perfil, servicio propio o revisión.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -1222,6 +1335,24 @@ class VersionRevisadaProfesionalView(
         request,
         id_servicio,
     ):
+        """Aplica la versión comercial aprobada sin publicarla todavía.
+
+        Args:
+            request (Request): Sesión profesional con CSRF; aprueba la última versión persistida.
+            id_servicio (int): Servicio propio PEND_APROBACION_PROFESIONAL.
+
+        Returns:
+            Response: HTTP 200 con revisión APROBADA y servicio APROBADA_PARA_PUBLICAR;
+            404 si falta perfil, servicio o revisión; 409 si el estado, contenido estructurado
+            o relaciones de la versión ya no son válidos.
+
+        Raises:
+            RevisionServicio.DoesNotExist: Si desaparece antes de recargar la respuesta.
+
+        Note:
+            Bloquea servicio y revisión, revalida la propuesta y sustituye campos comerciales
+            y competencias en una transacción. No toma una versión nueva del cuerpo HTTP.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -1549,6 +1680,7 @@ class VersionRevisadaProfesionalView(
 class PublicarServicioProfesionalView(
     APIView
 ):
+    """Publica una oferta propia únicamente tras la aprobación de su última revisión."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -1561,6 +1693,17 @@ class PublicarServicioProfesionalView(
         request,
         id_servicio,
     ):
+        """Hace visible la oferta aprobada y registra la fecha de publicación.
+
+        Args:
+            request (Request): Sesión profesional con CSRF válido.
+            id_servicio (int): Servicio propio APROBADA_PARA_PUBLICAR.
+
+        Returns:
+            Response: HTTP 200 con servicio PUBLICADO; 404 por perfil o servicio propio
+            ausente y 409 si falta estado habilitante o revisión APROBADA con fecha de visto bueno.
+            Repetir la publicación sobre PUBLICADO devuelve conflicto.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -1706,6 +1849,7 @@ class PublicarServicioProfesionalView(
 class RevisionesServicioAdministracionView(
     APIView
 ):
+    """Consulta el historial general de revisiones con permiso administrativo."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -1714,6 +1858,14 @@ class RevisionesServicioAdministracionView(
     ]
 
     def get(self, request):
+        """Lista revisiones por fecha e id descendentes, sin filtrar estado.
+
+        Args:
+            request (Request): Sesión administrativa activa.
+
+        Returns:
+            Response: HTTP 200 con revisiones y relaciones actuales del servicio.
+        """
         revisiones = (
             RevisionServicio.objects
             .select_related(
@@ -1753,6 +1905,7 @@ class RevisionesServicioAdministracionView(
 class RevisarServicioAdministracionView(
     APIView
 ):
+    """Versiona correcciones o condiciones finales sin publicarlas ni aplicarlas aún."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -1765,6 +1918,27 @@ class RevisarServicioAdministracionView(
         request,
         id_servicio,
     ):
+        """Registra la revisión administrativa y el siguiente estado de la oferta.
+
+        Args:
+            request (Request): Sesión administrativa con CSRF, decisión, observación y
+                versión final estructurada cuando corresponde aprobar la revisión.
+            id_servicio (int): Oferta que debe encontrarse EN_REVISION.
+
+        Returns:
+            Response: HTTP 201 con nueva revisión y estado CORRECCION_SOLICITADA o
+            PEND_APROBACION_PROFESIONAL; 400 por datos, relaciones o justificación inválidos;
+            404 si falta servicio y 409 por estado o reconsideración agotada.
+
+        Raises:
+            RevisionServicio.DoesNotExist: Si desaparece antes de recargar la respuesta.
+
+        Note:
+            Bloquea el servicio para numerar versiones. Tras un rechazo comercial solo
+            admite una segunda versión final, sin otra ronda de correcciones. Cambiar tarifa
+            o reconsiderar exige observación de al menos 15 caracteres. Los campos comerciales
+            se aplican después del visto bueno profesional, no durante esta revisión.
+        """
         entrada_serializer = (
             RevisarPropuestaServicioSerializer(
                 data=request.data
@@ -2110,6 +2284,7 @@ class RevisarServicioAdministracionView(
 class DetalleRevisionServicioAdministracionView(
     APIView
 ):
+    """Consulta una revisión concreta con sus datos de servicio y autor administrativo."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -2122,6 +2297,15 @@ class DetalleRevisionServicioAdministracionView(
         request,
         id_revision_servicio,
     ):
+        """Recupera una revisión por identificador sin restringir su estado histórico.
+
+        Args:
+            request (Request): Sesión administrativa activa.
+            id_revision_servicio (int): Revisión que se consultará.
+
+        Returns:
+            Response: HTTP 200 con la revisión serializada o 404 si no existe.
+        """
         revision = (
             RevisionServicio.objects
             .select_related(

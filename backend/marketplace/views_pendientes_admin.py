@@ -16,6 +16,7 @@ from .serializers import ServicioProfesionalSerializer
 class PropuestasPendientesAdministracionView(APIView):
 
     # Solo administradores autenticados de SKILLY.
+    """Reúne ofertas EN_REVISION y catálogos para la bandeja administrativa."""
     authentication_classes = [
         SesionSkillyAuthentication,
     ]
@@ -34,6 +35,16 @@ class PropuestasPendientesAdministracionView(APIView):
     def get(self, request):
 
         # Servicios enviados por profesionales a revision.
+        """Lista propuestas pendientes de más antiguas a más recientes.
+
+        Args:
+            request (Request): Sesión administrativa activa.
+
+        Returns:
+            Response: HTTP 200 con servicios, total, categorías y competencias.
+            Si la última revisión es RECHAZO_COMERCIAL, incluye motivo, categoría y fecha.
+            Los catálogos excluyen estados inactivos/deshabilitados conocidos.
+        """
         servicios = (
             Servicio.objects
             .filter(
