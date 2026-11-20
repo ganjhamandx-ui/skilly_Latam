@@ -32,18 +32,32 @@ const grupos = [
   { id: 'pagos', titulo: 'Pagos, incidencias y condiciones', clases: ['Pagos', 'Incidencias', 'Condiciones de contratación', 'Información importante'] },
 ]
 
-// Normaliza diacríticos para reconocer etiquetas de condiciones equivalentes.
+/**
+ * Normaliza etiquetas para buscar equivalencias sin modificar el texto persistido.
+ * @param {string} texto Etiqueta a comparar.
+ * @returns {string} Texto sin diacríticos, en minúsculas y con espacios internos unificados.
+ */
 function sinAcentos(texto) {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ')
 }
 
+/**
+ * Retira delimitadores de negrita escritos como texto y espacios exteriores.
+ * @param {string} texto Línea que se presentará en la interfaz.
+ * @returns {string} Texto plano para mostrar; no interpreta ni sanea HTML.
+ */
 function limpiarFormato(texto) {
   // El formulario administrativo almacena texto plano, aunque admita **negritas** escritas por usuario.
   // Se muestran sus palabras sin exponer a la organización los delimitadores de Markdown.
   return texto.replace(/\*\*/g, '').trim()
 }
 
-// Detecta el encabezado de condición que identifica la sección del texto.
+/**
+ * Reconoce una etiqueta conocida o un encabezado breve anterior a dos puntos.
+ * También conserva frases iniciadas por No incluye y Estas condiciones como secciones.
+ * @param {string} linea Línea de condiciones antes de limpiar formato.
+ * @returns {{titulo: string, contenido: string}|null} Encabezado reconocido, o null.
+ */
 function leerEtiqueta(linea) {
   const valor = limpiarFormato(linea)
   const match = /^([^:\n]{1,70}):\s*(.*)$/.exec(valor)
@@ -66,7 +80,12 @@ function leerEtiqueta(linea) {
   return null
 }
 
-// Separa el texto de condiciones según las etiquetas que reconoce la interfaz.
+/**
+ * Divide condiciones en secciones ordenadas, conservando líneas bajo cada encabezado.
+ * Omite secciones sin contenido y agrupa el texto inicial sin etiqueta como información complementaria.
+ * @param {*} texto Texto publicado; los valores no textuales o vacíos producen una lista vacía.
+ * @returns {Array<{titulo: string, contenido: string}>} Secciones de presentación, sin persistencia.
+ */
 export function extraerSeccionesCondiciones(texto) {
   if (typeof texto !== 'string' || !texto.trim()) return []
   const secciones = []
@@ -104,7 +123,12 @@ export function extraerSeccionesCondiciones(texto) {
   return secciones
 }
 
-// Organiza las secciones encontradas para presentar su contenido sin perder texto.
+/**
+ * Agrupa las secciones en categorías de presentación y conserva títulos desconocidos.
+ * @param {*} texto Condiciones que se procesarán con extraerSeccionesCondiciones.
+ * @returns {Array<{id: string, titulo: string, items: Array}>} Grupos no vacíos en orden
+ * de la interfaz; los encabezados no clasificados se incluyen en Otros acuerdos.
+ */
 export function agruparSeccionesCondiciones(texto) {
   const secciones = extraerSeccionesCondiciones(texto)
   const conjuntos = grupos.map(({ id, titulo, clases }) => ({

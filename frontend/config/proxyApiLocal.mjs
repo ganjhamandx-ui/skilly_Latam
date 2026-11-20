@@ -1,6 +1,13 @@
 const ERROR_TARGET = 'Define SKILLY_API_PROXY_TARGET con un origen HTTP loopback y puerto explícito distinto de 8000.'
 
-// Restringe el destino del proxy a un origen HTTP de loopback con puerto explícito y sin credenciales.
+/**
+ * Valida el origen HTTP local antes de usarlo como destino del proxy de desarrollo.
+ * Admite localhost, ::1 o IPv4 decimal completo de 127/8, puerto explícito 1..65535
+ * distinto de 8000 y barra final opcional. Rechaza credenciales, rutas y URL ambiguas.
+ * @param {string} value Origen, sin espacios exteriores y de hasta 200 caracteres.
+ * @returns {string} Origen normalizado sin barra final.
+ * @throws {Error} Si la configuración es inválida; el mensaje no incluye el valor recibido.
+ */
 export function validarDestinoApiLocal(value) {
   if (typeof value !== 'string' || value.length > 200 || value.trim() !== value) {
     throw new Error(ERROR_TARGET)
@@ -32,7 +39,14 @@ export function validarDestinoApiLocal(value) {
   }
 }
 
-// Configura el listener fijo de Vite y el proxy de API solo al servir la aplicación.
+/**
+ * Configura el servidor local y proxy de API únicamente para el comando serve.
+ * @param {string} command Comando recibido desde la configuración de Vite.
+ * @param {Object} [environment={}] Variables del proceso.
+ * @param {string} [environment.SKILLY_API_PROXY_TARGET] Origen local requerido al servir.
+ * @returns {Object|undefined} Configuración fija de listener y proxy; undefined para compilar.
+ * @throws {Error} Si el destino de API no supera la validación durante serve.
+ */
 export function configurarServidorLocal(command, environment = {}) {
   if (command !== 'serve') return undefined
 

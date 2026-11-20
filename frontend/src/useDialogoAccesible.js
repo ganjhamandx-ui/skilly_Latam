@@ -4,7 +4,11 @@ const dialogos = []
 let overflowAnterior = ''
 const selectorFoco = 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex], [contenteditable="true"]'
 
-// Localiza controles disponibles para construir el recorrido de teclado del diálogo.
+/**
+ * Localiza controles visibles y habilitados para el recorrido de teclado.
+ * @param {HTMLElement} panel Contenedor del diálogo montado.
+ * @returns {HTMLElement[]} Controles en orden DOM, excluidos ocultos, inertes y tabindex -1.
+ */
 function elementosFoco(panel) {
   return [...panel.querySelectorAll(selectorFoco)].filter(elemento =>
     !elemento.matches(':disabled, [tabindex="-1"]') &&
@@ -13,13 +17,28 @@ function elementosFoco(panel) {
   )
 }
 
-// Mueve el foco al primer control útil o al panel si no hay controles.
+/**
+ * Enfoca el destino inicial explícito, el primer control disponible o el panel.
+ * @param {HTMLElement} panel Contenedor que debe admitir foco si no tiene controles.
+ * @returns {void}
+ */
 function enfocarInicio(panel) {
   const destino = panel.querySelector('[data-dialogo-foco-inicial]:not(:disabled)') || elementosFoco(panel)[0] || panel
   destino.focus({ preventScroll: true })
 }
 
-// Cada ventana conserva su disparador y solo la superior responde al teclado.
+/**
+ * Mantiene el foco y la navegación de teclado de diálogos apilados.
+ * Solo el superior procesa Escape y Tab. Mientras haya diálogos bloquea el scroll
+ * del body; al cerrar restaura el foco al disparador conectado o al diálogo anterior.
+ * No añade atributos ARIA ni oculta el contenido de fondo: los define el componente.
+ *
+ * @param {boolean} abierto Si el diálogo debe registrarse como activo.
+ * @param {{current: HTMLElement|null}} panelRef Referencia estable al panel montado.
+ * @param {function(): void} onCerrar Solicitud de cierre por Escape.
+ * @param {boolean} [bloqueado=false] Impide cierre por Escape durante una operación.
+ * @returns {void}
+ */
 export default function useDialogoAccesible(abierto, panelRef, onCerrar, bloqueado = false) {
   const acciones = useRef({ onCerrar, bloqueado })
   useEffect(() => { acciones.current = { onCerrar, bloqueado } }, [onCerrar, bloqueado])
@@ -37,7 +56,11 @@ export default function useDialogoAccesible(abierto, panelRef, onCerrar, bloquea
     dialogos.push(dialogo)
     enfocarInicio(panel)
 
-    // Controla las teclas del diálogo para cerrar o mantener una navegación de foco accesible.
+    /**
+     * Procesa Escape o recircula Tab únicamente en el diálogo superior.
+     * @param {KeyboardEvent} evento Evento del documento; respeta defaultPrevented.
+     * @returns {void}
+     */
     function manejarTeclado(evento) {
       if (dialogos.at(-1) !== dialogo || evento.defaultPrevented) return
       if (evento.key === 'Escape') {
