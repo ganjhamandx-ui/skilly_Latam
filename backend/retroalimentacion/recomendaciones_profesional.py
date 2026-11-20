@@ -26,7 +26,16 @@ class MisRecomendacionesProfesionalView(APIView):
     ]
 
     def get(self, request):
-        """Lista recomendaciones comunicadas al profesional autenticado."""
+        """Lista recomendaciones propias comunicadas y con fecha de comunicación.
+
+        Args:
+            request (Request): Sesión activa con permiso profesional.
+
+        Returns:
+            Response: HTTP 200 con recomendaciones y total, ordenadas de más reciente
+            a más antigua; HTTP 404 si falta perfil. Omite el feedback privado de origen
+            y los datos del administrador que creó la recomendación.
+        """
         profesional = Profesional.objects.filter(
             id_usuario=request.user
         ).first()
@@ -90,7 +99,17 @@ class DetalleRecomendacionProfesionalView(APIView):
         request,
         id_recomendacion,
     ):
-        """Entrega una recomendación comunicada que pertenece al profesional autenticado."""
+        """Consulta una recomendación propia comunicada con fecha no nula.
+
+        Args:
+            request (Request): Sesión activa con permiso profesional.
+            id_recomendacion (int): Recomendación cuyo contenido se solicita.
+
+        Returns:
+            Response: HTTP 200 con campos comunicables o 404 si falta perfil o
+            recomendación accesible. No distingue una recomendación ajena de una
+            inexistente o todavía no comunicada.
+        """
         profesional = Profesional.objects.filter(
             id_usuario=request.user
         ).first()

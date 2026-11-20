@@ -56,7 +56,10 @@ class RetroalimentacionAdministracionSerializer(
 class RegistrarRetroalimentacionSerializer(
     serializers.Serializer
 ):
-    """Valida calificación y comentario antes de registrar una evaluación."""
+    """Exige contenido textual no vacío y elimina sus espacios exteriores.
+
+    No recibe puntuaciones ni calificaciones numéricas.
+    """
 
     contenido = serializers.CharField(
         trim_whitespace=True
