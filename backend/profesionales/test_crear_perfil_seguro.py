@@ -15,12 +15,24 @@ from profesionales.views_crear_perfil import CrearMiPerfilProfesionalView
 
 @override_settings(ALLOWED_HOSTS=["testserver"], CSRF_TRUSTED_ORIGINS=[])
 class CrearPerfilSeguroTests(SimpleTestCase):
+    """Comprueba sesión, CSRF y unicidad del perfil usando persistencia simulada."""
     def setUp(self):
+        """Prepara solicitudes con comprobación CSRF y datos de un profesional activo."""
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.usuario = Usuario(id_usuario=901, estado="ACTIVO", rol="PROFESIONAL")
         self.datos = {"nombres": "Persona", "apellidos": "De Prueba"}
 
     def solicitud(self, *, sesion=True, csrf="valido", datos=None):
+        """Construye una petición con sesión firmada y variantes de protección CSRF.
+
+        Args:
+            sesion: Indica si se incorpora el identificador del usuario a la sesión.
+            csrf: Usa un token válido, ausente o incorrecto según el escenario.
+            datos: Cuerpo alternativo; None utiliza los datos válidos iniciales.
+
+        Returns:
+            HttpRequest: Petición preparada para despachar la vista real.
+        """
         request = self.factory.post(
             "/api/profesionales/mi-perfil/crear/",
             self.datos if datos is None else datos, format="json",
@@ -36,6 +48,15 @@ class CrearPerfilSeguroTests(SimpleTestCase):
         return request
 
     def ejecutar(self, request, *, existente=False):
+        """Despacha la vista con ORM y transacción simulados y comprueba la propiedad del perfil.
+
+        Args:
+            request: Petición preparada con sesión y CSRF según el escenario.
+            existente: Indica si la consulta simulada encuentra un perfil anterior.
+
+        Returns:
+            tuple: Respuesta de la vista y número de llamadas a la creación del perfil.
+        """
         with (
             patch("acceso.authentication.Usuario.objects") as usuarios,
             patch("profesionales.views_crear_perfil.Profesional.objects") as perfiles,
@@ -59,31 +80,37 @@ class CrearPerfilSeguroTests(SimpleTestCase):
             return response, creados
 
     def test_sesion_profesional_y_csrf_crean_su_perfil(self):
+        """Comprueba una única creación y el identificador devuelto para la sesión profesional."""
         response, creados = self.ejecutar(self.solicitud())
         self.assertEqual(response.status_code, 201)
         self.assertEqual(creados, 1)
         self.assertEqual(response.data["perfil"]["id_profesional"], 902)
 
     def test_sin_sesion_no_crea_perfil(self):
+        """Comprueba el rechazo de una petición sin identidad en sesión."""
         response, creados = self.ejecutar(self.solicitud(sesion=False))
         self.assertEqual((response.status_code, creados), (403, 0))
 
     def test_sesion_de_otro_rol_no_crea_perfil(self):
+        """Comprueba que una sesión administrativa no cree un perfil profesional propio."""
         self.usuario.rol = "ADMIN_SKILLY"
         response, creados = self.ejecutar(self.solicitud())
         self.assertEqual((response.status_code, creados), (403, 0))
 
     def test_post_sin_csrf_o_incorrecto_no_crea_perfil(self):
+        """Comprueba que CSRF ausente o inválido impida cualquier creación."""
         for csrf in ("ausente", "incorrecto"):
             with self.subTest(csrf=csrf):
                 response, creados = self.ejecutar(self.solicitud(csrf=csrf))
                 self.assertEqual((response.status_code, creados), (403, 0))
 
     def test_reintento_con_perfil_existente_no_lo_duplica(self):
+        """Comprueba la respuesta de conflicto sin duplicar el perfil existente."""
         response, creados = self.ejecutar(self.solicitud(), existente=True)
         self.assertEqual((response.status_code, creados), (409, 0))
 
     def test_datos_invalidos_no_crean_perfil(self):
+        """Comprueba el rechazo de cuerpos vacíos, incompletos o con estructura inválida."""
         for datos in ({"nombres": "", "apellidos": "Prueba"}, [], {"nombres": "Persona"}):
             with self.subTest(tipo=type(datos).__name__):
                 response, creados = self.ejecutar(self.solicitud(datos=datos))
