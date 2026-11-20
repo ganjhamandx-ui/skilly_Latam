@@ -1,8 +1,15 @@
-// Cada carga invalida la anterior, incluso si el servidor no respeta AbortSignal.
+/**
+ * Crea un control que invalida respuestas antiguas aunque el transporte ignore el aborto.
+ * @returns {{iniciar: function(): {signal: AbortSignal, vigente: function(): boolean}, cancelar: function(): void}}
+ * Control compartido por las consultas de una misma pantalla.
+ */
 export function crearControlConsultas() {
   let actual = null
   return {
-    // Cancela la consulta previa y crea una señal para identificar la consulta vigente.
+    /**
+     * Aborta la consulta anterior y registra una nueva identidad de solicitud.
+     * @returns {{signal: AbortSignal, vigente: function(): boolean}} Señal y comprobación de vigencia.
+     */
     iniciar() {
       actual?.abort()
       const controlador = new AbortController()
@@ -13,7 +20,10 @@ export function crearControlConsultas() {
         vigente: () => actual === controlador && !controlador.signal.aborted,
       }
     },
-    // Aborta la solicitud activa e invalida las respuestas que lleguen después.
+    /**
+     * Aborta la solicitud activa e invalida las respuestas que lleguen después.
+     * @returns {void}
+     */
     cancelar() {
       actual?.abort()
       actual = null
@@ -21,7 +31,18 @@ export function crearControlConsultas() {
   }
 }
 
-// Entrega el resultado solo si la consulta sigue vigente después de resolver la promesa.
+/**
+ * Inicia una consulta y entrega su resultado o error solo mientras siga vigente.
+ * Si alCompletar lanza un error, también se entrega a alFallar mientras conserve vigencia.
+ * No espera las promesas que pudieran devolver los callbacks.
+ *
+ * @param {ReturnType<typeof crearControlConsultas>} control Control de la consulta más reciente.
+ * @param {function(AbortSignal): Promise<*>} consultar Operación que debe devolver una promesa.
+ * @param {function(*): void} alCompletar Aplica el resultado vigente al estado de la pantalla.
+ * @param {function(*): void} alFallar Maneja el error vigente.
+ * @returns {Promise<void>} Promesa del procesamiento; rechaza si alFallar lanza un error.
+ * @throws {*} Si consultar lanza sin devolver una promesa; ese fallo sincrónico se propaga.
+ */
 export function ejecutarConsulta(control, consultar, alCompletar, alFallar) {
   const solicitud = control.iniciar()
   return consultar(solicitud.signal)

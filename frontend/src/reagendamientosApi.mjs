@@ -1,11 +1,28 @@
 // Transporte autenticado del reagendamiento; conserva cookies, CSRF y cuerpos multipart.
+/**
+ * Selecciona el mensaje textual de la API, priorizando mensaje sobre detail.
+ * @param {Object|null|undefined} datos Cuerpo JSON de error, si pudo leerse.
+ * @param {number} codigo Estado HTTP para el mensaje de respaldo.
+ * @returns {string} Texto apto para mostrar al usuario.
+ */
 function mensajeDeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `Error HTTP ${codigo}`
 }
 
-// Usa el proxy con cookies, CSRF y el formato apropiado para JSON o FormData.
+/**
+ * Solicita reagendamientos y valida la estructura de los listados recibidos.
+ * Para métodos distintos de GET obtiene antes un token CSRF. Conserva FormData
+ * sin fijar Content-Type y usa JSON para otros cuerpos, que debe serializar el llamador.
+ * Las opciones y cabeceras explícitas del llamador prevalecen sobre los valores predeterminados.
+ *
+ * @param {string} url Ruta de la API, normalmente bajo el proxy del mismo origen.
+ * @param {RequestInit} [opciones={}] Método en mayúsculas, cuerpo, señal y cabeceras.
+ * @returns {Promise<Object>} JSON recibido; un cuerpo no legible se sustituye por un objeto vacío.
+ * @throws {Error} Si falla la red, no se obtiene CSRF válido o la API devuelve un estado no exitoso.
+ * @throws {TypeError} Si una lectura no contiene solicitudes con id y estado textual.
+ */
 export async function solicitudReagendamiento(url, opciones = {}) {
   const escritura = opciones.method && opciones.method !== 'GET'
   const esFormulario = typeof FormData !== 'undefined' && opciones.body instanceof FormData
