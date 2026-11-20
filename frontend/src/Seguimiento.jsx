@@ -6,7 +6,12 @@ import { ReagendamientosOrganizacion } from './ReagendamientosSkilly.jsx'
 import AdjuntosEntregaEmpresaE3 from './AdjuntosEntregaEmpresaE3.jsx'
 import CondicionesPrestacionE3 from './CondicionesPrestacionE3.jsx'
 
-// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
+/**
+ * Convierte un dato a texto y sustituye valores nulos o cadenas vacías.
+ * @param {*} valor Dato que se mostrará.
+ * @param {string} [defecto='No informado'] Texto para datos ausentes.
+ * @returns {string} Representación del dato o texto alternativo.
+ */
 function texto(valor, defecto = 'No informado') {
   if (valor === null || valor === undefined || valor === '') {
     return defecto
@@ -14,7 +19,12 @@ function texto(valor, defecto = 'No informado') {
   return String(valor)
 }
 
-// Presenta los registros en formato local y conserva el día civil de las fechas sin hora.
+/**
+ * Invierte las partes de los primeros diez caracteres de una fecha civil.
+ * No interpreta marcas temporales ni convierte zonas horarias.
+ * @param {string|null} valor Fecha recibida.
+ * @returns {string} Día-mes-año, prefijo original o «No informada».
+ */
 function formatoFecha(valor) {
   if (!valor) return 'No informada'
   const fecha = String(valor).slice(0, 10)
@@ -23,7 +33,13 @@ function formatoFecha(valor) {
   return `${partes[2]}-${partes[1]}-${partes[0]}`
 }
 
-// Extrae el motivo del fallo de API para mostrarlo en el seguimiento.
+/**
+ * Prioriza mensajes generales y reúne campos de error antes del respaldo HTTP.
+ * @param {Object|null} datos Respuesta de la API.
+ * @param {number} estado Estado HTTP.
+ * @param {string} porDefecto Descripción usada cuando no hay detalles.
+ * @returns {string} Mensaje legible para la operación.
+ */
 function mensajeDeApi(datos, estado, porDefecto) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -42,7 +58,11 @@ function mensajeDeApi(datos, estado, porDefecto) {
   return `${porDefecto} (HTTP ${estado}).`
 }
 
-// Renueva el token CSRF que acompañará la escritura desde el seguimiento.
+/**
+ * Solicita el token asociado a las cookies de la sesión del navegador.
+ * @returns {Promise<string>} Token para una escritura protegida.
+ * @throws {Error} Si falla la consulta, se rechaza la respuesta o falta el token.
+ */
 async function tokenCsrf() {
   const respuesta = await fetch('/api/acceso/csrf/', {
     method: 'GET',
@@ -60,7 +80,12 @@ async function tokenCsrf() {
   return datos.csrfToken
 }
 
-// Integra estado, agenda, pago, entregas y reclamos de la referencia empresarial.
+/**
+ * Consulta una solicitud mediante su referencia privada y presenta su prestación.
+ * Retira la referencia de la URL al capturarla y conserva por separado los errores
+ * de prestación, revisión de entregas, reclamos y retroalimentación.
+ * @returns {import('react').ReactElement} Consulta empresarial y operaciones habilitadas.
+ */
 function Seguimiento() {
   const [webpayResultado] = useState(() => new URLSearchParams(window.location.search).get('webpay'))
   const [referencia, setReferencia] = useState(() => {
@@ -81,7 +106,6 @@ function Seguimiento() {
     return codigo.length <= 500 ? codigo : ''
   })
 
-  // Estados originales del seguimiento.
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
   const [resultado, setResultado] = useState(null)
@@ -94,7 +118,6 @@ function Seguimiento() {
   const [errorRevision, setErrorRevision] = useState('')
   const [avisoRevision, setAvisoRevision] = useState('')
 
-  // Nuevos estados para los formularios empresariales.
   const [referenciaConsultada, setReferenciaConsultada] = useState('')
   const [motivoReclamo, setMotivoReclamo] = useState('')
   const [descripcionReclamo, setDescripcionReclamo] = useState('')
@@ -111,7 +134,12 @@ function Seguimiento() {
   const [avisoFeedback, setAvisoFeedback] = useState('')
   const [feedbackEnviado, setFeedbackEnviado] = useState(false)
 
-  // Obtiene los datos de la prestación usando la referencia de seguimiento.
+  /**
+   * Valida la referencia y consulta solicitud, prestación y habilitación de feedback.
+   * Un fallo de una consulta secundaria conserva los datos de las etapas anteriores.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío de la referencia.
+   * @returns {Promise<void>} Finalización de las consultas con errores por sección.
+   */
   async function consultar(evento) {
     evento.preventDefault()
     if (cargando) return
@@ -279,7 +307,14 @@ function Seguimiento() {
     }
   }
 
-  // Función original de revisión de entregas.
+  /**
+   * Confirma aceptación u observaciones de una entrega en estado ENTREGADA.
+   * Usa la referencia escrita en el formulario y recarga el historial tras el registro.
+   * Un fallo de recarga informa que la revisión ya fue registrada.
+   * @param {Object} entrega Entrega con identificador y estado actual.
+   * @param {'ACEPTAR'|'OBSERVAR'} accion Decisión de la organización.
+   * @returns {Promise<void>} Finalización de la revisión y recarga.
+   */
   async function revisarEntrega(entrega, accion) {
     if (
       revisandoEntrega !== null ||
@@ -412,7 +447,13 @@ function Seguimiento() {
     }
   }
 
-  // NUEVO: reclamo empresarial.
+  /**
+   * Confirma y registra el reclamo para la referencia consultada.
+   * El motivo de cancelación de la organización selecciona el endpoint de cancelaciones
+   * y permite adjuntar evidencia; los demás motivos se envían como reclamo en JSON.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del formulario.
+   * @returns {Promise<void>} Finalización del registro con errores en su sección.
+   */
   async function registrarReclamo(evento) {
     evento.preventDefault()
 
@@ -499,7 +540,12 @@ function Seguimiento() {
     }
   }
 
-  // NUEVO: retroalimentación privada.
+  /**
+   * Envía retroalimentación privada cuando la consulta informó que está habilitada.
+   * Exige contenido y confirmación, y marca el envío local para impedir su repetición.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del formulario.
+   * @returns {Promise<void>} Finalización del registro con errores en su sección.
+   */
   async function registrarFeedback(evento) {
     evento.preventDefault()
 

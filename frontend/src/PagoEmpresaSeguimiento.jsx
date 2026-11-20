@@ -23,7 +23,12 @@ const estiloBoton = {
   cursor: 'pointer',
 }
 
-// Presenta el importe del pago según su moneda antes de mostrarlo a la empresa.
+/**
+ * Convierte el valor a número y lo presenta con hasta dos decimales.
+ * @param {number|string|null} valor Importe; se aplica la conversión Number de JavaScript.
+ * @param {string} [moneda='CLP'] Moneda que acompaña al importe.
+ * @returns {string} Importe formateado o «No informado» si no es finito.
+ */
 function formatoDinero(valor, moneda = 'CLP') {
   const numero = Number(valor)
 
@@ -40,7 +45,11 @@ function formatoDinero(valor, moneda = 'CLP') {
   )
 }
 
-// Presenta los registros en formato local y conserva el día civil de las fechas sin hora.
+/**
+ * Presenta la fecha en la zona local del navegador, conservando valores inválidos.
+ * @param {string|null} valor Fecha o marca temporal recibida.
+ * @returns {string} Fecha y hora, valor original inválido o «No registrada».
+ */
 function formatoFecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -56,7 +65,12 @@ function formatoFecha(valor) {
   })
 }
 
-// Extrae detalles de validación del servidor para evitar mensajes genéricos.
+/**
+ * Prioriza un mensaje general o reúne errores de campos representados como listas.
+ * @param {Object|null} datos Cuerpo de respuesta.
+ * @param {number} codigo Estado HTTP usado como respaldo.
+ * @returns {string} Explicación del fallo.
+ */
 function obtenerMensaje(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -82,7 +96,11 @@ function obtenerMensaje(datos, codigo) {
   return `Operación no completada (HTTP ${codigo}).`
 }
 
-// Traduce el estado del pago en un mensaje comprensible para quien contrató.
+/**
+ * Describe el estado registrado, distinguiendo operaciones de integración y simuladas.
+ * @param {string} estado Estado de pago recibido del servidor.
+ * @returns {string} Descripción para la organización.
+ */
 function descripcionPago(estado) {
   switch (estado) {
     case 'RETENIDO':
@@ -115,7 +133,13 @@ function descripcionPago(estado) {
   }
 }
 
-// Mantiene separada la vista de pago al cambiar la referencia de seguimiento.
+/**
+ * Reinicia el estado interno del pago cuando cambia la referencia empresarial.
+ * @param {Object} props Propiedades del seguimiento.
+ * @param {string} props.referencia Referencia privada de la solicitud.
+ * @param {Object} props.prestacion Prestación con estado y condiciones comunicadas.
+ * @returns {import('react').ReactElement} Panel de pago asociado a esa referencia.
+ */
 export default function PagoEmpresaSeguimiento({
   referencia,
   prestacion,
@@ -123,7 +147,14 @@ export default function PagoEmpresaSeguimiento({
   return <PagoEmpresa key={referencia} referencia={referencia} prestacion={prestacion} />
 }
 
-// Presenta el método, estado y pasos disponibles del pago de la organización.
+/**
+ * Consulta pago, política y cuenta receptora para la referencia empresarial.
+ * Separa cerrar el aviso de política de registrar su aceptación expresa.
+ * @param {Object} props Propiedades del panel.
+ * @param {string} props.referencia Referencia privada para las consultas y escrituras.
+ * @param {Object} props.prestacion Estado y condiciones que habilitan el formulario.
+ * @returns {import('react').ReactElement} Estado de pago y operaciones disponibles.
+ */
 function PagoEmpresa({ referencia, prestacion }) {
   const [pago, setPago] = useState(null)
   const [sinPago, setSinPago] = useState(false)
@@ -169,11 +200,22 @@ function PagoEmpresa({ referencia, prestacion }) {
   const avisoBancario = consultarCuenta && cuentaConsultada ? consultaCuenta.mensaje : ''
   const cargandoCuenta = consultarCuenta && !cuentaConsultada
 
-  // Recuerda el cierre del aviso para esta referencia y versión sin registrar aceptación.
+  /**
+   * Recuerda el cierre del aviso para esta referencia y versión durante el montaje.
+   * No registra por sí mismo la aceptación de la política.
+   * @returns {void}
+   */
   function cerrarAvisoPolitica() { setClaveAvisoCerrado(clavePolitica); setClaveAvisoAbierto('') }
-  // Registra el método que la empresa eligió antes de iniciar el pago.
+  /**
+   * Cambia el método elegido e invalida la consulta previa de cuenta receptora.
+   * @param {string} metodo Método seleccionado por la organización.
+   * @returns {void}
+   */
   function elegirMetodo(metodo) { setMetodoElegido(metodo); setConsultaCuenta(null) }
-  // Invalida el pago, la política y la cuenta mostrados antes de consultarlos de nuevo.
+  /**
+   * Descarta los datos consultados y solicita una nueva lectura mediante la revisión.
+   * @returns {void}
+   */
   function actualizarPago() {
     setCargando(true); setError(''); setPago(null); setSinPago(false)
     setPolitica(null); setPoliticaError(''); setAcepto(false); setConsultaCuenta(null)
@@ -207,7 +249,11 @@ function PagoEmpresa({ referencia, prestacion }) {
     return () => controller.abort()
   }, [referencia, revision])
 
-  // Envía la aceptación expresa de la política antes de habilitar el pago.
+  /**
+   * Registra la aceptación expresa de la versión visible y exige su confirmación.
+   * Los fallos se muestran junto a la política y el bloqueo se libera al terminar.
+   * @returns {Promise<void>} Finalización del registro de aceptación.
+   */
   async function aceptarPolitica() {
     if (!politica?.version || aceptando || !acepto) return
     setAceptando(true); setPoliticaError('')
@@ -235,7 +281,11 @@ function PagoEmpresa({ referencia, prestacion }) {
 
     const controlador = new AbortController()
 
-    // Consulta el estado del pago para la referencia privada de la prestación.
+    /**
+     * Distingue el 404 de pago inexistente de otros errores de consulta.
+     * Comprueba identificador y estado antes de mostrar el pago; ignora respuestas canceladas.
+     * @returns {Promise<void>} Finalización de la consulta con errores visibles.
+     */
     async function consultarPago() {
       try {
         const respuesta = await fetch(
@@ -341,7 +391,11 @@ function PagoEmpresa({ referencia, prestacion }) {
     return () => controlador.abort()
   }, [referencia, habilitarFormulario, cargando, revision, metodoElegido])
 
-  // Solicita una sesión de Webpay y usa la respuesta para el flujo de redirección.
+  /**
+   * Solicita una transacción y envía su token al dominio HTTPS de integración permitido.
+   * El bloqueo permanece activo al iniciar la navegación y se libera ante un fallo local.
+   * @returns {Promise<void>} Preparación del formulario de redirección o presentación del error.
+   */
   async function iniciarWebpay() {
     if (guardando || cargando || !referencia) return
     if (!politica?.aceptada) { setError('Debes aceptar la política de cancelación antes de iniciar Webpay.'); return }
@@ -378,7 +432,13 @@ function PagoEmpresa({ referencia, prestacion }) {
     }
   }
 
-  // Solicita registrar el pago por transferencia desde el seguimiento privado.
+  /**
+   * Valida referencia y comprobante antes de informar una transferencia pendiente.
+   * Envía el archivo y la cuenta receptora en multipart, y exige un identificador de pago
+   * para actualizar la vista. La verificación administrativa se realiza por separado.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del formulario.
+   * @returns {Promise<void>} Finalización del registro con errores visibles.
+   */
   async function informarTransferencia(evento) {
     evento.preventDefault()
 
