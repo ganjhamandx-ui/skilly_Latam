@@ -17,6 +17,7 @@ from .models import (
 class PagoEstadoComunicableSerializer(
     serializers.ModelSerializer
 ):
+    """Expone estado, total, moneda y fechas sin comprobante ni referencia privada."""
     class Meta:
         """Define la representación de Pago y protege sus campos de solo lectura."""
 
@@ -37,7 +38,10 @@ class PagoEstadoComunicableSerializer(
 
 
 class PagoResumenProfesionalSerializer(PagoEstadoComunicableSerializer):
-    """Desglose historico de un pago accesible solo al profesional asociado."""
+    """Añade el desglose histórico de comisión y neto a la consulta profesional.
+
+    La vista debe filtrar pertenencia al profesional; el serializador no autoriza objetos.
+    """
 
     class Meta(PagoEstadoComunicableSerializer.Meta):
         """Delimita los campos que procesa `PagoResumenProfesionalSerializer`."""
@@ -53,6 +57,10 @@ class PagoResumenProfesionalSerializer(PagoEstadoComunicableSerializer):
 class PagoAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta el pago completo a administración, incluidos comprobante y referencia.
+
+    Todos los campos son de lectura; no usar esta representación en respuestas públicas.
+    """
     class Meta:
         """Define la representación de Pago y protege sus campos de solo lectura."""
 
@@ -83,6 +91,11 @@ class PagoAdministracionSerializer(
 class IniciarPagoTransferenciaSerializer(
     serializers.Serializer
 ):
+    """Valida una transferencia informada y su comprobante, sin verificar fondos.
+
+    No recibe el precio ni la comisión; la vista los obtiene de la oferta y los
+    parámetros del servidor. Conserva una extensión validada para nombrar el archivo.
+    """
     metodo_pago = serializers.ChoiceField(
         choices=[
             "TRANSFERENCIA",
@@ -94,6 +107,18 @@ class IniciarPagoTransferenciaSerializer(
     )
 
     def validate_comprobante_transferencia(self, archivo):
+        """Comprueba tamaño, extensión y firma inicial del comprobante subido.
+
+        Args:
+            archivo (UploadedFile): Archivo no vacío, de hasta 5 MiB, PDF/JPG/JPEG/PNG.
+
+        Returns:
+            UploadedFile: Mismo archivo con cursor al inicio y extensión normalizada
+            guardada en el serializador. La firma no equivale a un análisis del documento.
+
+        Raises:
+            serializers.ValidationError: Si excede el tamaño o no coinciden tipo y firma.
+        """
         if archivo.size > MAX_COMPROBANTE_BYTES:
             raise serializers.ValidationError("El comprobante no puede superar 5 MB.")
         extension = Path(archivo.name).suffix.lower().lstrip(".")
@@ -114,6 +139,15 @@ class IniciarPagoTransferenciaSerializer(
         return archivo
 
     def validate(self, attrs):
+        """Añade a los datos validados la extensión comprobada para almacenamiento.
+
+        Args:
+            attrs (dict): Campos que superaron la validación individual de DRF.
+
+        Returns:
+            dict: Mismo diccionario con extension_comprobante, o ``None`` en esa
+            clave si no se ejecutó previamente el validador de archivo.
+        """
         attrs["extension_comprobante"] = getattr(self, "_extension_comprobante", None)
         return attrs
 
@@ -129,6 +163,7 @@ class IniciarPagoTransferenciaSerializer(
 class VerificarPagoTransferenciaSerializer(
     serializers.Serializer
 ):
+    """Exige VERIFICAR_TRANSFERENCIA y admite una observación administrativa opcional."""
     accion = serializers.ChoiceField(
         choices=[
             "VERIFICAR_TRANSFERENCIA",
@@ -146,6 +181,7 @@ class VerificarPagoTransferenciaSerializer(
 class LiberarPagoSerializer(
     serializers.Serializer
 ):
+    """Exige LIBERAR_PAGO y admite observación; las condiciones económicas las revisa la vista."""
     accion = serializers.ChoiceField(
         choices=[
             "LIBERAR_PAGO",
@@ -163,6 +199,7 @@ class LiberarPagoSerializer(
 class HistorialEstadoPagoAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta transiciones históricas con autor opcional, sin permitir escrituras."""
     responsable_skilly = serializers.SerializerMethodField()
 
     class Meta:
@@ -186,6 +223,7 @@ class HistorialEstadoPagoAdministracionSerializer(
         self,
         historial,
     ):
+        """Devuelve id, correo y rol del autor del historial, o ``None`` si no tiene autor."""
         usuario = historial.id_usuario_skilly
 
         if usuario is None:
@@ -201,6 +239,7 @@ class HistorialEstadoPagoAdministracionSerializer(
 class ReversaPagoSerializer(
     serializers.ModelSerializer
 ):
+    """Expone la reversa, resolución vinculada y autor para la gestión administrativa."""
     responsable_skilly = serializers.SerializerMethodField()
 
     class Meta:
@@ -227,6 +266,7 @@ class ReversaPagoSerializer(
         self,
         reversa,
     ):
+        """Devuelve id, correo y rol del autor de la reversa, o ``None`` si no está registrado."""
         usuario = reversa.id_usuario_skilly
 
         if usuario is None:
@@ -242,6 +282,7 @@ class ReversaPagoSerializer(
 class IniciarReversaPagoSerializer(
     serializers.Serializer
 ):
+    """Admite el campo motivo; la vista exige que tenga contenido antes de crear la reversa."""
     motivo = serializers.CharField(
         required=False,
         allow_blank=True,

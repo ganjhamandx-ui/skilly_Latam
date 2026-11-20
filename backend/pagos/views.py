@@ -55,9 +55,33 @@ from .serializers import (
     ReversaPagoSerializer,
 )
 class IniciarPagoTransferenciaEmpresaView(APIView):
+    """Recibe comprobantes empresariales mediante referencia firmada de seguimiento.
+
+    El registro conserva importes y cuenta receptora del servidor. No ejecuta una
+    transferencia ni confirma la reserva hasta la verificación administrativa.
+    """
     authentication_classes = []
     permission_classes = [AllowAny]
     def post(self, request, referencia):
+        """Registra una transferencia informada o devuelve la ya existente.
+
+        Args:
+            request (Request): Petición pública con método TRANSFERENCIA, archivo,
+                id_cuenta_receptora mostrado y referencia_transaccion opcional.
+            referencia (str): Firma que vincula solicitud y contacto empresarial.
+
+        Returns:
+            Response: HTTP 201 con pago PENDIENTE_VERIFICACION; 200 si ya existe
+            transferencia para la prestación; 400 por firma o entrada inválidas;
+            404 si falta prestación; 409 por aceptación, condiciones, oferta, agenda,
+            comisión, cuenta o pago incompatibles; 503 por instalación bancaria no autorizada.
+
+        Note:
+            Bloquea la prestación y selección horaria, y fija una copia de los datos
+            de la cuenta principal bajo bloqueo de tabla. El archivo usa nombre propio
+            en almacenamiento privado. Si falla la persistencia posterior al guardado
+            dentro del bloque protegido, intenta borrar el archivo y propaga el error.
+        """
         datos_referencia = leer_referencia_seguimiento(
             referencia
         )
@@ -581,9 +605,20 @@ class IniciarPagoTransferenciaEmpresaView(APIView):
             status=status.HTTP_201_CREATED,
         )
 class PagoEstadoEmpresaView(APIView):
+    """Consulta el estado comunicable del pago por referencia empresarial firmada."""
     authentication_classes = []
     permission_classes = [AllowAny]
     def get(self, request, referencia):
+        """Obtiene el pago sin exponer comprobantes ni referencias del proveedor.
+
+        Args:
+            request (Request): Petición pública sin autenticación de sesión.
+            referencia (str): Referencia firmada de solicitud y contacto.
+
+        Returns:
+            Response: HTTP 200 con resumen, 400 por referencia inválida o 404
+            si no existe prestación autorizada o todavía no tiene pago.
+        """
         datos_referencia = leer_referencia_seguimiento(
             referencia
         )
@@ -653,6 +688,7 @@ class PagoEstadoEmpresaView(APIView):
             status=status.HTTP_200_OK,
         )
 class PagoPrestacionProfesionalView(APIView):
+    """Restringe la consulta económica de una prestación al profesional asociado."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -660,6 +696,16 @@ class PagoPrestacionProfesionalView(APIView):
         EsProfesional
     ]
     def get(self, request, id_prestacion):
+        """Consulta el desglose histórico de un pago propio.
+
+        Args:
+            request (Request): Sesión activa con rol profesional.
+            id_prestacion (int): Prestación cuyo pago se solicita.
+
+        Returns:
+            Response: HTTP 200 con total, comisión, neto, estado y fechas; 404
+            si falta perfil o pago accesible, sin distinguir pagos ajenos de inexistentes.
+        """
         profesional = Profesional.objects.filter(
             id_usuario=request.user
         ).first()
@@ -702,6 +748,7 @@ class PagoPrestacionProfesionalView(APIView):
             status=status.HTTP_200_OK,
         )
 class MisPagosProfesionalView(APIView):
+    """Lista pagos vinculados al perfil profesional de la sesión activa."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -709,6 +756,15 @@ class MisPagosProfesionalView(APIView):
         EsProfesional
     ]
     def get(self, request):
+        """Consulta todos los pagos propios por identificador descendente.
+
+        Args:
+            request (Request): Sesión con permiso profesional.
+
+        Returns:
+            Response: HTTP 200 con lista de resúmenes, posiblemente vacía;
+            HTTP 404 si la cuenta no tiene perfil profesional.
+        """
         profesional = Profesional.objects.filter(
             id_usuario=request.user
         ).first()
@@ -740,6 +796,7 @@ class MisPagosProfesionalView(APIView):
             status=status.HTTP_200_OK,
         )
 class PagosAdministracionView(APIView):
+    """Expone la bandeja económica completa únicamente a administración."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -747,6 +804,14 @@ class PagosAdministracionView(APIView):
         EsAdministracionSkilly
     ]
     def get(self, request):
+        """Consulta pagos por id descendente, sin paginación ni filtro de estado.
+
+        Args:
+            request (Request): Sesión administrativa autenticada.
+
+        Returns:
+            Response: HTTP 200 con la lista de representaciones administrativas.
+        """
         pagos = (
             Pago.objects
             .select_related(
@@ -765,6 +830,7 @@ class PagosAdministracionView(APIView):
             status=status.HTTP_200_OK,
         )
 class DetallePagoAdministracionView(APIView):
+    """Consulta historial y verifica transferencias informadas bajo permiso administrativo."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -772,6 +838,15 @@ class DetallePagoAdministracionView(APIView):
         EsAdministracionSkilly
     ]
     def get(self, request, id_pago):
+        """Reúne el pago y sus transiciones cronológicas.
+
+        Args:
+            request (Request): Petición administrativa autenticada.
+            id_pago (int): Pago cuyo historial se consulta.
+
+        Returns:
+            Response: HTTP 200 con pago e historial, o 404 si no existe.
+        """
         pago = (
             Pago.objects
             .select_related(
@@ -821,6 +896,26 @@ class DetallePagoAdministracionView(APIView):
             status=status.HTTP_200_OK,
         )
     def post(self, request, id_pago):
+        """Verifica la transferencia y confirma el horario sin contratar la prestación.
+
+        Args:
+            request (Request): Administrador con acción VERIFICAR_TRANSFERENCIA
+                y observación opcional; la autenticación exige CSRF en la escritura.
+            id_pago (int): Pago TRANSFERENCIA pendiente de verificación.
+
+        Returns:
+            Response: HTTP 200 con pago RETENIDO/VERIFICADO y reserva ACTIVA,
+            o con pago ya verificado en un reintento; 400 por entrada inválida,
+            404 si falta pago y 409 por estados o agenda incompatibles.
+
+        Raises:
+            Pago.DoesNotExist: Si el pago desaparece antes de recargar la respuesta.
+
+        Note:
+            Bloquea pago, prestación, reserva y bloque. Exige horario futuro del
+            profesional, disponible y sin otra reserva activa. Registra verificación
+            administrativa y fechas; no consulta al banco ni crea la primera reunión.
+        """
         entrada_serializer = (
             VerificarPagoTransferenciaSerializer(
                 data=request.data
@@ -1160,6 +1255,7 @@ class DetallePagoAdministracionView(APIView):
             status=status.HTTP_200_OK,
         )
 class LiberarPagoAdministracionView(APIView):
+    """Registra la liberación administrativa tras comprobar entrega y reclamos."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -1167,6 +1263,27 @@ class LiberarPagoAdministracionView(APIView):
         EsAdministracionSkilly
     ]
     def post(self, request, id_pago):
+        """Cambia el estado a LIBERADO sin iniciar una transferencia al profesional.
+
+        Args:
+            request (Request): Sesión administrativa con LIBERAR_PAGO y observación
+                opcional; la autenticación exige CSRF para la escritura.
+            id_pago (int): Pago retenido y verificado que se pretende liberar.
+
+        Returns:
+            Response: HTTP 200 con pago liberado, también en reintentos; 400 por
+            entrada inválida, 404 si no existe pago y 409 si las condiciones impiden
+            liberar. Un pago ya LIBERADO se devuelve sin repetir las comprobaciones.
+
+        Raises:
+            Pago.DoesNotExist: Si desaparece antes de recargarlo para la respuesta.
+
+        Note:
+            Bloquea pago, prestación y última entrega. Exige entrega ACEPTADA,
+            ausencia de reversa SOLICITADA, prestación no cancelada/postergada y
+            reclamos cerrados con resolución económica LIBERACION para cada uno.
+            Actualiza estado, fecha e historial; el abono se registra en otro circuito.
+        """
         entrada_serializer = (
             LiberarPagoSerializer(
                 data=request.data
@@ -1464,6 +1581,7 @@ class LiberarPagoAdministracionView(APIView):
             status=status.HTTP_200_OK,
         )
 class ReversasPagoAdministracionView(APIView):
+    """Consulta y solicita reversas documentadas, sin ejecutar el reembolso."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -1471,6 +1589,15 @@ class ReversasPagoAdministracionView(APIView):
         EsAdministracionSkilly
     ]
     def get(self, request, id_pago):
+        """Lista reversas del pago por fecha de solicitud e id descendentes.
+
+        Args:
+            request (Request): Sesión administrativa autenticada.
+            id_pago (int): Pago del que se consulta el historial de reversas.
+
+        Returns:
+            Response: HTTP 200 con pago y reversas, o 404 si el pago no existe.
+        """
         pago = (
             Pago.objects
             .select_related(
@@ -1521,6 +1648,25 @@ class ReversasPagoAdministracionView(APIView):
             status=status.HTTP_200_OK,
         )
     def post(self, request, id_pago):
+        """Solicita una reversa respaldada por cancelación o resolución de reclamo.
+
+        Args:
+            request (Request): Sesión administrativa con motivo no vacío y CSRF válido.
+            id_pago (int): Pago RETENIDO y VERIFICADO, con total positivo.
+
+        Returns:
+            Response: HTTP 201 con reversa SOLICITADA, 400 por motivo o entrada
+            inválidos, 404 si falta pago y 409 por estado, duplicidad o fundamento
+            económico incompatible. El pago permanece retenido y no se devuelve dinero.
+
+        Raises:
+            ReversaPago.DoesNotExist: Si desaparece antes de recargar la respuesta.
+
+        Note:
+            Serializa mediante bloqueo del pago. Una resolución REVERSA previa
+            no puede reutilizarse; si indica monto, debe ser positivo y no superar
+            el total. Sin monto de resolución conserva monto_reversa nulo.
+        """
         entrada_serializer = IniciarReversaPagoSerializer(
             data=request.data
         )

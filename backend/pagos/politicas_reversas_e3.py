@@ -10,13 +10,34 @@ ACCIONES = {"RECHAZAR_SOLICITUD", "REGISTRAR_DEVOLUCION_SIMULADA"}
 
 
 class ReversaInvalida(ValueError):
+    """Indica que los estados o importes impiden el cierre académico solicitado."""
     pass
 
 
 def plan_cierre(*, accion, estado_pago, estado_verificacion,
                 estado_reversa, metodo_pago, monto_total,
                 monto_reversa, confirmado=False):
-    """Valida el cierre y retorna los estados; es una política pura y comprobable."""
+    """Determina estados de rechazo o devolución total simulada sin persistirlos.
+
+    Args:
+        accion (str): RECHAZAR_SOLICITUD o REGISTRAR_DEVOLUCION_SIMULADA.
+        estado_pago (str): Debe ser RETENIDO.
+        estado_verificacion (str): Debe ser VERIFICADO.
+        estado_reversa (str): Debe ser SOLICITADA.
+        metodo_pago (str): Este circuito solo admite TRANSFERENCIA.
+        monto_total (Decimal): Importe finito positivo para una simulación.
+        monto_reversa (Decimal | None): Debe igualar al total; ``None`` usa el total.
+        confirmado (bool): Debe ser exactamente ``True`` para simular devolución.
+
+    Returns:
+        tuple[str, str]: Estado de reversa y pago. Rechazar conserva el pago
+        RETENIDO y no valida montos ni confirmación; simular devuelve SIMULADA
+        y REVERSA_SIMULADA. No admite una simulación parcial por este circuito.
+
+    Raises:
+        ReversaInvalida: Si la acción, estados, método o requisitos de simulación
+            no son compatibles con el cierre.
+    """
     if accion not in ACCIONES:
         raise ReversaInvalida("Acción de cierre no permitida.")
     if estado_reversa != "SOLICITADA":

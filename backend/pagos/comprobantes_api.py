@@ -8,10 +8,29 @@ from acceso.permissions import EsAdministracionSkilly
 from pagos.models import Pago
 
 class ComprobanteTransferenciaAdministracionView(APIView):
+    """Descarga comprobantes privados por pago bajo permiso administrativo.
+
+    Solo admite archivos nuevos en la carpeta privada prevista; no expone rutas
+    heredadas ni permite navegar por el almacenamiento desde el identificador.
+    """
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_pago):
+        """Abre un comprobante de transferencia validando carpeta y extensión.
+
+        Args:
+            request (Request): Sesión administrativa activa.
+            id_pago (int): Pago TRANSFERENCIA cuyo comprobante se solicita.
+
+        Returns:
+            FileResponse: HTTP 200 como adjunto PDF, JPG o PNG, con nombre derivado
+            del id y cabeceras que evitan caché, inferencia de tipo y envío de referente.
+
+        Raises:
+            Http404: Si falta pago o archivo, la ruta no cumple el formato privado,
+                la extensión no se admite o falla la apertura del archivo.
+        """
         pago = Pago.objects.filter(id_pago=id_pago, metodo_pago="TRANSFERENCIA").first()
         if pago is None:
             raise Http404()

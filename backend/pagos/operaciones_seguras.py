@@ -14,6 +14,7 @@ from .views import (
 class DetallePagoSeguroAdministracionView(
     DetallePagoAdministracionView
 ):
+    """Añade CSRF a la consulta y verificación administrativa heredadas del pago."""
     pass
 
 
@@ -21,6 +22,7 @@ class DetallePagoSeguroAdministracionView(
 class LiberarPagoSeguroAdministracionView(
     LiberarPagoAdministracionView
 ):
+    """Exige CSRF antes de aplicar los controles heredados de liberación de pago."""
     pass
 
 
@@ -28,4 +30,5 @@ class LiberarPagoSeguroAdministracionView(
 class ReversasPagoSegurasAdministracionView(
     ReversasPagoAdministracionView
 ):
+    """Protege con CSRF el registro de reversas y conserva permisos y consultas base."""
     pass

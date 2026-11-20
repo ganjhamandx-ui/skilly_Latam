@@ -15,10 +15,24 @@ from pagos.models import Pago
 
 
 class DisponibilidadTransferenciaEmpresaView(APIView):
+    """Informa la cuenta receptora solo al portador de una referencia válida habilitada."""
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
+        """Consulta la habilitación y cuenta principal sin crear una operación de pago.
+
+        Args:
+            request (Request): Petición pública; no utiliza autenticación de sesión.
+            referencia (str): Referencia firmada que vincula solicitud y contacto.
+
+        Returns:
+            Response: HTTP 200 con disponibilidad y, si procede, la cuenta principal
+            activa; 400 por referencia inválida, 404 si falta la prestación y 503
+            si la identidad de base de datos no está autorizada. Una prestación
+            fuera de PENDIENTE_CONTRATACION, sin condiciones o con pago existente
+            se informa como no disponible antes de consultar datos bancarios.
+        """
         datos = leer_referencia_seguimiento(referencia)
         if datos is None:
             return Response({'mensaje': 'Referencia de seguimiento no válida.'}, status=400)

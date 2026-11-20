@@ -18,6 +18,11 @@ from .politicas_reversas_e3 import plan_cierre, ReversaInvalida
 
 
 class CierreReversaSerializer(serializers.Serializer):
+    """Exige una acción admitida y fundamento de 20 a 1000 caracteres.
+
+    La confirmación de ausencia de dinero real es falsa por defecto; la política
+    la exige únicamente al registrar una devolución simulada.
+    """
     accion = serializers.ChoiceField(choices=[
         "RECHAZAR_SOLICITUD", "REGISTRAR_DEVOLUCION_SIMULADA",
     ])
@@ -27,10 +32,26 @@ class CierreReversaSerializer(serializers.Serializer):
 
 @method_decorator(csrf_protect, name="dispatch")
 class ResolverReversaE3AdministracionView(APIView):
+    """Resuelve reversas totales de transferencia con sesión administrativa y CSRF."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def post(self, request, id_pago, id_reversa):
+        """Rechaza la solicitud o registra su devolución total simulada bajo bloqueo.
+
+        Args:
+            request (Request): Administrador con acción, fundamento y confirmación
+                explícita de ausencia de dinero real cuando solicita simulación.
+            id_pago (int): Pago que se bloquea antes de obtener su reversa.
+            id_reversa (int): Reversa que debe pertenecer al pago indicado.
+
+        Returns:
+            Response: HTTP 200 con reversa, pago y ambiente SIMULACION_ACADEMICA;
+            HTTP 400 por entrada inválida, 404 por pago o reversa ausentes y 409
+            si existe conciliación parcial o la política rechaza el cierre.
+            Registra historial del pago solo cuando cambia su estado y siempre
+            deja trazabilidad del cierre admitido. No ejecuta operaciones bancarias.
+        """
         entrada = CierreReversaSerializer(data=request.data)
         if not entrada.is_valid():
             return Response(entrada.errors, status=status.HTTP_400_BAD_REQUEST)

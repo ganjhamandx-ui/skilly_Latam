@@ -17,10 +17,23 @@ CLAVE = '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'
 
 
 class ErrorWebpay(Exception):
+    """Comunica fallos de validación o comunicación del cliente de integración."""
     pass
 
 
 def url_pago_valida(url):
+    """Comprueba que el destino de pago pertenezca al host HTTPS de integración.
+
+    Args:
+        url (str): URL entregada por Webpay, convertida a texto para analizarla.
+
+    Returns:
+        bool: Si usa el host fijo, puerto HTTPS normal, ruta absoluta simple,
+        sin credenciales ni fragmento. No restringe la consulta de la URL.
+
+    Raises:
+        ValueError: Si urlsplit o el acceso al puerto encuentra una URL mal formada.
+    """
     partes = urlsplit(str(url))
     return (partes.scheme == 'https' and partes.hostname == 'webpay3gint.transbank.cl'
             and partes.port in (None, 443) and not partes.username and not partes.password
@@ -31,7 +44,16 @@ RUTA_RETORNO_WEBPAY = '/api/pagos/webpay/retorno/'
 
 
 def url_retorno_webpay_valida(valor):
-    """Retorno académico exacto: loopback explícito, sin ambigüedades de URL."""
+    """Valida el retorno local exacto del entorno académico.
+
+    Args:
+        valor (str): URL HTTP o HTTPS con localhost o IP loopback y puerto explícito.
+
+    Returns:
+        bool: Si la ruta coincide con RUTA_RETORNO_WEBPAY y no contiene credenciales,
+        controles, espacios, barras inversas, consulta, fragmento ni host ambiguo.
+        Las URL mal formadas se rechazan devolviendo ``False``.
+    """
     if (not isinstance(valor, str) or not valor
             or any(ord(caracter) <= 32 or ord(caracter) == 127 for caracter in valor)
             or any(caracter in valor for caracter in ('\\', '?', '#'))):
@@ -50,7 +72,12 @@ def url_retorno_webpay_valida(valor):
 
 
 def contexto_tls_webpay():
-    """Verificacion de CA/hostname y TLS >= 1.2 explicitos para el proveedor."""
+    """Crea el contexto TLS con validación de certificado y nombre del proveedor.
+
+    Returns:
+        ssl.SSLContext: Contexto de autenticación del servidor con CA del sistema
+        y TLS 1.2 como versión mínima; no desactiva validaciones para el sandbox.
+    """
     contexto = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
     contexto.check_hostname = True
     contexto.verify_mode = ssl.CERT_REQUIRED
@@ -59,7 +86,26 @@ def contexto_tls_webpay():
 
 
 def peticion_webpay(metodo, token=None, datos=None):
-    """Toda comunicación real utiliza TLS certificado, 12s máximo y endpoint fijo."""
+    """Envía JSON al endpoint fijo de integración y exige una respuesta de objeto.
+
+    Args:
+        metodo (str): Método HTTP que urllib enviará al proveedor.
+        token (str | None): Identificador opcional de 1 a 200 caracteres seguros
+            para incorporarlo a la ruta; ``None`` usa la colección de transacciones.
+        datos (dict | None): Cuerpo serializable a JSON, o ``None`` para omitirlo.
+
+    Returns:
+        dict: JSON del proveedor, leído con un límite de 65536 bytes.
+
+    Raises:
+        ErrorWebpay: Si el token es inválido, falla transporte/HTTP/decodificación
+            dentro de la petición, o la respuesta no es un objeto JSON.
+        TypeError: Si el cuerpo recibido no puede serializarse a JSON.
+
+    Note:
+        Usa validación TLS y timeout de socket de 12 segundos. Ese timeout no
+        constituye un límite total de duración ni implica reintentar la operación.
+    """
     if token is not None and (not isinstance(token, str) or len(token) > 200
                               or not token or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.' for c in token)):
         raise ErrorWebpay('Token Webpay inválido.')
@@ -81,6 +127,21 @@ def peticion_webpay(metodo, token=None, datos=None):
 
 
 def iniciar(buy_order, session_id, monto, retorno):
+    """Crea una transacción de integración con monto CLP entero positivo.
+
+    Args:
+        buy_order (str): Orden del servidor, con un máximo de 26 caracteres.
+        session_id (str): Identificador de sesión de pago, de hasta 61 caracteres.
+        monto (Decimal | str | int): Importe finito, positivo y sin fracción de peso.
+        retorno (str): URL local admitida por ``url_retorno_webpay_valida``.
+
+    Returns:
+        dict: Token y URL del formulario de pago del proveedor de integración.
+
+    Raises:
+        ErrorWebpay: Si la entrada, el destino/token de respuesta o la petición falla.
+        ValueError: Si la URL devuelta no puede analizarse para validar su puerto o host.
+    """
     try:
         valor = Decimal(str(monto))
     except (ValueError, TypeError, InvalidOperation):
@@ -102,11 +163,34 @@ def iniciar(buy_order, session_id, monto, retorno):
 
 
 def confirmar(token):
+    """Solicita al proveedor la confirmación de una transacción de integración.
+
+    Args:
+        token (str): Token de la transacción previamente registrada.
+
+    Returns:
+        dict: Respuesta del proveedor; el llamador aún debe validar su autorización.
+
+    Raises:
+        ErrorWebpay: Si el token o la respuesta no son válidos o falla la comunicación.
+    """
     return peticion_webpay('PUT',token)
 
 
 def autorizacion_valida(resultado, *, monto, buy_order, session_id):
-    """Nunca aceptar el navegador como comprobante de autorización."""
+    """Contrasta la autorización del proveedor con la identidad económica esperada.
+
+    Args:
+        resultado (dict): Respuesta obtenida del proveedor, no del navegador.
+        monto (Decimal): Importe esperado persistido en el pago.
+        buy_order (str): Orden que debe coincidir exactamente con la respuesta.
+        session_id (str): Sesión de pago que debe coincidir exactamente.
+
+    Returns:
+        bool: Si status es AUTHORIZED, response_code es el entero cero e importe,
+        orden y sesión coinciden. Entradas no convertibles o importes no finitos
+        se rechazan; el booleano False no equivale por sí solo a rechazo bancario.
+    """
     if not isinstance(resultado, dict): return False
     try:
         importe = Decimal(str(resultado.get('amount')))

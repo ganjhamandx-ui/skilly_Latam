@@ -36,6 +36,14 @@ RETENIDO_REVISION='RETENIDO_REVISION_AGENDA'
 
 
 def origen_frontend():
+    """Devuelve el origen frontend normalizado para construir destinos de retorno.
+
+    Returns:
+        str: Origen validado por la política local de configuración.
+
+    Raises:
+        ErrorWebpay: Si FRONTEND_ORIGIN no satisface esa política.
+    """
     try:
         return normalizar_origen_frontend(settings.FRONTEND_ORIGIN)
     except ValueError:
@@ -43,15 +51,36 @@ def origen_frontend():
 
 
 def retorno_webpay():
+    """Devuelve la URL del callback añadiendo la ruta fija al origen validado.
+
+    Raises:
+        ErrorWebpay: Si el origen frontend no es válido.
+    """
     return origen_frontend() + RUTA_RETORNO_WEBPAY
 
 
-def sesion_pago(id_pago):return f'SKSE3{id_pago}'
-def orden_pago(id_pago):return f'SKWE3{id_pago}'
+def sesion_pago(id_pago):
+    """Devuelve el identificador de sesión Webpay derivado del id de pago recibido."""
+    return f'SKSE3{id_pago}'
+def orden_pago(id_pago):
+    """Devuelve la orden Webpay estable derivada del id de pago recibido."""
+    return f'SKWE3{id_pago}'
 
 
 def contexto_pago(prestacion):
-    """Valida oferta, precio y comisión desde el servidor; sin entrada de montos del cliente."""
+    """Calcula importes desde la oferta y la comisión configurada en el servidor.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación PENDIENTE_CONTRATACION con
+            condiciones comunicadas y servicio del mismo profesional.
+
+    Returns:
+        dict: Total CLP entero positivo, porcentaje a cuatro decimales, comisión
+        y neto profesional. Usa ROUND_HALF_UP para porcentaje y comisión en centavos.
+
+    Raises:
+        ValueError: Si estado, condiciones, oferta, precio o comisión no son válidos.
+    """
     if prestacion.estado != 'PENDIENTE_CONTRATACION' or not str(prestacion.condiciones_comunicadas or '').strip():
         raise ValueError('La prestación no está habilitada para contratar y pagar.')
     servicio = prestacion.id_solicitud.id_servicio
@@ -79,6 +108,18 @@ def contexto_pago(prestacion):
 
 
 def horario_pendiente(prestacion, bloquear=False):
+    """Revalida el horario de la selección pendiente de pago más reciente.
+
+    Args:
+        prestacion (PrestacionServicio): Solicitud y profesional esperados.
+        bloquear (bool): Añade select_for_update a reserva y bloque; requiere
+            transacción activa cuando es verdadero.
+
+    Returns:
+        tuple: Reserva y bloque si pertenecen al profesional, el bloque está
+        DISPONIBLE, no tiene otra reserva ACTIVA y su inicio es futuro;
+        ``(None, None)`` si falta alguno o falla esa validación.
+    """
     consulta=ReservaDisponibilidad.objects
     if bloquear: consulta=consulta.select_for_update()
     reserva=(consulta.filter(id_solicitud_id=prestacion.id_solicitud_id,
@@ -99,6 +140,18 @@ def horario_pendiente(prestacion, bloquear=False):
 
 
 def redireccion(pago, resultado):
+    """Construye el regreso al seguimiento con una referencia firmada nueva.
+
+    Args:
+        pago (Pago): Pago cuya solicitud aporta la identidad del seguimiento.
+        resultado (str): Etiqueta de resultado para la interfaz, no prueba de autorización.
+
+    Returns:
+        HttpResponseRedirect: HTTP 302 al frontend con referencia y etiqueta Webpay.
+
+    Raises:
+        ErrorWebpay: Si el origen frontend configurado no es válido.
+    """
     solicitud=pago.id_prestacion.id_solicitud
     referencia=crear_referencia_seguimiento(solicitud)
     query=urlencode({'referencia':referencia,'webpay':resultado})
@@ -106,16 +159,38 @@ def redireccion(pago, resultado):
 
 
 def ambiente_disponible():
-    # Imposible encenderlo accidentalmente en producción.
+    """Devuelve si DEBUG habilita los endpoints de integración académica.
+
+    No detecta el entorno de despliegue por otros medios; depende de esa configuración.
+    """
     return bool(settings.DEBUG)
 
 
 @method_decorator(csrf_protect,name='dispatch')
 class IniciarWebpayPlusEmpresaView(APIView):
+    """Inicia pagos de integración por referencia privada, con protección CSRF."""
     authentication_classes=[]
     permission_classes=[AllowAny]
 
     def post(self,request,referencia):
+        """Crea o reinicia un pago de prueba y obtiene su formulario de Webpay.
+
+        Args:
+            request (Request): Petición pública protegida por CSRF; los importes
+                se calculan en el servidor y no se toman de su cuerpo.
+            referencia (str): Referencia firmada de solicitud y contacto.
+
+        Returns:
+            Response: HTTP 201 con URL, token y ambiente TRANSBANK_INTEGRACION;
+            400 por referencia inválida, 404 si falta prestación, 409 por política,
+            horario, importes o pago incompatible, 502 por fallo del cliente Webpay
+            y 503 si DEBUG no habilita el entorno.
+
+        Note:
+            Mantiene bloqueados prestación, solicitud, reserva y pago durante el
+            inicio remoto. Solo reutiliza pagos WEBPAY_PLUS rechazados o anulados;
+            un error que sale de la transacción revierte los cambios locales.
+        """
         if not ambiente_disponible():
             return Response({'mensaje':'Webpay de pruebas no está disponible en producción.'},status=503)
         datos=leer_referencia_seguimiento(referencia)
@@ -169,14 +244,41 @@ class IniciarWebpayPlusEmpresaView(APIView):
 
 @method_decorator(csrf_exempt,name='dispatch')
 class RetornoWebpayPlusEmpresaView(APIView):
+    """Procesa el callback público del proveedor sin exigir cookie CSRF.
+
+    La excepción CSRF permite el retorno externo. El éxito se decide consultando
+    Webpay y contrastando token, orden, sesión e importe con el pago persistido.
+    """
     authentication_classes=[]
     permission_classes=[AllowAny]
     http_method_names=['get','post','head','options']
 
-    def get(self,request):return self._procesar(request)
-    def post(self,request):return self._procesar(request)
+    def get(self,request):
+        """Procesa los parámetros de retorno GET con el contrato común del callback."""
+        return self._procesar(request)
+    def post(self,request):
+        """Procesa el cuerpo de retorno POST con el contrato común del callback."""
+        return self._procesar(request)
 
     def _procesar(self,request):
+        """Confirma el resultado de integración y activa la reserva si sigue disponible.
+
+        Args:
+            request (Request): Parámetros GET o cuerpo POST con token_ws; TBK_TOKEN
+                sin token_ws indica abandono o anulación del formulario.
+
+        Returns:
+            HttpResponseRedirect | Response: HTTP 302 al seguimiento con el resultado;
+            400 por token inválido, 404 por transacción desconocida, 409 por estado
+            incompatible o 503 por entorno deshabilitado/fallo de comunicación.
+
+        Note:
+            El bloqueo del pago serializa callbacks. Los estados ya retenidos,
+            rechazados o anulados se reutilizan sin confirmar otra vez. Una aparente
+            autorización con identidad o importe discordantes queda en revisión manual.
+            Si la autorización coincide pero la agenda perdió vigencia, se conserva
+            RETENIDO_REVISION_AGENDA sin activar reserva ni formalizar contratación.
+        """
         if not ambiente_disponible():return Response({'mensaje':'Webpay sandbox deshabilitado.'},status=503)
         token=request.data.get('token_ws') if request.method=='POST' else request.query_params.get('token_ws')
         cancelado=request.data.get('TBK_TOKEN') if request.method=='POST' else request.query_params.get('TBK_TOKEN')

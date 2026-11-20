@@ -1,4 +1,8 @@
-"""Modela pagos, abonos, comprobantes y reversas económicas."""
+"""Mapea pagos, cambios de estado y solicitudes de reversa en tablas SQL existentes.
+
+Los comprobantes se referencian por ruta y los abonos profesionales se registran
+en su módulo propio. Estos modelos no ejecutan operaciones bancarias.
+"""
 
 from django.db import models
 
@@ -7,6 +11,12 @@ from coordinacion.models import PrestacionServicio
 
 
 class Pago(models.Model):
+    """Conserva una operación económica única por prestación y su desglose histórico.
+
+    Total, comisión aplicada y neto se fijan al iniciar el pago; los estados de
+    pago y verificación se controlan por separado. La ruta del comprobante y la
+    referencia del proveedor requieren representaciones con permisos adecuados.
+    """
     id_pago = models.BigAutoField(
         primary_key=True
     )
@@ -96,6 +106,10 @@ class Pago(models.Model):
 
 
 class HistorialEstadoPago(models.Model):
+    """Registra transiciones del pago con fecha, observación y autor opcional.
+
+    El autor puede ser nulo en eventos empresariales o callbacks del proveedor.
+    """
     id_historial_pago = models.BigAutoField(
         primary_key=True
     )
@@ -139,6 +153,12 @@ class HistorialEstadoPago(models.Model):
 
 
 class ReversaPago(models.Model):
+    """Documenta una solicitud de reversa y su eventual resolución.
+
+    Puede enlazar una resolución de reclamo y conservar monto o referencia externa
+    nulos. SOLICITADA no significa devolución ejecutada; los servicios distinguen
+    cierres simulados de operaciones del proveedor.
+    """
     id_reversa = models.BigAutoField(
         primary_key=True
     )
