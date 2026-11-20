@@ -29,7 +29,17 @@ class SeguimientoPrestacionProfesionalView(APIView):
     permission_classes = [EsProfesional]
 
     def get(self, request, id_prestacion):
-        """Devuelve el seguimiento de una prestación perteneciente al profesional."""
+        """Devuelve el seguimiento completo de una prestación propia, incluidas incidencias.
+
+        Args:
+            request: Petición del profesional autenticado.
+            id_prestacion (int): Prestación cuya propiedad se comprueba.
+
+        Returns:
+            Response: 200 con resumen y avances cronológicos, o 404 si falta perfil
+            o la prestación es ajena/inexistente. No excluye los estados privados
+            que se ocultan en la consulta empresarial.
+        """
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -41,7 +51,18 @@ class SeguimientoPrestacionProfesionalView(APIView):
         return Response({'prestacion': {'id_prestacion': prestacion.id_prestacion, 'id_solicitud': prestacion.id_solicitud_id, 'estado': prestacion.estado, 'fecha_inicio': prestacion.fecha_inicio, 'fecha_fin': prestacion.fecha_fin, 'fecha_cierre': prestacion.fecha_cierre}, 'avances': serializer.data}, status=status.HTTP_200_OK)
 
     def post(self, request, id_prestacion):
-        """Registra un avance profesional tras validar propiedad y estado."""
+        """Registra un avance profesional tras validar propiedad y estado.
+
+        Args:
+            request: Petición con estado textual y detalle opcional del avance.
+            id_prestacion (int): Prestación propia que recibirá el registro.
+
+        Returns:
+            Response: 201 con el avance, 400 por datos inválidos, 404 por perfil o
+            prestación no disponibles y 409 si está FINALIZADA, CANCELADA o POSTERGADA.
+            Revalida bajo bloqueo y registra trazabilidad, sin cambiar el estado
+            de la prestación al estado informado en el avance.
+        """
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -72,7 +93,17 @@ class SeguimientoPrestacionEmpresaView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
-        """Devuelve avances públicos a la empresa mediante referencia privada."""
+        """Devuelve avances visibles y entregas mediante una referencia privada.
+
+        Args:
+            request: Petición de consulta sin sesión.
+            referencia (str): Referencia firmada de solicitud y contacto empresarial.
+
+        Returns:
+            Response: 200 con la prestación más reciente por identificador, avances
+            salvo ESTADOS_AVANCE_PRIVADOS y entregas; 400 por referencia inválida o
+            404 si no existe coincidencia. No representa un catálogo de acceso público.
+        """
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -113,7 +144,18 @@ class SeguimientoPrestacionAdministracionView(APIView):
 
     @staticmethod
     def evaluar_cierre(prestacion):
-        """Valida el cierre sin modificar dinero ni estados de pago."""
+        """Evalúa requisitos de cierre sin modificar la prestación ni su pago.
+
+        Args:
+            prestacion (PrestacionServicio): Prestación cuya finalización se evalúa.
+
+        Returns:
+            dict: habilitado, razones, última entrega y estado de pago. Exige
+            prestación CONTRATADA, última versión ACEPTADA, pago VERIFICADO en
+            RETENIDO o LIBERADO, ausencia de reclamos abiertos y reversas SOLICITADA,
+            y ninguna resolución de reclamo con efecto distinto de LIBERACION.
+            La consulta no bloquea por sí sola los registros.
+        """
         entrega = (Entrega.objects.filter(id_prestacion=prestacion)
                    .order_by('-version', '-fecha_entrega', '-id_entrega').first())
         pago = Pago.objects.filter(id_prestacion=prestacion).first()
@@ -144,7 +186,15 @@ class SeguimientoPrestacionAdministracionView(APIView):
 
     @staticmethod
     def datos_prestacion(prestacion):
-        """Construye el resumen administrativo de la prestación y su solicitud."""
+        """Construye el resumen administrativo de la prestación y su solicitud.
+
+        Args:
+            prestacion (PrestacionServicio): Registro consultado.
+
+        Returns:
+            dict: Identificadores de prestación, solicitud y profesional, estado
+            y fechas operativas, sin cargar datos de contacto.
+        """
         return {
             'id_prestacion': prestacion.id_prestacion,
             'id_solicitud': prestacion.id_solicitud_id,
@@ -156,7 +206,16 @@ class SeguimientoPrestacionAdministracionView(APIView):
         }
 
     def get(self, request, id_prestacion):
-        """Obtiene el seguimiento integral de una prestación para administración."""
+        """Obtiene seguimiento, entregas, observaciones y evaluación de cierre.
+
+        Args:
+            request: Petición con permiso administrativo.
+            id_prestacion (int): Prestación consultada, sin filtro por responsable asignado.
+
+        Returns:
+            Response: 200 con el detalle, incluidas incidencias privadas, o 404 si
+            no existe la prestación. La evaluación de cierre es informativa.
+        """
         prestacion = PrestacionServicio.objects.select_related('id_solicitud', 'id_profesional').filter(id_prestacion=id_prestacion).first()
         if prestacion is None:
             return Response({'mensaje': 'La prestación solicitada no existe.'}, status=status.HTTP_404_NOT_FOUND)
@@ -182,7 +241,18 @@ class SeguimientoPrestacionAdministracionView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request, id_prestacion):
-        """Procesa el cierre administrativo con las precondiciones del expediente."""
+        """Finaliza la prestación con precondiciones revalidadas bajo bloqueo.
+
+        Args:
+            request: Petición administrativa con accion FINALIZAR_PRESTACION.
+            id_prestacion (int): Prestación que se desea finalizar.
+
+        Returns:
+            Response: 200 al finalizar o si ya estaba FINALIZADA, 400 por acción
+            inválida, 404 si no existe o 409 con razones si no está habilitada.
+            Guarda estado, fecha de cierre y trazabilidad sin alterar el pago,
+            que puede estar previamente RETENIDO o LIBERADO.
+        """
         if request.data.get('accion') != 'FINALIZAR_PRESTACION':
             return Response({'mensaje': 'Acción de cierre inválida.'}, status=status.HTTP_400_BAD_REQUEST)
         with transaction.atomic():
@@ -217,7 +287,16 @@ class EntregasPrestacionProfesionalView(APIView):
     permission_classes = [EsProfesional]
 
     def get(self, request, id_prestacion):
-        """Lista entregas de una prestación asignada al profesional."""
+        """Lista las versiones de entrega y observaciones de una prestación propia.
+
+        Args:
+            request: Petición del profesional autenticado.
+            id_prestacion (int): Prestación consultada.
+
+        Returns:
+            Response: 200 con resumen, entregas ordenadas por versión y observaciones
+            cronológicas sin datos de contacto, o 404 si falta perfil o pertenencia.
+        """
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -234,7 +313,18 @@ class EntregasPrestacionProfesionalView(APIView):
 
 
     def post(self, request, id_prestacion):
-        """Registra una nueva versión de entrega para la prestación autorizada."""
+        """Registra una nueva versión descriptiva de entrega para la prestación propia.
+
+        Args:
+            request: Petición con descripcion y referencia_entrega opcional.
+            id_prestacion (int): Prestación a la que pertenece la entrega.
+
+        Returns:
+            Response: 201 con entrega ENTREGADA, 400 por datos inválidos, 404 por
+            perfil o prestación ajena/inexistente y 409 para FINALIZADA, CANCELADA
+            o POSTERGADA. Bajo bloqueo asigna la siguiente versión y registra el
+            evento; este endpoint no almacena archivos adjuntos.
+        """
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         if profesional is None:
             return Response({'mensaje': 'El perfil profesional todavía no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
@@ -274,7 +364,17 @@ class RevisionEntregaEmpresaView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, referencia, id_entrega):
-        """Obtiene una entrega que pertenece a la referencia empresarial."""
+        """Obtiene una entrega y sus observaciones mediante referencia empresarial.
+
+        Args:
+            request: Petición de consulta sin sesión.
+            referencia (str): Referencia firmada de solicitud y contacto.
+            id_entrega (int): Entrega que debe pertenecer a esa solicitud.
+
+        Returns:
+            Response: 200 con entrega y observaciones, 400 por referencia inválida
+            o 404 si la entrega no existe o no pertenece a la referencia.
+        """
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -285,7 +385,19 @@ class RevisionEntregaEmpresaView(APIView):
         return Response({'entrega': EntregaSerializer(entrega).data, 'observaciones': ObservacionEntregaSerializer(observaciones, many=True).data}, status=status.HTTP_200_OK)
 
     def post(self, request, referencia, id_entrega):
-        """Acepta u observa la entrega desde la referencia empresarial autorizada."""
+        """Acepta u observa una entrega autorizada bajo bloqueo del registro.
+
+        Args:
+            request: Petición con accion ACEPTAR u OBSERVAR; observar exige detalle.
+            referencia (str): Referencia firmada de la empresa.
+            id_entrega (int): Entrega perteneciente a la solicitud y contacto firmados.
+
+        Returns:
+            Response: 200 al aceptar o repetir una revisión del mismo tipo, 201 al
+            crear la observación, 400 por referencia/datos inválidos, 404 por entrega
+            ajena/inexistente y 409 si el estado no admite la acción. Los reintentos
+            no agregan otra observación ni evento. No finaliza prestación ni libera pagos.
+        """
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -325,7 +437,15 @@ class GestionReclamoAdministracionView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_reclamo):
-        """Obtiene un reclamo y su resolución para gestión administrativa."""
+        """Obtiene reclamo, prestación, pago y resolución para administración.
+
+        Args:
+            request: Petición con permiso administrativo.
+            id_reclamo (int): Reclamo consultado, sin filtro por responsable.
+
+        Returns:
+            Response: 200 con el detalle y pago/resolución opcionales, o 404 si falta.
+        """
         reclamo = ReclamoPrestacion.objects.select_related('id_prestacion', 'id_contacto').filter(id_reclamo=id_reclamo).first()
         if reclamo is None:
             return Response({'mensaje': 'El reclamo solicitado no existe.'}, status=status.HTTP_404_NOT_FOUND)
@@ -340,7 +460,18 @@ class GestionReclamoAdministracionView(APIView):
         return Response({'reclamo': ReclamoPrestacionSerializer(reclamo).data, 'prestacion': {'id_prestacion': reclamo.id_prestacion_id, 'estado': reclamo.id_prestacion.estado, 'id_profesional': reclamo.id_prestacion.id_profesional_id}, 'pago': pago_data, 'resolucion': resolucion_data}, status=status.HTTP_200_OK)
 
     def post(self, request, id_reclamo):
-        """Resuelve el reclamo y registra su efecto bajo control administrativo."""
+        """Cierra un reclamo y registra su efecto económico como decisión documental.
+
+        Args:
+            request: Petición con decision, efecto_economico LIBERACION, RETENCION
+                o REVERSA, y monto_afectado/observacion opcionales.
+            id_reclamo (int): Reclamo que se resolverá.
+
+        Returns:
+            Response: 201 con resolución y reclamo RESUELTO, 400 por datos inválidos,
+            404 si falta o 409 si ya tiene resolución o fecha de cierre. Bloquea el
+            reclamo y registra trazabilidad; no ejecuta el efecto sobre el pago.
+        """
         entrada_serializer = ResolverReclamoSerializer(data=request.data)
         if not entrada_serializer.is_valid():
             return Response(entrada_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -363,13 +494,24 @@ class GestionReclamoAdministracionView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class RegistrarReclamoEmpresaView(APIView):
-    """Registra un reclamo empresarial sin exponer identificadores internos."""
+    """Registra un reclamo de la prestación identificada por la referencia empresarial."""
 
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request, referencia):
-        """Registra un reclamo empresarial validando referencia y duplicidad."""
+        """Registra un reclamo empresarial validando referencia y ausencia de otro abierto.
+
+        Args:
+            request: Petición con motivo y descripcion no vacíos.
+            referencia (str): Referencia firmada de solicitud y contacto empresarial.
+
+        Returns:
+            Response: 201 con el reclamo ABIERTO y sus identificadores, 400 por
+            referencia/datos inválidos, 404 por prestación no encontrada o 409 si
+            tiene un reclamo sin fecha de cierre. No filtra por estado de prestación
+            ni ejecuta devoluciones o sanciones al registrar el reclamo.
+        """
         datos_referencia = leer_referencia_seguimiento(referencia)
         if datos_referencia is None:
             return Response({'mensaje': 'La referencia de seguimiento no es valida.'}, status=status.HTTP_400_BAD_REQUEST)

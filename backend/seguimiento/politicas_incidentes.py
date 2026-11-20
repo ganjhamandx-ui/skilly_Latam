@@ -49,7 +49,16 @@ _ORIENTACIONES = {
 
 
 def orientacion_reclamo(motivo):
-    """Proporciona recomendaciones; jamás ejecuta operaciones de negocio."""
+    """Proporciona recomendaciones sin ejecutar operaciones de negocio.
+
+    Args:
+        motivo (str): Motivo registrado del reclamo; puede ser un texto anterior
+            o libre que no figure en el catálogo vigente.
+
+    Returns:
+        dict: Tipo, acción recomendada y precaución común. Los motivos ajenos
+        al catálogo reciben una orientación general de revisión.
+    """
     return {
         "tipo": motivo if motivo in _ORIENTACIONES else "Motivo anterior o libre",
         "accion_recomendada": _ORIENTACIONES.get(

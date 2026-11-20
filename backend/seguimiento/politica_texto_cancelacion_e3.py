@@ -4,7 +4,22 @@ from decimal import Decimal, InvalidOperation
 
 
 def porcentaje_valido(valor):
-    """Normaliza el porcentaje configurable y exige el rango permitido."""
+    """Convierte el porcentaje a Decimal finito entre 0 y 100 con cuatro decimales.
+
+    Args:
+        valor: Valor convertible a Decimal mediante su representación textual.
+
+    Returns:
+        Decimal: Porcentaje cuantizado con el contexto decimal vigente.
+
+    Raises:
+        ValueError: Si no puede convertirse, no es finito o está fuera de rango.
+        InvalidOperation: Si el contexto decimal impide cuantizar el resultado.
+
+    Example:
+        >>> porcentaje_valido('12.5')
+        Decimal('12.5000')
+    """
 
     try:
         pct = Decimal(str(valor))
@@ -15,7 +30,18 @@ def porcentaje_valido(valor):
     return pct.quantize(Decimal('0.0001'))
 
 def texto_versionado(pct):
-    """Genera el texto contractual estable asociado al porcentaje vigente."""
+    """Genera el texto contractual estable asociado al porcentaje vigente.
+
+    Args:
+        pct: Porcentaje que se normaliza mediante porcentaje_valido.
+
+    Returns:
+        str: Política informativa con porcentaje sin ceros decimales innecesarios.
+
+    Raises:
+        ValueError: Si el porcentaje no es válido.
+        InvalidOperation: Si no puede cuantizarse con el contexto decimal actual.
+    """
 
     valor = porcentaje_valido(pct)
     legible = format(valor.normalize(), 'f')
@@ -30,6 +56,14 @@ def texto_versionado(pct):
     )
 
 def firma_politica(texto):
-    """Calcula la huella SHA-256 que identifica el texto aceptado."""
+    """Calcula la huella SHA-256 que identifica exactamente el texto aceptado.
+
+    Args:
+        texto (str): Política completa codificada como UTF-8, sin normalizarla.
+
+    Returns:
+        str: Huella hexadecimal de 64 caracteres; identifica cambios de contenido,
+        pero no constituye una firma autenticada con una clave secreta.
+    """
 
     return hashlib.sha256(texto.encode('utf-8')).hexdigest()

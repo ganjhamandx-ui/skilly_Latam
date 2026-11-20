@@ -71,10 +71,18 @@ def _normalizar(texto):
     return ''.join(c for c in texto if not unicodedata.combining(c))
 
 def politica_entrega_servicio(servicio):
-    """Clasificacion automatica, conservadora, segun categoria, nombre y alcance.
+    """Clasifica el servicio por categoría, nombre y alcance para orientar sus adjuntos.
 
-    La regla no obliga a subir archivos: descripcion/referencia siguen permitidas.
-    Un nombre puede ser ambiguo, por eso la categoria y el alcance aportan contexto.
+    La regla no obliga a subir archivos: descripción y referencia siguen siendo
+    válidas en el flujo sin adjuntos. La coincidencia técnica tiene prioridad
+    sobre la clasificación de sesiones descriptivas.
+
+    Args:
+        servicio: Servicio con nombre, descripción, alcance y categoría opcionales.
+
+    Returns:
+        dict: Tipo TECNICO, DESCRIPTIVO o DOCUMENTAL, permiso de adjuntos,
+        formatos y orientación. Usa texto sin tildes ni distinción de mayúsculas.
     """
     categoria=_normalizar(getattr(getattr(servicio,'id_categoria',None),'nombre',''))
     nombre=_normalizar(getattr(servicio,'nombre',''))
@@ -107,19 +115,53 @@ def politica_entrega_servicio(servicio):
             'orientacion':'Si el servicio genero informes o documentos, puedes adjuntarlos de forma opcional.'}
 
 def servicio_de_prestacion(prestacion):
-    """Obtiene el servicio publicado que originó una prestación."""
+    """Devuelve el servicio de catálogo vinculado a la solicitud de prestacion.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación con su solicitud relacionada.
+
+    Returns:
+        Servicio: Servicio asociado, sin comprobar aquí su estado de publicación.
+    """
 
     return prestacion.id_solicitud.id_servicio
 
 def archivos_de_prestacion(prestacion):
-    """Lista metadatos de archivos asociados a las entregas de una prestación."""
+    """Lista metadatos de archivos asociados a las entregas de una prestación.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación ya autorizada por la vista.
+
+    Returns:
+        list[dict]: Identificadores de archivo y entrega, nombre, tamaño y fecha,
+        ordenados por entrega y archivo. No expone rutas privadas ni URLs.
+    """
 
     qs=ArchivoEntregaE3.objects.filter(id_entrega__id_prestacion=prestacion).order_by('id_entrega_id','id_archivo')
     return [dict(id_archivo=x.id_archivo,id_entrega=x.id_entrega_id,nombre=x.nombre_original,
                  tamano=x.tamanio_bytes,fecha=x.fecha_subida) for x in qs]
 
 def validar_archivo(archivo,formatos_permitidos=None):
-    """Valida nombre, extensión, tamaño y firma antes del almacenamiento privado."""
+    """Valida nombre, extensión, tamaño y firma antes del almacenamiento privado.
+
+    Para documentos Office y ZIP examina el índice sin extraer sus archivos:
+    limita entradas, tamaños declarados y relaciones de compresión, y rechaza
+    ciertos nombres de rutas y ejecutables. No inspecciona íntegramente cada
+    contenido ni garantiza que el archivo esté libre de código malicioso.
+
+    Args:
+        archivo: Archivo cargado con name, size, read y seek; cursor inicial en cero.
+        formatos_permitidos (Iterable[str] | None): Extensiones de la política
+            del servicio; None permite cualquiera de EXTENSIONES.
+
+    Returns:
+        tuple[str, str, str]: Nombre sin directorios, extensión y MIME asignado
+        por el servidor. Restablece el cursor tras la inspección.
+
+    Raises:
+        ValueError: Si el nombre, formato, tamaño, firma o índice no cumplen
+            las restricciones. El límite individual es de 10 MiB.
+    """
 
     nombre=str(archivo.name).replace('\\','/').split('/')[-1].strip()
     if not nombre or len(nombre)>180 or any(ord(c)<32 for c in nombre):
@@ -163,12 +205,30 @@ def validar_archivo(archivo,formatos_permitidos=None):
     return nombre, extension, EXTENSIONES[extension]
 
 def almacenamiento():
-    """Construye el almacenamiento privado sin URL pública."""
+    """Construye un almacén de archivos en RAIZ_PRIVADA.
+
+    Returns:
+        FileSystemStorage: Almacén utilizado directamente por las vistas de
+        descarga autorizadas; estas no necesitan publicar una URL del archivo.
+    """
 
     return FileSystemStorage(location=str(RAIZ_PRIVADA),base_url=None)
 
 def abrir_privado(archivo):
-    """Abre un archivo validando que su ruta permanezca dentro del directorio privado."""
+    """Abre un adjunto después de comprobar su referencia local y existencia.
+
+    Args:
+        archivo (ArchivoEntregaE3): Registro cuyo acceso ya autorizó la vista.
+
+    Returns:
+        FileResponse: Adjunto application/octet-stream con nombre original y
+        cabeceras de privacidad; esta función no comprueba identidad ni permisos.
+
+    Raises:
+        Http404: Si la referencia está vacía, contiene directorios o no existe
+            en el almacenamiento.
+        OSError: Si falla la apertura del archivo.
+    """
 
     ruta=archivo.ruta_privada
     if not ruta or '/' in ruta or '\\' in ruta or Path(ruta).name!=ruta:
@@ -189,7 +249,16 @@ class EntregablesProfesionalE3View(APIView):
     authentication_classes=[SesionSkillyAuthentication]
     permission_classes=[EsProfesional]
     def get(self,request,id_prestacion):
-        """Lista entregas y adjuntos de una prestación perteneciente al profesional."""
+        """Lista política y metadatos de adjuntos de una prestación propia.
+
+        Args:
+            request: Petición del profesional autenticado.
+            id_prestacion (int): Prestación consultada.
+
+        Returns:
+            Response: 200 con política, archivos y límites individuales, o 404 si
+            falta el perfil o la prestación no le pertenece. No devuelve los bytes.
+        """
         profesional=Profesional.objects.filter(id_usuario=request.user).first()
         prestacion=PrestacionServicio.objects.select_related('id_solicitud').filter(
             id_prestacion=id_prestacion,id_profesional=profesional).first() if profesional else None
@@ -207,7 +276,24 @@ class RegistrarEntregaConArchivosE3View(APIView):
     permission_classes=[EsProfesional]
     parser_classes=[MultiPartParser,FormParser]
     def post(self,request,id_prestacion):
-        """Registra una entrega y sus archivos privados tras validar política y propiedad."""
+        """Registra una entrega con entre uno y tres adjuntos privados.
+
+        Args:
+            request: Petición multipart con descripcion, referencia_entrega opcional
+                y archivos, hasta 25 MiB en conjunto y 10 MiB por archivo.
+            id_prestacion (int): Prestación propia en CONTRATADA, EN_EJECUCION o
+                EN_PROGRESO cuya política permite adjuntos.
+
+        Returns:
+            Response: 201 con la entrega, 400 por datos o archivos inválidos, 403
+            por falta de perfil o política sin adjuntos, 404 por prestación ajena o
+            inexistente y 409 por estado incompatible. Asigna la siguiente versión
+            bajo bloqueo y guarda metadatos y trazabilidad en la transacción.
+
+        Si una excepción ocurre después de guardar archivos, intenta eliminar las
+        rutas nuevas antes de propagarla. La transacción revierte los registros de
+        base de datos; los archivos dependen de esa limpieza compensatoria.
+        """
         profesional=Profesional.objects.filter(id_usuario=request.user).first()
         if not profesional:
             return Response({'mensaje':'Perfil profesional no disponible.'},status=403)
@@ -261,7 +347,16 @@ class EntregablesEmpresaE3View(APIView):
     authentication_classes=[]
     permission_classes=[AllowAny]
     def get(self,request,referencia):
-        """Lista entregas autorizadas por la referencia privada empresarial."""
+        """Lista metadatos de adjuntos mediante la referencia privada empresarial.
+
+        Args:
+            request: Petición de consulta sin sesión.
+            referencia (str): Referencia firmada con solicitud y contacto.
+
+        Returns:
+            Response: 200 con archivos, 400 por referencia inválida o 404 si no
+            hay una prestación que corresponda a la solicitud y contacto.
+        """
         validada=leer_referencia_seguimiento(referencia)
         if not validada:
             return Response({'mensaje':'Referencia invalida.'},status=400)
@@ -278,7 +373,21 @@ class DescargaEntregaEmpresaE3View(APIView):
     authentication_classes=[]
     permission_classes=[AllowAny]
     def get(self,request,referencia,id_archivo):
-        """Descarga un adjunto solo si pertenece a la solicitud y contacto firmados."""
+        """Descarga un adjunto solo si pertenece a la solicitud y contacto firmados.
+
+        Args:
+            request: Petición sin sesión, autorizada mediante la referencia.
+            referencia (str): Referencia privada firmada de seguimiento.
+            id_archivo (int): Archivo solicitado.
+
+        Returns:
+            FileResponse: Adjunto privado sin caché.
+
+        Raises:
+            Http404: Si la referencia es inválida, el archivo no pertenece a la
+                prestación autorizada o falta su referencia física.
+            OSError: Si falla la apertura del archivo.
+        """
         validada=leer_referencia_seguimiento(referencia)
         if not validada:
             raise Http404()
@@ -296,7 +405,20 @@ class DescargaEntregaProfesionalE3View(APIView):
     authentication_classes=[SesionSkillyAuthentication]
     permission_classes=[EsProfesional]
     def get(self,request,id_archivo):
-        """Descarga un adjunto solo para el profesional propietario de la prestación."""
+        """Descarga un adjunto solo para el profesional propietario de la prestación.
+
+        Args:
+            request: Petición del profesional autenticado.
+            id_archivo (int): Identificador del adjunto solicitado.
+
+        Returns:
+            FileResponse: Adjunto privado sin caché.
+
+        Raises:
+            Http404: Si falta perfil, el archivo es ajeno/inexistente o la referencia
+                física no es válida.
+            OSError: Si falla la apertura del archivo.
+        """
         profesional=Profesional.objects.filter(id_usuario=request.user).first()
         archivo=ArchivoEntregaE3.objects.filter(id_archivo=id_archivo,
             id_entrega__id_prestacion__id_profesional=profesional).first() if profesional else None
@@ -306,12 +428,25 @@ class DescargaEntregaProfesionalE3View(APIView):
 
 @method_decorator(never_cache,name='dispatch')
 class DescargaEntregaAdminE3View(APIView):
-    """Descarga archivos para administración con autorización sobre la prestación."""
+    """Permite descargar adjuntos privados a usuarios con permiso administrativo."""
 
     authentication_classes=[SesionSkillyAuthentication]
     permission_classes=[EsAdministracionSkilly]
     def get(self,request,id_archivo):
-        """Descarga un adjunto privado para una sesión administrativa autorizada."""
+        """Descarga un adjunto privado para una sesión administrativa autorizada.
+
+        Args:
+            request: Petición con permiso EsAdministracionSkilly; no exige que el
+                usuario sea el responsable asignado de la prestación.
+            id_archivo (int): Archivo que se descargará.
+
+        Returns:
+            FileResponse: Adjunto sin caché.
+
+        Raises:
+            Http404: Si no existe el registro o su referencia física no es válida.
+            OSError: Si falla la apertura del archivo.
+        """
         archivo=ArchivoEntregaE3.objects.filter(id_archivo=id_archivo).first()
         if not archivo:
             raise Http404()

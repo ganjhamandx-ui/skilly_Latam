@@ -21,7 +21,20 @@ MOTIVOS_PROFESIONAL = {
 
 
 def preparar_aviso(motivo, descripcion):
-    """Valida un aviso y produce un texto legible y auditable, sin efectos de negocio."""
+    """Valida un aviso y produce un texto legible y auditable, sin efectos de negocio.
+
+    Args:
+        motivo (str): Clave exacta del catálogo MOTIVOS_PROFESIONAL.
+        descripcion (str): Antecedentes de 20 a 2000 caracteres tras quitar
+            espacios externos.
+
+    Returns:
+        str: Texto con motivo, descripción y aviso de revisión administrativa.
+
+    Raises:
+        ValueError: Si el motivo no pertenece al catálogo o la descripción
+            tiene un tipo o longitud inválidos.
+    """
     if not isinstance(motivo, str) or motivo not in MOTIVOS_PROFESIONAL:
         raise ValueError('Selecciona un motivo de incidencia válido.')
     if not isinstance(descripcion, str):

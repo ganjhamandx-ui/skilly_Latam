@@ -38,7 +38,14 @@ class AceptacionPoliticaCancelacion(models.Model):
 
 
 def politica_actual():
-    """Obtiene versión, porcentaje y texto vigente de la política."""
+    """Obtiene versión, porcentaje y texto vigentes desde el parámetro administrativo.
+
+    Returns:
+        dict: Porcentaje Decimal, texto informativo y versión SHA-256 de ese texto.
+
+    Raises:
+        ValueError: Si el parámetro no existe o su porcentaje es inválido.
+    """
 
     parametro = ParametroSistema.objects.filter(clave=CLAVE).first()
     if not parametro:
@@ -52,7 +59,16 @@ def politica_actual():
 
 
 def obtener_prestacion(referencia, bloquear=False):
-    """Resuelve una prestación desde referencia privada y opcionalmente la bloquea."""
+    """Resuelve una prestación desde referencia privada y opcionalmente la bloquea.
+
+    Args:
+        referencia (str): Referencia firmada con solicitud y contacto empresarial.
+        bloquear (bool): Aplica select_for_update; el llamador mantiene la transacción.
+
+    Returns:
+        PrestacionServicio | None: Primera prestación de esa solicitud y contacto,
+        o None si la referencia es inválida o no existe coincidencia.
+    """
 
     datos = leer_referencia_seguimiento(referencia)
     if not datos:
@@ -65,7 +81,15 @@ def obtener_prestacion(referencia, bloquear=False):
 
 
 def detalle_politica(aceptacion):
-    """Serializa la aceptación persistida para mostrarla a la empresa."""
+    """Serializa la aceptación persistida para mostrarla a la empresa.
+
+    Args:
+        aceptacion (AceptacionPoliticaCancelacion): Registro autorizado para consulta.
+
+    Returns:
+        dict: Porcentaje como texto, versión, texto aceptado, fecha y mensaje
+        que informa que el porcentaje quedó fijado para esa contratación.
+    """
 
     return {'aceptada': True, 'porcentaje': str(aceptacion.porcentaje_aceptado),
             'version': aceptacion.version_politica, 'texto': aceptacion.texto_aceptado,
@@ -74,7 +98,21 @@ def detalle_politica(aceptacion):
 
 
 def bloquear_pago_sin_aceptacion(prestacion):
-    """Se llama dentro de la transacción del pago, tras bloquear la prestación."""
+    """Exige aceptación previa únicamente cuando todavía no existe un pago.
+
+    El llamador ejecuta esta comprobación en la transacción del pago, después
+    de bloquear la prestación. Los pagos existentes conservan la compatibilidad
+    con contrataciones anteriores a la política versionada.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación cuyo pago se iniciará.
+
+    Returns:
+        None: Permite continuar si existe aceptación o cualquier pago previo.
+
+    Raises:
+        ValueError: Si no hay aceptación ni operación de pago existente.
+    """
     if AceptacionPoliticaCancelacion.objects.filter(id_prestacion=prestacion).exists():
         return
     # Operaciones iniciadas antes de la implementación: no imponer condiciones retroactivas.
@@ -90,7 +128,17 @@ class PoliticaCancelacionEmpresaView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
-        """Devuelve la política vigente y la aceptación congelada para la prestación."""
+        """Consulta la política fijada o la versión disponible para una aceptación nueva.
+
+        Args:
+            request: Petición sin sesión autenticada.
+            referencia (str): Referencia empresarial firmada de la prestación.
+
+        Returns:
+            Response: 200 con aceptación persistida, indicación de contrato previo
+            con pago o política vigente aún no aceptada; 404 si no resuelve prestación
+            y 409 si falta una configuración válida para una aceptación nueva.
+        """
         prestacion = obtener_prestacion(referencia)
         if not prestacion:
             return Response({'mensaje': 'Solicitud no encontrada.'}, status=404)
@@ -110,7 +158,19 @@ class PoliticaCancelacionEmpresaView(APIView):
             'texto': actual['texto'], 'mensaje': 'Revisa antes de pagar. El cargo no es automático y está sujeto a derechos y evaluación.'})
 
     def post(self, request, referencia):
-        """Registra una aceptación idempotente de la política antes del pago."""
+        """Registra una aceptación idempotente antes del primer pago.
+
+        Args:
+            request: Petición con acepto igual al booleano True y version de 64
+                caracteres correspondiente al texto mostrado a la empresa.
+            referencia (str): Referencia empresarial firmada.
+
+        Returns:
+            Response: 201 al fijar la aceptación, 200 si ya existía, 400 por entrada
+            inválida, 404 si falta prestación o 409 por falta de habilitación, pago
+            previo o versión desactualizada. El reintento con entrada válida devuelve
+            lo ya aceptado, aunque después haya cambiado la política del sistema.
+        """
         if request.data.get('acepto') is not True:
             return Response({'mensaje': 'Marca la aceptación expresa de las condiciones antes de continuar.'}, status=400)
         version = request.data.get('version')

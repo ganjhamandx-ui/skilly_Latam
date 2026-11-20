@@ -37,7 +37,7 @@ class AvanceServicioSerializer(
 class RegistrarAvanceServicioSerializer(
     serializers.Serializer
 ):
-    """Valida tipo, detalle y estado de un nuevo avance profesional."""
+    """Valida un estado textual y un detalle opcional para registrar un avance."""
 
     estado = serializers.CharField(
         max_length=30
@@ -108,7 +108,17 @@ class RevisarEntregaEmpresaSerializer(
     )
 
     def validate(self, datos):
-        """Exige observación al objetar y limpia el detalle al aceptar una entrega."""
+        """Exige observación al objetar y elimina el detalle al aceptar una entrega.
+
+        Args:
+            datos (dict): Acción ACEPTAR u OBSERVAR y detalle opcional ya convertidos.
+
+        Returns:
+            dict: Los mismos datos, con detalle None para la acción ACEPTAR.
+
+        Raises:
+            serializers.ValidationError: Si OBSERVAR no incluye un detalle no vacío.
+        """
         accion = datos["accion"]
 
         detalle = datos.get(
@@ -178,7 +188,7 @@ class ObservacionEntregaSerializer(
 class ReclamoPrestacionSerializer(
     serializers.ModelSerializer
 ):
-    """Representa el reclamo con datos de prestación pertinentes al actor."""
+    """Representa datos del reclamo y una orientación según su motivo, sin filtrar por actor."""
 
     orientacion = serializers.SerializerMethodField()
 

@@ -111,7 +111,7 @@ class ObservacionEntrega(models.Model):
 
 
 class ReclamoPrestacion(models.Model):
-    """Representa un reclamo abierto sobre una prestación contratada."""
+    """Conserva un reclamo sobre una prestación, incluido su estado y eventual cierre."""
 
     id_reclamo = models.BigAutoField(
         primary_key=True

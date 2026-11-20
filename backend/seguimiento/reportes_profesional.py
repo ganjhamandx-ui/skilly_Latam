@@ -24,7 +24,18 @@ class AvisoIncidenciaProfesionalView(APIView):
     permission_classes = [EsProfesional]
 
     def post(self, request, id_prestacion):
-        """Registra un aviso profesional sin cancelar ni reagendar automáticamente."""
+        """Registra un aviso profesional sin cancelar ni reagendar automáticamente.
+
+        Args:
+            request: Petición del profesional con motivo y descripcion válidos.
+            id_prestacion (int): Prestación del profesional que informa la incidencia.
+
+        Returns:
+            Response: 201 con id_aviso, 400 por contenido inválido, 404 por perfil
+            o prestación ajena/inexistente y 409 si no está CONTRATADA. Inserta un
+            avance privado y trazabilidad bajo bloqueo de la prestación; no impide
+            registrar varios avisos sobre ella.
+        """
         try:
             detalle = preparar_aviso(
                 request.data.get('motivo'), request.data.get('descripcion')

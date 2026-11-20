@@ -28,7 +28,16 @@ class ListadoReclamosAdministracionView(APIView):
     ]
 
     def get(self, request):
-        """Lista reclamos con sus relaciones para la bandeja administrativa."""
+        """Lista reclamos por fecha e identificador descendentes para administración.
+
+        Args:
+            request: Petición autenticada con estado opcional en query_params;
+                el filtro elimina espacios externos y compara el texto exacto.
+
+        Returns:
+            Response: 200 con cantidad y reclamos, sin paginación. Un estado que
+            no coincide con registros produce una lista vacía, no un error.
+        """
         reclamos = (
             ReclamoPrestacion.objects
             .order_by(

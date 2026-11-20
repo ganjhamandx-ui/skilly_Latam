@@ -55,6 +55,7 @@ class ExpedienteCancelacion(models.Model):
     devolucion_propuesta = models.DecimalField(max_digits=12, decimal_places=2, null=True)
 
     class Meta:
+        """Vincula el expediente con su tabla SQL preexistente, sin gestión de esquema por Django."""
         managed = False
         db_table = 'expediente_cancelacion_e3'
 
@@ -79,7 +80,21 @@ MAX_BYTES = 5 * 1024 * 1024
 
 
 def evidencia_validada(archivo):
-    """Valida y firma una evidencia privada adjunta a la cancelación."""
+    """Valida una evidencia opcional y calcula la huella de sus bytes.
+
+    Args:
+        archivo: Archivo cargado con name, size, content_type y lectura binaria;
+            None permite abrir el expediente sin evidencia.
+
+    Returns:
+        dict: Nombre sin directorios, MIME, SHA-256 y contenido binario, o dict
+        vacío si falta el archivo. La lectura no restablece el cursor.
+
+    Raises:
+        serializers.ValidationError: Si extensión, tamaño, firma o MIME no
+            corresponden a PDF, PNG o JPEG de hasta 5 MiB. No valida íntegramente
+            el archivo ni calcula una firma autenticada.
+    """
 
     if not archivo:
         return {}
@@ -106,7 +121,16 @@ def evidencia_validada(archivo):
 
 
 def datos_expediente(exp):
-    """Serializa el expediente sin incluir el contenido privado de evidencia."""
+    """Serializa el expediente sin incluir los bytes privados de su evidencia.
+
+    Args:
+        exp (ExpedienteCancelacion): Expediente autorizado para consulta.
+
+    Returns:
+        dict: Antecedentes, nombre de evidencia, decisión y montos conservados.
+        Incluye descripción y fundamento internos; las respuestas empresariales
+        reducidas se construyen por separado en EstadoCancelacionOrganizacionView.
+    """
 
     return {
         'id_expediente': exp.id_expediente, 'id_prestacion': exp.id_prestacion_id,
@@ -125,7 +149,26 @@ def datos_expediente(exp):
 
 
 def construir_expediente(*, prestacion, origen, data, archivo, usuario=None, id_contacto=None):
-    """Crea el expediente y su evidencia dentro de la transacción llamadora."""
+    """Crea un expediente, su antecedente y trazabilidad en una transacción.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación cuyo acceso autorizó la vista.
+        origen (str): ORGANIZACION crea un reclamo; el flujo PROFESIONAL crea
+            un avance privado de incidencia.
+        data: Mapeo con motivo y descripcion.
+        archivo: Evidencia opcional que se valida antes de persistir.
+        usuario: Usuario responsable para trazabilidad, o None para la empresa.
+        id_contacto (int | None): Contacto empresarial del reclamo organizacional.
+
+    Returns:
+        Response: 201 con el expediente o 409 si la prestación no está CONTRATADA,
+        ya tiene expediente pendiente/en revisión o la organización tiene un
+        reclamo sin cerrar. No cancela la prestación ni modifica pagos.
+
+    Raises:
+        serializers.ValidationError: Si los datos o la evidencia son inválidos;
+            DRF los convierte en una respuesta 400.
+    """
 
     entrada = SolicitudSerializer(data=data)
     entrada.is_valid(raise_exception=True)
@@ -169,7 +212,17 @@ class CancelacionOrganizacionView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, referencia):
-        """Abre un expediente organizacional usando una referencia privada válida."""
+        """Abre un expediente organizacional usando una referencia privada válida.
+
+        Args:
+            request: Petición multipart con motivo, descripcion y evidencia opcional.
+            referencia (str): Referencia firmada de solicitud y contacto empresarial.
+
+        Returns:
+            Response: 201 al registrar el expediente, 400 por referencia o datos
+            inválidos, 404 si no hay prestación coincidente y 409 por las restricciones
+            de apertura comprobadas por construir_expediente.
+        """
         datos = leer_referencia_seguimiento(referencia)
         if not datos:
             return Response({'mensaje': 'Referencia inválida.'}, status=400)
@@ -183,14 +236,25 @@ class CancelacionOrganizacionView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class CancelacionProfesionalView(APIView):
-    """Permite al profesional asignado iniciar una cancelación justificada."""
+    """Permite al profesional asignado aportar antecedentes para evaluar una cancelación."""
 
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, id_prestacion):
-        """Abre un expediente para una prestación perteneciente al profesional."""
+        """Abre un expediente para una prestación perteneciente al profesional.
+
+        Args:
+            request: Petición autenticada multipart con motivo, descripcion y
+                evidencia opcional; no exige que la causa ya haya sido justificada.
+            id_prestacion (int): Prestación del profesional autenticado.
+
+        Returns:
+            Response: 201 con el expediente, 400 por datos/evidencia inválidos,
+            404 por perfil o prestación ajena/inexistente y 409 por estado incompatible
+            o expediente pendiente. La justificación se decide posteriormente.
+        """
         profesional = Profesional.objects.filter(id_usuario=request.user).first()
         prestacion = PrestacionServicio.objects.filter(pk=id_prestacion, id_profesional=profesional).first() if profesional else None
         if not prestacion:
@@ -200,13 +264,21 @@ class CancelacionProfesionalView(APIView):
 
 
 class ExpedientesCancelacionAdminView(APIView):
-    """Lista expedientes de cancelación pendientes para administración."""
+    """Lista los expedientes recientes de todos los estados para administración."""
 
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
-        """Lista expedientes de cancelación sin exponer el contenido de evidencias."""
+        """Lista los cien expedientes más recientes sin incluir bytes de evidencia.
+
+        Args:
+            request: Petición administrativa autenticada.
+
+        Returns:
+            Response: 200 con expedientes y proyección económica cuando procede,
+            ordenados por fecha e identificador descendentes; no filtra por responsable.
+        """
         expedientes = ExpedienteCancelacion.objects.order_by('-fecha_registro', '-id_expediente')[:100]
         return Response({'expedientes': [_datos_expediente_admin(exp) for exp in expedientes]})
 
@@ -218,7 +290,15 @@ class ExpedienteCancelacionAdminView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
-        """Obtiene el detalle administrativo de un expediente de cancelación."""
+        """Obtiene antecedentes y proyección económica de un expediente.
+
+        Args:
+            request: Petición con permiso administrativo, sin filtro por responsable.
+            id_expediente (int): Expediente consultado.
+
+        Returns:
+            Response: 200 con el detalle o 404 si no existe.
+        """
         exp = ExpedienteCancelacion.objects.filter(pk=id_expediente).first()
         if not exp:
             return Response({'mensaje': 'Expediente no encontrado.'}, status=404)
@@ -226,7 +306,25 @@ class ExpedienteCancelacionAdminView(APIView):
 
     @method_decorator(csrf_protect)
     def patch(self, request, id_expediente):
-        """Resuelve el expediente bajo bloqueo y congela su cálculo económico."""
+        """Resuelve un expediente PENDIENTE y conserva su evaluación económica.
+
+        Args:
+            request: Petición administrativa con decision, fundamento de 20 a 2000
+                caracteres y monto_trabajo_acreditado opcional, por defecto cero.
+            id_expediente (int): Expediente que se evaluará.
+
+        Returns:
+            Response: 200 con la evaluación, 404 si falta expediente o 409 por
+            resolución previa, trabajo superior al total o cálculo inválido. Usa
+            el total del pago solo si está RETENIDO y VERIFICADO; en otro caso usa
+            cero. Toma el porcentaje de la aceptación existente o cero si falta.
+            Conserva cargo_ejecutado en cero y no cancela ni realiza reembolsos.
+
+        Raises:
+            serializers.ValidationError: Si la entrada no cumple el contrato; DRF
+                devuelve 400. La autorización exige rol administrativo, no asignación
+                individual como responsable de la prestación.
+        """
         entrada = ResolucionSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
@@ -281,7 +379,16 @@ class EvidenciaCancelacionAdminView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
-        """Descarga evidencia privada únicamente para administración autenticada."""
+        """Descarga evidencia privada únicamente para administración autenticada.
+
+        Args:
+            request: Petición con permiso administrativo.
+            id_expediente (int): Expediente que contiene la evidencia.
+
+        Returns:
+            HttpResponse | Response: Adjunto binario sin caché o 404 si falta el
+            expediente, nombre o contenido. No recalcula el SHA-256 al descargar.
+        """
         exp = ExpedienteCancelacion.objects.filter(pk=id_expediente).first()
         if not exp or not exp.evidencia_nombre or not exp.evidencia_contenido:
             return Response({'mensaje': 'No existe evidencia.'}, status=404)
@@ -299,7 +406,18 @@ class EstadoCancelacionOrganizacionView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
-        """Expone a la organización el estado acotado de su expediente firmado."""
+        """Expone el estado empresarial del último expediente sin sus antecedentes internos.
+
+        Args:
+            request: Petición de consulta sin sesión.
+            referencia (str): Referencia firmada que permite resolver la prestación.
+
+        Returns:
+            Response: 200 con expediente None si no existe, estado acotado si sigue
+            pendiente o decisión, importes y liquidación si está RESUELTO; 404 si la
+            referencia no resuelve prestación. No expone evidencia ni fundamento libre
+            y advierte que los cálculos no acreditan transferencias ejecutadas.
+        """
         prestacion = obtener_prestacion(referencia)
         if not prestacion:
             return Response({'mensaje': 'Solicitud no encontrada.'}, status=404)
@@ -334,7 +452,18 @@ class EstadoCancelacionOrganizacionView(APIView):
 
 
 def _datos_expediente_admin(exp):
-    """Agrega una proyección económica para administración, sin mover fondos."""
+    """Agrega una proyección económica administrativa cuando hay datos compatibles.
+
+    Args:
+        exp (ExpedienteCancelacion): Expediente cuya representación se ampliará.
+
+    Returns:
+        dict: Datos del expediente y, si está RESUELTO con trabajo acreditado
+        y pago RETENIDO/VERIFICADO válido, desglose de comisión, neto y devolución.
+        Solo proyecta cargo de cancelación para origen ORGANIZACION y decisión
+        INJUSTIFICADA con aceptación anterior al pago y porcentaje coincidente.
+        La comisión usa ROUND_HALF_UP a centavos; no persiste ni mueve fondos.
+    """
     from decimal import Decimal, ROUND_HALF_UP
 
     respuesta = datos_expediente(exp)
