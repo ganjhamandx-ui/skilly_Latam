@@ -28,6 +28,11 @@ from .serializers import (
 
 
 class CrearAsociacionSolicitudProfesionalView(APIView):
+    """Propone al profesional del servicio seleccionado bajo control del responsable.
+
+    La asociación pendiente prepara la coordinación; no equivale a contratación
+    ni pago. Exige una sesión administrativa y protección CSRF por autenticación.
+    """
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -43,6 +48,19 @@ class CrearAsociacionSolicitudProfesionalView(APIView):
         id_solicitud,
         id_profesional,
     ):
+        """Crea una asociación pendiente para una solicitud recibida y reservada.
+
+        Args:
+            request (Request): Petición del administrador responsable de la solicitud.
+            id_solicitud (int): Solicitud RECIBIDA con un servicio seleccionado.
+            id_profesional (int): Profesional que debe coincidir con el del servicio.
+
+        Returns:
+            Response: HTTP 201 con asociación PROPUESTO/PENDIENTE y trazabilidad;
+            HTTP 404 si falta solicitud o 409 por estado, profesional, reserva,
+            asociación previa o prestación ya preparada. El decorador también
+            rechaza ausencia de responsable, duplicidad de asignaciones o ajenidad.
+        """
         with transaction.atomic():
             solicitud = (
                 SolicitudServicio.objects
@@ -218,8 +236,19 @@ class CrearAsociacionSolicitudProfesionalView(APIView):
 class ProponerAsociacionSolicitudProfesionalView(
     CrearAsociacionSolicitudProfesionalView
 ):
+    """Resuelve el profesional desde el servicio para reutilizar el alta validada."""
     @requiere_responsable_solicitud
     def post(self, request, id_solicitud):
+        """Propone al profesional elegido en el catálogo por la organización.
+
+        Args:
+            request (Request): Petición administrativa con control de responsable.
+            id_solicitud (int): Solicitud de la que se obtiene el servicio.
+
+        Returns:
+            Response: HTTP 404 si falta la solicitud, 409 si carece de servicio
+            o la respuesta de creación de la vista base con todas sus validaciones.
+        """
         solicitud = (
             SolicitudServicio.objects
             .select_related("id_servicio")

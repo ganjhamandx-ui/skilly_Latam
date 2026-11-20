@@ -23,7 +23,15 @@ from .views import (
 
 
 def error_asignacion(mensaje, codigo):
-    """Devuelve un error controlado sin exponer detalles de la asignación."""
+    """Devuelve un error controlado de asignación.
+
+    Args:
+        mensaje (str): Explicación del rechazo sin datos privados.
+        codigo (int): Estado HTTP correspondiente.
+
+    Returns:
+        Response: Objeto con ``mensaje`` y el estado indicado.
+    """
 
     return Response(
         {"mensaje": mensaje},
@@ -40,6 +48,22 @@ class AsignacionSolicitudSeguraAdministracionView(
     # Conserva el GET y los permisos existentes.
 
     def post(self, request, id_solicitud):
+        """Asigna un administrador activo sin reemplazar responsables vigentes.
+
+        Args:
+            request (Request): Sesión administrativa con CSRF. El cuerpo admite
+                solo ``modo`` e ``id_usuario_skilly``; AUTOASIGNAR usa al usuario
+                actual y prohíbe destino explícito, ASIGNAR exige un id positivo.
+            id_solicitud (int): Solicitud que se bloqueará antes de validar vigencia.
+
+        Returns:
+            Response: HTTP 201 con asignación ACTIVA de tipo MANUAL; HTTP 400 por
+            entrada o administrador inválidos y 409 si ya está coordinada o asignada.
+            La trazabilidad distingue el modo aunque ambos guarden tipo MANUAL.
+
+        Raises:
+            Http404: Si la solicitud no existe; DRF responde HTTP 404.
+        """
         datos = request.data
 
         if not hasattr(datos, "get") or not hasattr(
@@ -144,7 +168,7 @@ class AsignacionSolicitudSeguraAdministracionView(
                     status.HTTP_409_CONFLICT,
                 )
 
-            # Solo permite administradores activos.
+            # El bloqueo del destinatario mantiene estable su estado durante el alta.
             usuario_destino = (
                 Usuario.objects
                 .select_for_update()
@@ -163,8 +187,6 @@ class AsignacionSolicitudSeguraAdministracionView(
                     status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Conserva los valores actuales
-            # del modelo y la base de datos.
             asignacion = (
                 AsignacionSolicitud.objects.create(
                     id_solicitud=solicitud,
@@ -176,9 +198,7 @@ class AsignacionSolicitudSeguraAdministracionView(
                 )
             )
 
-            # Distingue la accion efectuada,
-            # aunque el tipo almacenado siga
-            # el criterio actual del sistema.
+            # El evento distingue autoasignación de asignación a otra persona.
             registrar_evento_trazabilidad(
                 usuario=request.user,
                 entidad_tipo="asignacion_solicitud",

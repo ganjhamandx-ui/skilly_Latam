@@ -22,6 +22,7 @@ from .serializers import PrestacionServicioAdministracionSerializer
 
 
 class PrepararPrestacionServicioAdministracionView(APIView):
+    """Prepara la prestación desde una asociación aceptada sin formalizar el contrato."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -37,6 +38,23 @@ class PrepararPrestacionServicioAdministracionView(APIView):
         id_solicitud,
         id_profesional,
     ):
+        """Crea la prestación pendiente o devuelve la existente del mismo profesional.
+
+        Args:
+            request (Request): Sesión administrativa responsable con CSRF válido.
+            id_solicitud (int): Solicitud que se bloqueará junto con su asociación.
+            id_profesional (int): Profesional cuya asociación debe estar ACEPTADO.
+
+        Returns:
+            Response: HTTP 201 con prestación PENDIENTE_CONTRATACION al crearla;
+            HTTP 200 si ya existe para ese profesional; 404 si falta la solicitud
+            y 409 si falta la asociación aceptada o la prestación pertenece a otro.
+            Solo una creación registra la coordinación y actualiza la solicitud.
+
+        Raises:
+            PrestacionServicio.DoesNotExist: Si desaparece el registro antes
+                de recargarlo para serializar la respuesta.
+        """
         ahora = timezone.now()
 
         with transaction.atomic():

@@ -14,13 +14,35 @@ from .vigencia_asignacion import asignaciones_vigentes
 
 
 def _denegacion(mensaje, codigo):
-    """Crea una respuesta de denegación consistente para el control de responsable."""
+    """Construye una respuesta de denegación para el control de responsable.
+
+    Args:
+        mensaje (str): Explicación que puede mostrarse al administrador.
+        codigo (int): Estado HTTP de la denegación.
+
+    Returns:
+        Response: Cuerpo con la clave ``mensaje`` y el estado recibido.
+    """
 
     return Response({"mensaje": mensaje}, status=codigo)
 
 
 def _verificar_responsable(request, id_solicitud):
-    """Bloquea la solicitud y confirma que el administrador sea responsable vigente."""
+    """Bloquea la solicitud y comprueba la responsabilidad administrativa única.
+
+    Args:
+        request (Request): Petición ya autenticada y autorizada por rol.
+        id_solicitud (int): Solicitud que se pretende modificar.
+
+    Returns:
+        Response | None: ``None`` si el único responsable vigente es el usuario;
+        HTTP 404 si falta la solicitud, 409 si no tiene una asignación única y
+        403 si está asignada a otra persona.
+
+    Note:
+        Debe llamarse dentro de una transacción activa. El bloqueo se conserva
+        hasta su cierre para serializar la operación con nuevas asignaciones.
+    """
 
     # Bloquear la misma fila que utiliza el procedimiento de asignación,
     # de modo que asignación y operación administrativa se serialicen.
@@ -51,10 +73,19 @@ def _verificar_responsable(request, id_solicitud):
 
 
 def requiere_responsable_solicitud(funcion):
-    """Protege una operación de solicitud con verificación transaccional de responsable."""
+    """Decora una operación de solicitud con control de responsable y transacción.
+
+    Args:
+        funcion (Callable): Método con ``self``, ``request`` e ``id_solicitud``.
+
+    Returns:
+        Callable: Método que devuelve la denegación del control o el resultado
+        original. Los argumentos adicionales y las excepciones se propagan.
+    """
 
     @wraps(funcion)
     def protegido(self, request, id_solicitud, *args, **kwargs):
+        """Ejecuta el método solo después de validar y bloquear su solicitud."""
         with transaction.atomic():
             rechazo = _verificar_responsable(request, id_solicitud)
             if rechazo is not None:
@@ -64,10 +95,20 @@ def requiere_responsable_solicitud(funcion):
 
 
 def requiere_responsable_prestacion(funcion):
-    """Resuelve la solicitud de una prestación y aplica la misma protección de responsable."""
+    """Decora una operación de prestación con control de su solicitud asociada.
+
+    Args:
+        funcion (Callable): Método con ``self``, ``request`` e ``id_prestacion``.
+
+    Returns:
+        Callable: Método transaccional que devuelve HTTP 404 si falta la prestación,
+        la denegación del responsable o el resultado original. No sustituye los
+        permisos por rol de la vista ni captura excepciones del método decorado.
+    """
 
     @wraps(funcion)
     def protegido(self, request, id_prestacion, *args, **kwargs):
+        """Resuelve la solicitud y conserva su bloqueo durante el método protegido."""
         with transaction.atomic():
             id_solicitud = (PrestacionServicio.objects.filter(pk=id_prestacion)
                             .values_list("id_solicitud_id", flat=True).first())

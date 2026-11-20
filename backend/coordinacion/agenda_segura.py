@@ -23,13 +23,28 @@ from .views import (
 
 
 def conflicto(mensaje, codigo=status.HTTP_409_CONFLICT):
-    """Construye una respuesta de conflicto uniforme para cambios de agenda."""
+    """Construye una respuesta de rechazo para cambios de agenda.
+
+    Args:
+        mensaje (str): Explicación del rechazo para la interfaz administrativa.
+        codigo (int): Estado HTTP; por defecto, 409 para conflictos de estado.
+
+    Returns:
+        Response: Cuerpo con ``mensaje`` y el estado solicitado.
+    """
 
     return Response({"mensaje": mensaje}, status=codigo)
 
 
 def inicio_bloque(bloque):
-    """Combina fecha y hora del bloque en la zona horaria configurada."""
+    """Combina fecha y hora del bloque en la zona horaria activa de Django.
+
+    Args:
+        bloque (Disponibilidad): Bloque con fecha y hora de inicio civil sin zona.
+
+    Returns:
+        datetime: Inicio consciente de zona horaria para compararlo con el reloj.
+    """
 
     return timezone.make_aware(
         datetime.combine(bloque.fecha, bloque.hora_inicio),
@@ -38,7 +53,18 @@ def inicio_bloque(bloque):
 
 
 def registrar_cambio(usuario, tipo, identificador, accion, detalle):
-    """Registra la trazabilidad administrativa del cambio confirmado."""
+    """Registra la trazabilidad administrativa con un detalle acotado.
+
+    Args:
+        usuario (Usuario): Administrador que realiza el cambio.
+        tipo (str): Tipo de entidad afectada.
+        identificador (int): Clave de esa entidad.
+        accion (str): Operación registrada en el historial.
+        detalle (str): Descripción que se limita a 255 caracteres.
+
+    Returns:
+        None: Delega la persistencia en el servicio común de trazabilidad.
+    """
 
     registrar_evento_trazabilidad(
         usuario=usuario,
@@ -58,6 +84,34 @@ class GestionAgendaPrestacionSeguraAdministracionView(
     # GET y AGENDAR_PRIMERA_REUNION conservan su funcionamiento original.
     @requiere_responsable_prestacion
     def post(self, request, id_prestacion):
+        """Revalida reservas y sincroniza reunión y prestación al cambiar la agenda.
+
+        CANCELAR delega la cancelación y cancela la reunión conservando su fecha.
+        POSTERGAR sin fecha exige contratación y pago retenido, libera el bloque
+        y suspende prestación, reserva y reunión. REAGENDAR permite reanudar una
+        prestación postergada con pago retenido o cambiar el bloque vigente.
+        Los bloques nuevos deben pertenecer al profesional, ser futuros y estar
+        disponibles; varias reservas o reuniones activas requieren revisión.
+
+        Args:
+            request (Request): Sesión administrativa responsable con CSRF, acción,
+                motivo y, para cambios con fecha, ``id_disponibilidad_nueva``.
+            id_prestacion (int): Prestación cuya agenda se modificará bajo bloqueo.
+
+        Returns:
+            Response: HTTP 200 con el resultado; HTTP 400 por datos inválidos,
+            404 por recursos inexistentes o 409 por estados y reservas incompatibles.
+            El decorador puede devolver 403 si otro administrador es responsable.
+            Otras acciones se delegan a la vista base y conservan sus respuestas.
+
+        Raises:
+            Http404: Si desaparece la prestación antes de obtener su bloqueo.
+
+        Note:
+            Un expediente bilateral abierto exige el marcador interno del cierre
+            formal y estado LISTO_CONFIRMAR; no puede omitirse por la ruta directa.
+            Un resultado fallido de la vista base revierte la transacción exterior.
+        """
         accion = str(request.data.get("accion", "")).strip().upper()
         if accion not in {"REAGENDAR", "POSTERGAR", "CANCELAR"}:
             return super().post(request, id_prestacion)

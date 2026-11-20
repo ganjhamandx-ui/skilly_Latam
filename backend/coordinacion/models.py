@@ -8,6 +8,11 @@ from solicitudes.models import SolicitudServicio
 
 
 class SolicitudProfesional(models.Model):
+    """Asocia una solicitud y un profesional mediante una clave primaria compuesta.
+
+    Conserva tipo, estado y fecha de la propuesta. La aceptación de esta relación
+    no crea por sí misma una prestación ni confirma el pago.
+    """
     pk = models.CompositePrimaryKey(
         "id_solicitud",
         "id_profesional",
@@ -45,6 +50,12 @@ class SolicitudProfesional(models.Model):
 
 
 class AsignacionSolicitud(models.Model):
+    """Registra la responsabilidad de un usuario interno sobre una solicitud.
+
+    La vigencia exige estado ACTIVA y fecha_fin nula. Este modelo no declara una
+    restricción de responsable único; las operaciones serializan la asignación
+    bloqueando la solicitud en la tabla preexistente.
+    """
     id_asignacion = models.BigAutoField(
         primary_key=True
     )
@@ -84,6 +95,11 @@ class AsignacionSolicitud(models.Model):
 
 
 class CoordinacionSolicitud(models.Model):
+    """Conserva cada gestión administrativa, su responsable y el estado resultante.
+
+    Es un historial de la solicitud; no sustituye los estados actuales de reserva,
+    reunión o prestación ni los eventos generales de trazabilidad.
+    """
     id_coordinacion = models.BigAutoField(
         primary_key=True
     )
@@ -125,6 +141,11 @@ class CoordinacionSolicitud(models.Model):
 
 
 class ReunionSolicitud(models.Model):
+    """Vincula una reunión fechada con solicitud, profesional y responsable opcional.
+
+    Las operaciones de agenda mantienen coherencia con el bloque reservado y
+    preservan la fecha histórica cuando cancelan o postergan sin nuevo horario.
+    """
     id_reunion = models.BigAutoField(
         primary_key=True
     )
@@ -175,6 +196,12 @@ class ReunionSolicitud(models.Model):
 
 
 class PrestacionServicio(models.Model):
+    """Representa la prestación única de una solicitud y su profesional asignado.
+
+    Guarda condiciones comunicadas, estado y fechas del ciclo de contratación.
+    Pagos, reservas y reuniones tienen persistencia separada; las vistas comprueban
+    sus estados antes de formalizar o modificar la contratación.
+    """
     id_prestacion = models.BigAutoField(
         primary_key=True
     )

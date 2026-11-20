@@ -1,4 +1,4 @@
-"""Consulta asociaciones entre solicitudes, profesionales y responsables."""
+"""Confirma administrativamente asociaciones entre solicitudes y profesionales."""
 
 from .control_responsable import requiere_responsable_solicitud
 from django.db import transaction
@@ -28,7 +28,7 @@ from .serializers import (
 class ConfirmarAsociacionSolicitudProfesionalView(
     APIView
 ):
-    """Permite al profesional aceptar o rechazar una asociación propuesta."""
+    """Permite al administrador responsable marcar una asociación como aceptada."""
 
     authentication_classes = [
         SesionSkillyAuthentication
@@ -45,6 +45,21 @@ class ConfirmarAsociacionSolicitudProfesionalView(
         id_solicitud,
         id_profesional,
     ):
+        """Confirma la asociación existente y registra el acto administrativo.
+
+        Args:
+            request (Request): Sesión administrativa responsable con CSRF válido.
+            id_solicitud (int): Solicitud protegida por el control de responsable.
+            id_profesional (int): Profesional de la asociación que se bloqueará.
+
+        Returns:
+            Response: HTTP 200 con asociación ACEPTADO, incluso si ya tenía ese
+            estado; HTTP 404 si falta la asociación. Cada llamada admitida registra
+            trazabilidad. No crea prestaciones ni acepta en nombre de una sesión profesional.
+
+        Raises:
+            Http404: Si la solicitud no existe al recuperarla.
+        """
         solicitud = get_object_or_404(
             SolicitudServicio,
             id_solicitud=id_solicitud,

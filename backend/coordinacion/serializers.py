@@ -19,6 +19,11 @@ from .models import (
 class SolicitudEmpresarialAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Expone solicitudes a administración con organización, contacto y servicio.
+
+    Todos los campos son de lectura. Los datos de contacto pertenecen a la vista
+    administrativa; esta representación no debe reutilizarse en listados públicos.
+    """
     empresa = serializers.SerializerMethodField()
     contacto = serializers.SerializerMethodField()
     servicio = serializers.SerializerMethodField()
@@ -47,6 +52,14 @@ class SolicitudEmpresarialAdministracionSerializer(
         read_only_fields = fields
 
     def get_empresa(self, solicitud):
+        """Devuelve identificación fiscal y datos organizacionales de la solicitud.
+
+        Args:
+            solicitud (SolicitudServicio): Solicitud con empresa asociada.
+
+        Returns:
+            dict: Id, nombre, RUT, rubro y sitio web de la organización.
+        """
         empresa = solicitud.id_empresa
 
         return {
@@ -58,6 +71,14 @@ class SolicitudEmpresarialAdministracionSerializer(
         }
 
     def get_contacto(self, solicitud):
+        """Obtiene el contacto empresarial para la gestión interna.
+
+        Args:
+            solicitud (SolicitudServicio): Solicitud con contacto asociado.
+
+        Returns:
+            dict: Id, nombre, cargo, correo y teléfono del contacto.
+        """
         contacto = solicitud.id_contacto
 
         return {
@@ -69,6 +90,14 @@ class SolicitudEmpresarialAdministracionSerializer(
         }
 
     def get_servicio(self, solicitud):
+        """Resume el servicio elegido o conserva su ausencia.
+
+        Args:
+            solicitud (SolicitudServicio): Solicitud cuyo servicio puede ser nulo.
+
+        Returns:
+            dict | None: Id, nombre y modalidad; ``None`` si no hay servicio.
+        """
         servicio = solicitud.id_servicio
 
         if servicio is None:
@@ -84,6 +113,7 @@ class SolicitudEmpresarialAdministracionSerializer(
 class AsignacionSolicitudAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Expone la asignación y su responsable sin permitir cambios por serialización."""
     responsable = serializers.SerializerMethodField()
 
     class Meta:
@@ -104,6 +134,14 @@ class AsignacionSolicitudAdministracionSerializer(
         read_only_fields = fields
 
     def get_responsable(self, asignacion):
+        """Resume la identidad interna vinculada a la asignación.
+
+        Args:
+            asignacion (AsignacionSolicitud): Registro con usuario responsable.
+
+        Returns:
+            dict: Identificador, correo y rol; omite credenciales de autenticación.
+        """
         usuario = asignacion.id_usuario_skilly
 
         return {
@@ -116,6 +154,7 @@ class AsignacionSolicitudAdministracionSerializer(
 class AsociacionSolicitudProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta una asociación con servicio y perfil para evaluación administrativa."""
     servicio = serializers.SerializerMethodField()
     profesional = serializers.SerializerMethodField()
 
@@ -136,6 +175,14 @@ class AsociacionSolicitudProfesionalSerializer(
         read_only_fields = fields
 
     def get_servicio(self, asociacion):
+        """Obtiene el servicio de la solicitud asociada.
+
+        Args:
+            asociacion (SolicitudProfesional): Relación entre solicitud y profesional.
+
+        Returns:
+            dict | None: Id, nombre y modalidad, o ``None`` si no hay servicio.
+        """
         servicio = asociacion.id_solicitud.id_servicio
 
         if servicio is None:
@@ -148,6 +195,14 @@ class AsociacionSolicitudProfesionalSerializer(
         }
 
     def get_profesional(self, asociacion):
+        """Resume el perfil asociado y su estado de validación.
+
+        Args:
+            asociacion (SolicitudProfesional): Relación cuyo profesional se presenta.
+
+        Returns:
+            dict: Identidad, nombres, título, ubicación y estado de validación.
+        """
         profesional = asociacion.id_profesional
 
         return {
@@ -163,6 +218,7 @@ class AsociacionSolicitudProfesionalSerializer(
 class CoordinacionSolicitudAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta gestiones históricas con la identidad del administrador que las registró."""
     responsable = serializers.SerializerMethodField()
 
     class Meta:
@@ -183,6 +239,14 @@ class CoordinacionSolicitudAdministracionSerializer(
         read_only_fields = fields
 
     def get_responsable(self, coordinacion):
+        """Resume al autor de la gestión, no al responsable vigente de la solicitud.
+
+        Args:
+            coordinacion (CoordinacionSolicitud): Gestión histórica consultada.
+
+        Returns:
+            dict: Id, correo y rol del usuario relacionado.
+        """
         usuario = coordinacion.id_usuario_skilly
 
         return {
@@ -195,6 +259,7 @@ class CoordinacionSolicitudAdministracionSerializer(
 class ReservaDisponibilidadAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Expone una reserva y el horario actual de su bloque para revisar consistencia."""
     disponibilidad = serializers.SerializerMethodField()
 
     class Meta:
@@ -215,6 +280,14 @@ class ReservaDisponibilidadAdministracionSerializer(
         read_only_fields = fields
 
     def get_disponibilidad(self, reserva):
+        """Presenta el bloque relacionado con la reserva, sin recalcular disponibilidad.
+
+        Args:
+            reserva (ReservaDisponibilidad): Reserva con bloque asociado.
+
+        Returns:
+            dict: Id, fecha, horas de inicio y fin, y estado persistido del bloque.
+        """
         disponibilidad = reserva.id_disponibilidad
 
         return {
@@ -231,6 +304,7 @@ class ReservaDisponibilidadAdministracionSerializer(
 class ReunionSolicitudAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta reuniones, participantes y enlace para administración, en solo lectura."""
     profesional = serializers.SerializerMethodField()
     responsable_skilly = serializers.SerializerMethodField()
 
@@ -253,6 +327,7 @@ class ReunionSolicitudAdministracionSerializer(
         read_only_fields = fields
 
     def get_profesional(self, reunion):
+        """Devuelve id, nombres y apellidos del profesional de la reunión recibida."""
         profesional = reunion.id_profesional
 
         return {
@@ -262,6 +337,14 @@ class ReunionSolicitudAdministracionSerializer(
         }
 
     def get_responsable_skilly(self, reunion):
+        """Resume el responsable interno opcional de una reunión.
+
+        Args:
+            reunion (ReunionSolicitud): Reunión que puede carecer de administrador.
+
+        Returns:
+            dict | None: Id, correo y rol del usuario, o ``None`` si no se asignó.
+        """
         usuario = reunion.id_usuario_skilly
 
         if usuario is None:
@@ -277,6 +360,7 @@ class ReunionSolicitudAdministracionSerializer(
 class ComunicarCondicionesPrestacionSerializer(
     serializers.Serializer
 ):
+    """Exige condiciones textuales no vacías y elimina sus espacios exteriores."""
     condiciones_comunicadas = serializers.CharField(
         allow_blank=False,
         trim_whitespace=True,
@@ -286,6 +370,11 @@ class ComunicarCondicionesPrestacionSerializer(
 class AgendarPrimeraReunionSerializer(
     serializers.Serializer
 ):
+    """Valida fecha, modalidad y enlace opcional de la primera reunión.
+
+    Valida tipos y longitudes. La vista obtiene la fecha del bloque y verifica
+    pago, reserva y futuro antes de crear la reunión.
+    """
     fecha_hora = serializers.DateTimeField()
 
     modalidad = serializers.CharField(
@@ -306,6 +395,7 @@ class AgendarPrimeraReunionSerializer(
 class PrestacionServicioAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta condiciones, estado, fechas y profesional de la prestación en solo lectura."""
     profesional = serializers.SerializerMethodField()
 
     class Meta:
@@ -328,6 +418,7 @@ class PrestacionServicioAdministracionSerializer(
         read_only_fields = fields
 
     def get_profesional(self, prestacion):
+        """Devuelve id, nombres y apellidos del profesional de la prestación recibida."""
         profesional = prestacion.id_profesional
 
         return {
@@ -340,6 +431,11 @@ class PrestacionServicioAdministracionSerializer(
 class OportunidadProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta oportunidades al profesional sin exponer contactos empresariales.
+
+    La vista debe filtrar las asociaciones por el profesional autenticado; el
+    serializador solo limita los campos y no aplica autorización por objeto.
+    """
     necesidad = serializers.SerializerMethodField()
     servicio = serializers.SerializerMethodField()
     empresa = serializers.SerializerMethodField()
@@ -364,6 +460,7 @@ class OportunidadProfesionalSerializer(
         read_only_fields = fields
 
     def get_necesidad(self, asociacion):
+        """Resume objetivo, necesidad, modalidad y fecha preferida de la solicitud asociada."""
         solicitud = asociacion.id_solicitud
 
         return {
@@ -376,6 +473,7 @@ class OportunidadProfesionalSerializer(
         }
 
     def get_servicio(self, asociacion):
+        """Obtiene id, nombre y modalidad del servicio, o ``None`` si no fue seleccionado."""
         servicio = asociacion.id_solicitud.id_servicio
 
         if servicio is None:
@@ -388,6 +486,7 @@ class OportunidadProfesionalSerializer(
         }
 
     def get_empresa(self, asociacion):
+        """Devuelve solo el nombre de la organización para proteger sus datos de contacto."""
         empresa = asociacion.id_solicitud.id_empresa
 
         return {
@@ -397,6 +496,15 @@ class OportunidadProfesionalSerializer(
         }
 
     def get_estado_coordinacion(self, asociacion):
+        """Consulta el último estado registrado en el historial de coordinación.
+
+        Args:
+            asociacion (SolicitudProfesional): Relación cuya solicitud se consulta.
+
+        Returns:
+            dict | None: Estado y fecha de la gestión más reciente, desempatada por id;
+            ``None`` si no hay historial. No equivale al estado actual de la prestación.
+        """
         coordinacion = (
             CoordinacionSolicitud.objects
             .filter(
@@ -421,6 +529,10 @@ class OportunidadProfesionalSerializer(
 class ServicioCoordinadoProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Presenta prestaciones al profesional con condiciones y datos acotados de empresa.
+
+    Omite el contacto empresarial y deja el filtro de pertenencia a la vista.
+    """
     empresa = serializers.SerializerMethodField()
     servicio = serializers.SerializerMethodField()
     solicitud = serializers.SerializerMethodField()
@@ -447,6 +559,7 @@ class ServicioCoordinadoProfesionalSerializer(
         read_only_fields = fields
 
     def get_empresa(self, prestacion):
+        """Devuelve únicamente el nombre de la organización de la prestación recibida."""
         empresa = prestacion.id_solicitud.id_empresa
 
         return {
@@ -456,6 +569,15 @@ class ServicioCoordinadoProfesionalSerializer(
         }
 
     def get_servicio(self, prestacion):
+        """Describe el servicio contratado con su referencia de precio.
+
+        Args:
+            prestacion (PrestacionServicio): Prestación con solicitud relacionada.
+
+        Returns:
+            dict | None: Id, nombre, descripción, modalidad, alcance y precio
+            de referencia, o ``None`` si la solicitud no tiene servicio.
+        """
         servicio = prestacion.id_solicitud.id_servicio
 
         if servicio is None:
@@ -473,6 +595,7 @@ class ServicioCoordinadoProfesionalSerializer(
         }
 
     def get_solicitud(self, prestacion):
+        """Resume objetivo, modalidad y fecha preferida de la solicitud de la prestación."""
         solicitud = prestacion.id_solicitud
 
         return {
