@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import './SolicitarValidacionProfesional.css'
 
-// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
+/**
+ * Extrae el mensaje textual de la API o identifica el fallo mediante su código HTTP.
+ * @param {Object|null} datos Respuesta del servidor.
+ * @param {number} codigo Estado de la respuesta.
+ * @returns {string} Explicación del rechazo.
+ */
 function obtenerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -9,7 +14,10 @@ function obtenerError(datos, codigo) {
   return `No fue posible completar la solicitud (HTTP ${codigo}).`
 }
 
-// Envía el expediente profesional cuando los antecedentes requeridos están disponibles.
+/**
+ * Consulta documentos y validación existente antes de permitir presentar antecedentes.
+ * @returns {import('react').ReactElement} Estado de la solicitud o controles de su primera presentación.
+ */
 export default function SolicitarValidacionProfesional() {
   const [documentos, setDocumentos] = useState([])
   const [solicitud, setSolicitud] = useState(null)
@@ -19,8 +27,11 @@ export default function SolicitarValidacionProfesional() {
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
 
+  /**
+   * Consulta documentos y solicitud en paralelo; un 404 de validación significa que todavía no existe.
+   * @returns {Promise<void>} Actualiza ambos resultados o presenta el error sin crear solicitudes.
+   */
   const consultarEstado = useCallback(async () => {
-    // Actualiza el expediente de validación y distingue carga y error.
 
     setConsultando(true)
     setError('')
@@ -91,7 +102,10 @@ export default function SolicitarValidacionProfesional() {
     return () => { activo = false }
   }, [consultarEstado])
 
-  // Solicita formalmente la validación del perfil y sus documentos.
+  /**
+   * Confirma la presentación y solicita al backend vincular los documentos ya cargados.
+   * @returns {Promise<void>} Conserva la solicitud devuelta, incluso ante un 409 que informa una existente.
+   */
   async function enviarSolicitud() {
     if (enviando || consultando || solicitud) return
 

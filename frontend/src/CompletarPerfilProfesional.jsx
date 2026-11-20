@@ -1,4 +1,4 @@
-// Completa el perfil profesional y mantiene sincronizados sus datos básicos y competencias.
+// Crea o actualiza los datos de presentación y contacto del perfil profesional.
 import { useEffect, useState } from 'react'
 import './CompletarPerfilProfesional.css'
 
@@ -11,7 +11,12 @@ const inicial = {
   ubicacion: '',
 }
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Selecciona el mensaje de la API o combina los errores por campo del perfil.
+ * @param {Object|null} datos Respuesta JSON.
+ * @param {number} codigo Estado HTTP usado si faltan detalles.
+ * @returns {string} Explicación para el formulario.
+ */
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -31,7 +36,14 @@ function mensajeError(datos, codigo) {
   return `No fue posible completar la operaci\u00f3n (HTTP ${codigo}).`
 }
 
-// Valida y registra los datos obligatorios del primer perfil profesional.
+/**
+ * Consulta si existe perfil y elige creación por POST o actualización por PATCH.
+ * @param {Object} props Acciones del portal que contiene el formulario.
+ * @param {function(): (void|Promise<void>)} [props.onCreado] Refresca el contenedor después de guardar,
+ * tanto al crear como al actualizar; su fallo no revierte el perfil guardado.
+ * @param {function(): void} [props.onVerPerfil] Navega a la consulta del perfil desde la confirmación.
+ * @returns {import('react').ReactElement} Consulta inicial, formulario o resultado.
+ */
 export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
   const [consultando, setConsultando] = useState(true)
   const [sinPerfil, setSinPerfil] = useState(false)
@@ -45,7 +57,10 @@ export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
     // Cancela la verificación de perfil cuando se abandona la pantalla.
     const controlador = new AbortController()
 
-    // Consulta el perfil profesional para decidir si falta completar la ficha inicial.
+    /**
+     * Trata 404 como perfil ausente y carga los campos editables cuando ya existe.
+     * @returns {Promise<void>} Refleja carga y errores; la petición utiliza la señal del efecto.
+     */
     async function comprobarPerfil() {
       try {
         const respuesta = await fetch(
@@ -92,7 +107,12 @@ export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
     return () => controlador.abort()
   }, [])
 
-  // Actualiza el campo editado sin descartar los otros valores del formulario.
+  /**
+   * Reemplaza el campo editado sin descartar el resto del formulario.
+   * @param {string} campo Nombre del dato del perfil.
+   * @param {string} valor Texto introducido.
+   * @returns {void}
+   */
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -100,7 +120,11 @@ export default function CompletarPerfilProfesional({ onCreado, onVerPerfil }) {
     }))
   }
 
-  // Envía los datos del perfil profesional para completar el registro.
+  /**
+   * Normaliza los datos y crea o actualiza el perfil con protección CSRF.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Espera onCreado si existe y presenta por separado un fallo de refresco.
+   */
   async function guardar(evento) {
     evento.preventDefault()
 

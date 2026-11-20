@@ -4,7 +4,12 @@ import './AccesoProfesional.css'
 
 const API = '/api/acceso/'
 
-// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
+/**
+ * Prioriza el mensaje del servidor y reúne errores de campo cuando no hay un detalle general.
+ * @param {Object|null} datos Cuerpo JSON del rechazo.
+ * @param {number} estado Código HTTP usado como diagnóstico alternativo.
+ * @returns {string} Explicación apta para el formulario de acceso.
+ */
 function obtenerError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -29,7 +34,11 @@ function obtenerError(datos, estado) {
   return `La operación no pudo completarse (HTTP ${estado}).`
 }
 
-// Solicita un token CSRF con las cookies de la sesión antes de una escritura.
+/**
+ * Solicita un token CSRF mediante las cookies del mismo origen.
+ * @returns {Promise<string>} Token recibido de la API.
+ * @throws {Error} Si falla fetch, el estado HTTP o falta csrfToken.
+ */
 async function obtenerCsrf() {
   const respuesta = await fetch(`${API}csrf/`, {
     method: 'GET',
@@ -49,7 +58,13 @@ async function obtenerCsrf() {
   return datos.csrfToken
 }
 
-// Envía un formulario de acceso con su sesión y la protección CSRF.
+/**
+ * Obtiene CSRF y envía datos JSON a una ruta relativa del módulo de acceso.
+ * @param {string} ruta Sufijo del endpoint bajo /api/acceso/.
+ * @param {Object} contenido Campos del formulario aceptados por el endpoint.
+ * @returns {Promise<Object>} JSON del servidor o un objeto vacío si no puede leerse.
+ * @throws {Error} Si falla CSRF, la conexión o la respuesta HTTP.
+ */
 async function enviarFormulario(ruta, contenido) {
   const csrfToken = await obtenerCsrf()
 
@@ -73,7 +88,11 @@ async function enviarFormulario(ruta, contenido) {
   return datos
 }
 
-// Selecciona la ruta posterior al ingreso según el rol confirmado por el servidor.
+/**
+ * Selecciona el destino de interfaz del rol devuelto por el inicio de sesión.
+ * @param {string|undefined} rol Rol confirmado por el servidor.
+ * @returns {string|null} Ruta profesional o administrativa, o null para roles no contemplados.
+ */
 function destinoPorRol(rol) {
   switch (rol) {
     case 'PROFESIONAL':
@@ -85,7 +104,11 @@ function destinoPorRol(rol) {
   }
 }
 
-// Coordina autenticación, registro y recuperación en el área de acceso profesional.
+/**
+ * Coordina inicio de sesión, registro y restablecimiento con token de recuperación.
+ * El rol devuelto por la API determina la navegación posterior; no se persiste la contraseña.
+ * @returns {import('react').ReactElement} Pantalla de acceso y formularios asociados.
+ */
 export default function AccesoProfesional() {
   const [vista, setVista] = useState('acceso')
   const [mostrarRegistro, setMostrarRegistro] = useState(false)
@@ -105,7 +128,11 @@ export default function AccesoProfesional() {
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
-  // Alterna formularios de acceso y restablece sus avisos para la nueva acción.
+  /**
+   * Cambia de formulario cuando no hay petición activa y limpia mensajes y secretos escritos.
+   * @param {'acceso'|'solicitar'|'restablecer'} siguiente Vista solicitada por la interfaz.
+   * @returns {void} Conserva los correos previamente introducidos.
+   */
   function cambiarVista(siguiente) {
     if (cargando) return
 
@@ -119,7 +146,11 @@ export default function AccesoProfesional() {
     setConfirmarContrasena('')
   }
 
-  // Inicio de sesión normal.
+  /**
+   * Inicia sesión con correo normalizado y navega según el rol confirmado por el backend.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Limpia la contraseña tanto al completar como al fallar la petición.
+   */
   async function iniciarSesion(evento) {
     evento.preventDefault()
 
@@ -159,7 +190,11 @@ export default function AccesoProfesional() {
     }
   }
 
-  // Solicita el código temporal por correo.
+  /**
+   * Solicita recuperación para el correo y abre la entrada del token tras una respuesta válida.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Muestra el mensaje genérico del servidor sin confirmar existencia de cuenta.
+   */
   async function solicitarRecuperacion(evento) {
     evento.preventDefault()
 
@@ -194,7 +229,11 @@ export default function AccesoProfesional() {
     }
   }
 
-  // Utiliza el código para establecer una contraseña nueva.
+  /**
+   * Valida longitud y coincidencia local antes de enviar token y contraseña nueva.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Vuelve al acceso tras guardar; elimina las contraseñas también al fallar.
+   */
   async function cambiarContrasena(evento) {
     evento.preventDefault()
 
@@ -291,7 +330,7 @@ export default function AccesoProfesional() {
 
         <section className="ap-tarjeta">
 
-          {/* PANTALLA 1: INICIO DE SESIÓN */}
+          {/* El registro se abre aquí sin abandonar la pantalla de acceso. */}
           {vista === 'acceso' && (
             <>
               <h2>Iniciar sesión</h2>
@@ -438,7 +477,7 @@ export default function AccesoProfesional() {
             </>
           )}
 
-          {/* PANTALLA 2: SOLICITAR CÓDIGO */}
+          {/* El mensaje de recuperación no confirma si el correo tiene una cuenta. */}
           {vista === 'solicitar' && (
             <>
               <h2>Recuperar contraseña</h2>
@@ -520,7 +559,7 @@ export default function AccesoProfesional() {
             </>
           )}
 
-          {/* PANTALLA 3: NUEVA CONTRASEÑA */}
+          {/* El código se envía como token; no se inicia sesión tras cambiar la contraseña. */}
           {vista === 'restablecer' && (
             <>
               <h2>Establecer nueva contraseña</h2>

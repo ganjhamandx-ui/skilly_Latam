@@ -14,7 +14,12 @@ const inicial = {
   resumen: '',
 }
 
-// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
+/**
+ * Convierte mensajes generales o errores por campo en una explicación del rechazo.
+ * @param {Object|null} datos Respuesta JSON del registro.
+ * @param {number} estado Código HTTP si no hay detalle del servidor.
+ * @returns {string} Mensaje de error para el formulario.
+ */
 function obtenerError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -39,7 +44,13 @@ function obtenerError(datos, estado) {
   return `No se pudo crear la cuenta (HTTP ${estado}).`
 }
 
-// Coordina el registro de la cuenta profesional y la edición de sus campos.
+/**
+ * Registra cuenta y perfil mediante el endpoint de alta profesional.
+ * @param {Object} props Acciones del contenedor del formulario.
+ * @param {function(): void} [props.onRegistrado] Se invoca al pulsar el botón para volver al acceso,
+ * no automáticamente al completar el registro.
+ * @returns {import('react').ReactElement} Formulario o confirmación del alta.
+ */
 export default function RegistroProfesional({ onRegistrado }) {
   const [formulario, setFormulario] = useState(inicial)
   const [mostrarClave, setMostrarClave] = useState(false)
@@ -47,7 +58,12 @@ export default function RegistroProfesional({ onRegistrado }) {
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
 
-  // Actualiza el campo editado sin descartar los otros valores del formulario.
+  /**
+   * Actualiza un campo conservando los demás datos introducidos.
+   * @param {string} campo Clave del formulario.
+   * @param {string} valor Texto recibido del control.
+   * @returns {void}
+   */
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -55,7 +71,11 @@ export default function RegistroProfesional({ onRegistrado }) {
     }))
   }
 
-  // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
+  /**
+   * Comprueba campos obligatorios y coincidencia de contraseñas antes del alta protegida por CSRF.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Vacía el formulario al guardar o muestra el rechazo del servidor.
+   */
   async function registrar(evento) {
     evento.preventDefault()
 

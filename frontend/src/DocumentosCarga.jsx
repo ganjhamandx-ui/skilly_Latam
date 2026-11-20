@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { accionCargaDocumento } from './documentosCargaPolitica.mjs'
 import './DocumentosCarga.css'
 
-// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
+/**
+ * Obtiene un mensaje general o reúne errores por campo de la operación documental.
+ * @param {Object|null} datos Cuerpo JSON de la respuesta.
+ * @param {number} codigo Estado HTTP usado como alternativa.
+ * @returns {string} Explicación visible del rechazo.
+ */
 function obtenerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -17,7 +22,11 @@ function obtenerError(datos, codigo) {
   return mensajes || `Error HTTP ${codigo}`
 }
 
-// Gestiona documentos propios y habilita correcciones según el estado de validación.
+/**
+ * Consulta el historial propio y permite nuevas cargas o correcciones según politica_carga.
+ * El backend vuelve a comprobar propiedad, estado y contenido antes de guardar el archivo.
+ * @returns {import('react').ReactElement} Carga, historial y descargas de documentos privados.
+ */
 export default function DocumentosCarga() {
   const [tipo, setTipo] = useState('')
   const [archivo, setArchivo] = useState(null)
@@ -33,8 +42,11 @@ export default function DocumentosCarga() {
   const [ultimaConsulta, setUltimaConsulta] = useState('')
   const campoArchivo = useRef(null)
 
+  /**
+   * Consulta documentos y política de carga, validando que el listado recibido sea una matriz.
+   * @returns {Promise<void>} Actualiza historial, política y hora de consulta o presenta el error.
+   */
   const cargarDocumentos = useCallback(async () => {
-    // Carga el historial documental y conserva el estado explícito de consulta.
 
     setConsultando(true)
     setError('')
@@ -82,7 +94,11 @@ export default function DocumentosCarga() {
     return () => { activo = false }
   }, [cargarDocumentos])
 
-  // Valida la selección y envía el archivo con su tipo o versión al endpoint protegido.
+  /**
+   * Comprueba política, tipo y tamaño locales y envía el archivo mediante FormData con CSRF.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Limpia la selección y recarga el historial al guardar; captura los errores.
+   */
   async function subirDocumento(evento) {
     evento.preventDefault()
 
@@ -166,7 +182,11 @@ export default function DocumentosCarga() {
     }
   }
 
-  // Solicita el archivo al endpoint autenticado para mantener privada la ruta de almacenamiento.
+  /**
+   * Descarga por el endpoint autorizado y revoca después la URL temporal del blob.
+   * @param {Object} documento Registro con id_documento y nombre_archivo opcional.
+   * @returns {Promise<void>} Inicia la descarga o presenta un error, con explicación específica para 404.
+   */
   async function descargarDocumento(documento) {
     setError('')
 
@@ -203,7 +223,11 @@ export default function DocumentosCarga() {
   }
 
   
-  // Preselecciona el tipo y el documento exacto que admite corrección.
+  /**
+   * Selecciona una corrección autorizada o una carga nueva del mismo tipo según la política actual.
+   * @param {Object} documento Documento elegido con identificador, tipo y estado de revisión.
+   * @returns {void} Conserva el identificador a reemplazar solo si el documento rechazado es corregible.
+   */
   function prepararNuevaVersion(documento) {
     const esRechazado = documento.estado_revision === 'RECHAZADA'
     const corregible = esRechazado && politica?.ids_rechazados?.includes(documento.id_documento)
