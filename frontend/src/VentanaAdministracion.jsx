@@ -3,8 +3,16 @@ import { createPortal } from 'react-dom'
 import useDialogoAccesible from './useDialogoAccesible.js'
 import './VentanaAdministracion.css'
 
-// Ventana reutilizable del back-office. El contenido sigue ejecutando
-// sus acciones originales; sólo cambia la presentación.
+/**
+ * Presenta contenido administrativo en un portal con gestión compartida de foco y cierre.
+ * @param {Object} props Estado y contenido del diálogo.
+ * @param {boolean} props.abierta Determina si se monta el portal.
+ * @param {string} props.titulo Título visible y nombre accesible.
+ * @param {function(): void} props.onCerrar Solicita al contenedor cerrar la ventana.
+ * @param {boolean} [props.bloqueado=false] Impide cierre por botón, fondo y Escape.
+ * @param {import('react').ReactNode} props.children Contenido que conserva sus propios handlers.
+ * @returns {import('react').ReactPortal|null} Ventana en document.body o null si está cerrada.
+ */
 export default function VentanaAdministracion({ abierta, titulo, onCerrar, bloqueado = false, children }) {
   const panelRef = useRef(null)
   useDialogoAccesible(abierta, panelRef, onCerrar, bloqueado)

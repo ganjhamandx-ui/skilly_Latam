@@ -7,16 +7,26 @@ const contenedor = {
   padding: '1.5rem',
 }
 
-// Aísla errores de renderizado durante la carga diferida de una pantalla.
+/**
+ * Contiene errores de renderizado de sus hijos y muestra la espera de Suspense.
+ * La recuperación ofrecida recarga el documento; no intercepta fallos de handlers asíncronos.
+ * @extends {Component<{children: import('react').ReactNode}, {fallo: boolean}>}
+ */
 export default class CargaPantalla extends Component {
   state = { fallo: false }
 
-  // Activa la vista de recuperación tras un error de renderizado del módulo.
+  /**
+   * Activa la recuperación cuando React notifica un error de un descendiente.
+   * @returns {{fallo: boolean}} Estado que sustituye la pantalla por el aviso de error.
+   */
   static getDerivedStateFromError() {
     return { fallo: true }
   }
 
-  // Presenta la carga, el estado de recuperación o el módulo activo según el estado actual.
+  /**
+   * Presenta recuperación o los hijos contenidos por Suspense y su mensaje de espera.
+   * @returns {import('react').ReactElement} Contenido correspondiente al estado del límite.
+   */
   render() {
     if (this.state.fallo) {
       return (

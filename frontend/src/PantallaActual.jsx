@@ -2,10 +2,13 @@
 import { lazy } from 'react'
 import { obtenerCargadorPantalla } from './rutasPantalla.mjs'
 
-// Selecciona y carga la vista correspondiente a la ruta actual sin cargar todas las vistas.
+// La selección se fija al evaluar el módulo; los enlaces de navegación cargan un nuevo documento.
 const Pantalla = lazy(obtenerCargadorPantalla(window.location.pathname))
 
-// Resuelve el componente diferido correspondiente a la ruta actual.
+/**
+ * Renderiza la pantalla diferida seleccionada a partir del pathname al cargar este módulo.
+ * @returns {import('react').ReactElement} Pantalla que debe estar contenida por Suspense.
+ */
 export default function PantallaActual() {
   return <Pantalla />
 }

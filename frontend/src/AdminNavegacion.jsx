@@ -1,5 +1,5 @@
 
-// Menú administrativo accesible que conserva el módulo activo y el foco al navegar.
+// Menú administrativo que identifica el módulo activo y lo centra cuando la fila desborda.
 import { useEffect, useRef } from 'react'
 import './AdminNavegacion.css'
 
@@ -94,7 +94,12 @@ const modulos = [
   },
 ]
 
-// Presenta el menú administrativo y sincroniza selección y foco con la navegación.
+/**
+ * Marca el módulo activo y ajusta el desplazamiento horizontal para mantenerlo visible.
+ * @param {Object} props Selección de navegación del contenedor.
+ * @param {string} props.activo Identificador de uno de los módulos; no cambia el foco.
+ * @returns {import('react').ReactElement} Navegación por enlaces con aria-current.
+ */
 export default function AdminNavegacion({ activo }) {
   const activoRef = useRef(null)
   useEffect(() => {

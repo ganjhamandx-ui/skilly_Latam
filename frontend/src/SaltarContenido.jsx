@@ -1,6 +1,13 @@
-// Enlace de accesibilidad que lleva el foco al contenido principal de la pantalla.
+/**
+ * Ofrece un enlace para omitir la navegación y enfocar el primer main del documento.
+ * @returns {import('react').ReactElement} Enlace de salto al contenido principal.
+ */
 export default function SaltarContenido() {
-  // Lleva el foco al contenido principal para evitar repetir toda la navegación.
+  /**
+   * Enfoca main y lo desplaza al inicio; si falta, conserva la navegación normal del enlace.
+   * @param {import('react').MouseEvent} evento Activación del enlace de accesibilidad.
+   * @returns {void} Añade tabindex=-1 solamente cuando main no tenía tabindex.
+   */
   function saltar(evento) {
     const contenido = document.querySelector('main')
     if (!contenido) return

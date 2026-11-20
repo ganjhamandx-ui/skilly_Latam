@@ -19,14 +19,22 @@ const etiquetas = {
   id_bloque_entrevista: 'Bloque de entrevista',
 }
 
-// Genera una etiqueta legible para los campos del resumen de entrevista.
+/**
+ * Obtiene una etiqueta conocida o convierte el nombre técnico en texto legible.
+ * @param {string} clave Nombre de campo recibido.
+ * @returns {string} Etiqueta del resumen.
+ */
 function titulo(clave) {
   return etiquetas[clave] ??
     clave.replaceAll('_', ' ')
       .replace(/^./, (letra) => letra.toUpperCase())
 }
 
-// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
+/**
+ * Convierte valores JSON acíclicos a texto y omite ciertas claves sensibles en objetos.
+ * @param {*} valor Escalar, lista u objeto recibido del servidor.
+ * @returns {string} Texto legible, con indicación de ausencia o lista vacía cuando corresponde.
+ */
 function texto(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No informado'
@@ -50,12 +58,22 @@ function texto(valor) {
   return String(valor)
 }
 
-// Evita presentar identificadores y datos internos en el resumen.
+/**
+ * Detecta nombres de claves sensibles; no oculta los identificadores de entrevista o validación.
+ * @param {string} nombre Nombre del campo.
+ * @returns {boolean} Si contiene alguna de las expresiones sensibles previstas.
+ */
 function campoOculto(nombre) {
   return /token|secret|password|hash|csrf|credential/i.test(nombre)
 }
 
-// Acota la presentación de la entrevista a fecha, horario y antecedentes comunicables.
+/**
+ * Presenta los campos de entrevista recibidos, salvo las claves sensibles reconocidas.
+ * El filtrado visual complementa la selección de datos autorizados en el backend.
+ * @param {Object} props Información de la entrevista.
+ * @param {Object|null} props.datos Datos y estado devueltos por la API.
+ * @returns {import('react').ReactElement} Resumen o mensaje de información no disponible.
+ */
 export default function ResumenEntrevista({ datos }) {
   if (!datos || typeof datos !== 'object') {
     return <p>La informaci&oacute;n de la entrevista no est&aacute; disponible.</p>
