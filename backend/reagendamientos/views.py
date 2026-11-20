@@ -63,7 +63,18 @@ class BloqueNuevoSerializer(serializers.Serializer):
     hora_fin = serializers.TimeField()
 
     def validate(self, data):
-        """Valida que el bloque termine después de iniciar y permanezca en el futuro."""
+        """Valida duración positiva e inicio futuro en la zona horaria configurada.
+
+        Args:
+            data (dict): Fecha y horas convertidas por los campos del serializador.
+
+        Returns:
+            dict: Los mismos datos cuando el intervalo es admisible.
+
+        Raises:
+            serializers.ValidationError: Si el fin no supera al inicio o el bloque
+                ya comenzó. No consulta solapamientos; se comprueban al registrar.
+        """
         if data["hora_inicio"] >= data["hora_fin"]:
             raise serializers.ValidationError(
                 "La hora de inicio debe ser anterior a la hora de término."
@@ -103,7 +114,16 @@ def politica():
 
 
 def politica_aceptada(data):
-    """Confirma consentimiento expreso y coincidencia de la versión vigente."""
+    """Comprueba consentimiento expreso y coincidencia de la versión vigente.
+
+    Args:
+        data: Mapeo con acepta_politica y politica_version. Admite True o los
+            textos 1, true, si, sí y on, ignorando espacios externos y mayúsculas.
+
+    Returns:
+        bool: True solo si la aceptación es afirmativa y la versión coincide;
+        el entero 1 sin convertir a texto no equivale al booleano True.
+    """
 
     aceptada = data.get("acepta_politica")
     if isinstance(aceptada, str):
@@ -134,7 +154,19 @@ def comienzo(bloque):
 
 
 def disponible(bloque, prestacion, original_id):
-    """Revalida pertenencia, futuro, estado y reservas incompatibles del bloque."""
+    """Revalida pertenencia, futuro, estado y reservas incompatibles del bloque.
+
+    Args:
+        bloque (Disponibilidad | None): Bloque candidato.
+        prestacion (PrestacionServicio): Prestación cuyo profesional debe coincidir.
+        original_id (int): Bloque de la reserva original, que no puede elegirse
+            y se excluye de la búsqueda de solapamientos de reservas activas.
+
+    Returns:
+        bool: Si el bloque es DISPONIBLE, tiene duración positiva, comienza
+        en el futuro y no tiene reserva activa ni cruza otra reserva incompatible.
+        No bloquea registros ni comprueba solapamientos con bloques sin reserva.
+    """
 
     return bool(
         bloque is not None
@@ -157,7 +189,17 @@ def disponible(bloque, prestacion, original_id):
 
 
 def opciones(prestacion, original_id):
-    """Lista bloques futuros que pueden proponerse para la prestación."""
+    """Lista bloques futuros que pueden proponerse para la prestación.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación que determina el profesional.
+        original_id (int): Bloque original excluido de las alternativas.
+
+    Returns:
+        list[dict]: Horarios admitidos por disponible entre los primeros 250
+        bloques DISPONIBLE desde hoy, ordenados por fecha, inicio e identificador.
+        La consulta informa opciones, pero no reserva cupos.
+    """
 
     bloques = Disponibilidad.objects.filter(
         id_profesional_id=prestacion.id_profesional_id,
@@ -168,7 +210,15 @@ def opciones(prestacion, original_id):
 
 
 def reserva_vigente(prestacion):
-    """Obtiene la única reserva activa de la solicitud asociada."""
+    """Obtiene la única reserva activa de la solicitud asociada.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación cuya solicitud se consulta.
+
+    Returns:
+        ReservaDisponibilidad | None: Reserva con su bloque relacionado si
+        existe exactamente una; None tanto si falta como si hay varias.
+    """
 
     reservas = list(
         ReservaDisponibilidad.objects.filter(
@@ -181,14 +231,32 @@ def reserva_vigente(prestacion):
 
 
 def inicio_vencido(prestacion, reserva=None):
-    """Indica si el horario original ya comenzó y no admite reagendamiento."""
+    """Comprueba si comenzó el horario de una reserva conocida o de la única activa.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación usada si no se aporta reserva.
+        reserva (ReservaDisponibilidad | None): Reserva ya consultada, opcional.
+
+    Returns:
+        bool: True si la reserva encontrada ya comenzó. Devuelve False cuando
+        no puede obtener una reserva única; no acredita por sí solo habilitación.
+    """
 
     reserva = reserva if reserva is not None else reserva_vigente(prestacion)
     return reserva is not None and comienzo(reserva.id_disponibilidad) <= timezone.now()
 
 
 def acceso_solicitud(prestacion):
-    """Devuelve la causa que impide abrir un expediente o nulo si procede."""
+    """Devuelve la causa que impide abrir un expediente o None si procede.
+
+    Args:
+        prestacion (PrestacionServicio): Prestación que se desea reagendar.
+
+    Returns:
+        str | None: Primer impedimento: estado distinto de CONTRATADA, ausencia
+        de una única reserva activa, inicio vencido o expediente ya abierto.
+        Es una comprobación de negocio; el llamador verifica la autorización.
+    """
 
     if prestacion.estado != "CONTRATADA":
         return "Solo una prestación contratada admite solicitar este cambio."
@@ -205,7 +273,17 @@ def acceso_solicitud(prestacion):
 
 
 def evento(obj, actor, accion, detalle):
-    """Añade un evento trazable al historial del reagendamiento."""
+    """Añade un evento trazable al historial del reagendamiento.
+
+    Args:
+        obj (SolicitudReagendamiento): Expediente al que pertenece el evento.
+        actor (str): Parte que realiza la acción.
+        accion (str): Identificador de la acción registrada.
+        detalle: Valor convertido a texto y truncado a 2000 caracteres.
+
+    Returns:
+        None: Persiste el evento sin devolverlo; el llamador controla la transacción.
+    """
 
     EventoReagendamiento.objects.create(
         reagendamiento=obj,
@@ -222,7 +300,14 @@ def texto_motivo(valor):
 
 
 def prestar(solicitud_id):
-    """Resuelve la prestación contratada vinculada con una solicitud."""
+    """Resuelve la primera prestación vinculada con una solicitud, sin filtrar su estado.
+
+    Args:
+        solicitud_id (int): Identificador de la solicitud de servicio.
+
+    Returns:
+        PrestacionServicio | None: Prestación con id_solicitud precargado, o None.
+    """
 
     return (
         PrestacionServicio.objects.filter(id_solicitud_id=solicitud_id)
@@ -232,7 +317,22 @@ def prestar(solicitud_id):
 
 
 def evidencia_validada(archivo, obligatoria=True):
-    """Valida tamaño, extensión, firma y MIME antes de guardar evidencia privada."""
+    """Valida tamaño, extensión, firma y MIME antes de guardar evidencia privada.
+
+    Args:
+        archivo: Archivo cargado con nombre, tamaño, content_type y lectura
+            binaria; se consume su contenido sin restablecer el cursor.
+        obligatoria (bool): Si falta el archivo, determina si debe rechazarse.
+
+    Returns:
+        dict: Nombre sin directorios, MIME, SHA-256 y bytes para el expediente;
+        dict vacío si la evidencia es opcional y no se recibió archivo.
+
+    Raises:
+        serializers.ValidationError: Si falta evidencia obligatoria, supera
+            5 MiB o incumple las comprobaciones de PDF, PNG o JPEG. La firma
+            no constituye una validación integral de seguridad del archivo.
+    """
 
     if archivo is None:
         if obligatoria:
@@ -264,7 +364,20 @@ def evidencia_validada(archivo, obligatoria=True):
 
 
 def _lista_json(data, nombre):
-    """Interpreta una lista JSON enviada como campo multipart o estructura nativa."""
+    """Interpreta una lista JSON enviada como campo multipart o estructura nativa.
+
+    Args:
+        data: Mapeo de entrada.
+        nombre (str): Campo que contiene la lista o su representación JSON.
+
+    Returns:
+        list: Valor recibido o decodificado; lista vacía para campo ausente,
+        None o cadena vacía.
+
+    Raises:
+        serializers.ValidationError: Si el texto no es JSON válido o el
+            resultado no es una lista.
+    """
 
     valor = data.get(nombre, [])
     if valor in (None, ""):
@@ -280,7 +393,21 @@ def _lista_json(data, nombre):
 
 
 def alternativas_validadas(data):
-    """Valida y limita alternativas existentes y nuevos bloques del formulario."""
+    """Valida y limita alternativas existentes y nuevos bloques del formulario.
+
+    Args:
+        data: Mapeo con alternativas_existentes y alternativas_nuevas,
+            admitidas como listas o como JSON en texto.
+
+    Returns:
+        tuple[list[int], list[dict]]: Identificadores existentes y fechas/horas
+        convertidas para bloques nuevos. Exige entre 1 y 10 alternativas en total.
+
+    Raises:
+        serializers.ValidationError: Si hay identificadores inválidos o repetidos,
+            bloques nuevos sin horario futuro válido o cantidad fuera de rango.
+            La existencia, propiedad y disponibilidad se verifican al registrar.
+    """
 
     existentes = _lista_json(data, "alternativas_existentes")
     nuevas = _lista_json(data, "alternativas_nuevas")
@@ -301,7 +428,19 @@ def alternativas_validadas(data):
 
 
 def _crear_bloque(profesional, datos):
-    """Crea bajo bloqueo un bloque nuevo sin solapar disponibilidad vigente."""
+    """Crea un bloque nuevo sin solapar disponibilidad que no esté deshabilitada.
+
+    Args:
+        profesional (Profesional): Propietario del bloque.
+        datos (dict): Fecha y horas previamente validadas.
+
+    Returns:
+        Disponibilidad: Bloque persistido en estado DISPONIBLE.
+
+    Raises:
+        serializers.ValidationError: Si existe intersección temporal con otro
+            bloque del profesional. El llamador debe mantener la transacción.
+    """
 
     conflicto = (
         Disponibilidad.objects.select_for_update()
@@ -328,7 +467,28 @@ def _crear_bloque(profesional, datos):
 
 
 def registrar_alternativas(obj, prestacion, profesional, data, origen, estado):
-    """Revalida, crea y asocia alternativas al expediente dentro de la transacción."""
+    """Revalida, crea y asocia alternativas al expediente dentro de una transacción.
+
+    Args:
+        obj (SolicitudReagendamiento): Expediente y bloque original que se excluye.
+        prestacion (PrestacionServicio): Prestación que determina la disponibilidad.
+        profesional (Profesional): Propietario de los nuevos bloques.
+        data: Entrada con alternativas existentes y nuevas.
+        origen (str): Procedencia guardada en cada alternativa.
+        estado (str): Estado inicial de las alternativas.
+
+    Returns:
+        list[Disponibilidad]: Bloques vinculados, con sus horarios copiados al
+        expediente. No modifica la reserva original.
+
+    Raises:
+        serializers.ValidationError: Si la entrada, disponibilidad o los cruces
+            de bloques nuevos son inválidos.
+        IntegrityError: Si se infringe una restricción al persistir alternativas.
+
+    El llamador mantiene una transacción para revertir también los bloques o
+    alternativas creados antes de un error posterior.
+    """
 
     existentes, nuevas = alternativas_validadas(data)
     bloques = []
@@ -367,7 +527,18 @@ def detalle_bloques(bloques):
 
 
 def serializar_alternativa(alternativa, prestacion, original_id):
-    """Combina el snapshot histórico con la disponibilidad actual del bloque."""
+    """Combina el horario histórico con la disponibilidad actual del bloque.
+
+    Args:
+        alternativa (AlternativaReagendamiento): Registro histórico propuesto.
+        prestacion (PrestacionServicio): Prestación para revalidar disponibilidad.
+        original_id (int): Bloque original que no puede elegirse.
+
+    Returns:
+        dict: Horario conservado, origen, estado y disponibilidad actual. Si
+        falta el horario histórico, usa el bloque actual; si también falta,
+        conserva únicamente su identificador junto a los datos de estado.
+    """
 
     bloque = Disponibilidad.objects.filter(pk=alternativa.bloque_id).first()
     if alternativa.fecha and alternativa.hora_inicio and alternativa.hora_fin:
@@ -388,7 +559,19 @@ def serializar_alternativa(alternativa, prestacion, original_id):
 
 
 def serializar(obj, actor="ADMINISTRACION", mostrar_eventos=True):
-    """Presenta el expediente respetando privacidad y capacidades del actor."""
+    """Presenta el expediente con los campos previstos para cada actor.
+
+    Args:
+        obj (SolicitudReagendamiento): Expediente previamente autorizado por la vista.
+        actor (str): ADMINISTRACION, PROFESIONAL u ORGANIZACION.
+        mostrar_eventos (bool): Incluye el historial completo cuando es True.
+
+    Returns:
+        dict: Motivos, horarios, alternativas, autorizaciones y política aceptada.
+        La organización solo recibe alternativas HABILITADA o SELECCIONADA y
+        no recibe metadatos de evidencia; su URL solo se entrega a administración.
+        Este serializador no comprueba por sí mismo identidad ni permisos.
+    """
 
     prestacion = PrestacionServicio.objects.filter(pk=obj.prestacion_id).first()
     propuesto = (
@@ -444,7 +627,15 @@ def serializar(obj, actor="ADMINISTRACION", mostrar_eventos=True):
 
 
 def _prestaciones_habilitadas(profesional):
-    """Lista prestaciones futuras desde las que el profesional puede iniciar."""
+    """Lista prestaciones desde las que el profesional puede iniciar un expediente.
+
+    Args:
+        profesional (Profesional): Perfil autenticado cuyo catálogo se consulta.
+
+    Returns:
+        list[dict]: Prestaciones que superan acceso_solicitud entre las primeras
+        cien CONTRATADA por identificador, con objetivo y opciones de horario.
+    """
 
     resultado = []
     prestaciones = (
@@ -475,7 +666,15 @@ class OrganizacionReagendamientoView(APIView):
     permission_classes = [AllowAny]
 
     def _prestacion(self, referencia):
-        """Resuelve la prestación vinculada a una referencia privada válida."""
+        """Resuelve la prestación vinculada a una referencia privada válida.
+
+        Args:
+            referencia (str): Referencia firmada que identifica solicitud y contacto.
+
+        Returns:
+            PrestacionServicio | None: Prestación asociada si coinciden referencia
+            y contacto; None ante referencia inválida o registros inexistentes.
+        """
         datos = leer_referencia_seguimiento(referencia)
         if not datos:
             return None
@@ -485,7 +684,17 @@ class OrganizacionReagendamientoView(APIView):
         return prestar(solicitud.pk) if solicitud else None
 
     def get(self, request, referencia):
-        """Lista expedientes y alternativas visibles para la organización autorizada."""
+        """Lista expedientes y alternativas visibles mediante la referencia empresarial.
+
+        Args:
+            request: Petición de consulta sin sesión de usuario.
+            referencia (str): Referencia privada firmada de seguimiento.
+
+        Returns:
+            Response: 200 con los veinte expedientes más recientes, habilitación y
+            política vigente; 404 si la referencia no resuelve una prestación.
+            ESPERANDO_SELECCION incluye también nueva disponibilidad consultable.
+        """
         prestacion = self._prestacion(referencia)
         if prestacion is None:
             return error("Referencia de seguimiento no válida.", 404)
@@ -511,7 +720,21 @@ class OrganizacionReagendamientoView(APIView):
         })
 
     def post(self, request, referencia):
-        """Procesa solicitudes, respuestas y confirmaciones organizacionales de forma atómica."""
+        """Procesa solicitudes y selección de horarios bajo bloqueo de la prestación.
+
+        Args:
+            request: Petición con accion, por defecto SOLICITAR. La apertura exige
+                motivo de 15 a 1000 caracteres y aceptación de política vigente.
+                ESPERAR_SELECCION y SELECCIONAR exigen id del expediente; seleccionar
+                también requiere id_disponibilidad.
+            referencia (str): Referencia privada de la prestación correspondiente.
+
+        Returns:
+            Response: 201 al abrir el expediente, 200 al avanzar la selección,
+            400 por entrada/acción inválida, 404 por referencia no resuelta o 409
+            por estado, reserva o disponibilidad incompatibles. La selección deja
+            LISTO_CONFIRMAR; el cambio efectivo de agenda corresponde a administración.
+        """
         prestacion = self._prestacion(referencia)
         if prestacion is None:
             return error("Referencia de seguimiento no válida.", 404)
@@ -648,7 +871,16 @@ class AdministracionReagendamientoView(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request):
-        """Lista los expedientes bilaterales con sus alternativas disponibles."""
+        """Lista los expedientes bilaterales y sus alternativas disponibles.
+
+        Args:
+            request: Petición administrativa autenticada.
+
+        Returns:
+            Response: 200 con hasta cien expedientes recientes cuya prestación
+            todavía existe. La consulta no restringe por responsable; las acciones
+            y la descarga de evidencia comprueban esa asignación por separado.
+        """
         items = (
             SolicitudReagendamiento.objects.defer("evidencia_contenido")
             .order_by("-fecha_creacion")[:100]
@@ -664,7 +896,21 @@ class AdministracionReagendamientoView(APIView):
         return Response({"solicitudes": registros})
 
     def post(self, request):
-        """Valida y coordina acciones administrativas bajo bloqueo transaccional."""
+        """Coordina acciones del responsable y aplica la confirmación final de agenda.
+
+        Args:
+            request: Petición administrativa con id y accion. PROPONER requiere
+                id_disponibilidad; CERRAR_SIN_ACUERDO requiere motivo de 10 a 500
+                caracteres. También admite SOLICITAR_BLOQUE, VALIDAR_ALTERNATIVAS,
+                CERRAR_VENCIDA y CONFIRMAR según el estado del expediente.
+
+        Returns:
+            Response: 200 al completar la acción, 400 por entrada inválida, 404
+            por expediente inexistente o errores de permisos y conflictos propagados.
+            CONFIRMAR exige LISTO_CONFIRMAR, ambas autorizaciones y disponibilidad
+            revalidada, y delega el cambio a la agenda segura. Si esa operación falla,
+            marca la transacción para rollback. Los cierres conservan reserva y pago.
+        """
         try:
             pk = int(request.data.get("id"))
         except (TypeError, ValueError):
@@ -845,11 +1091,20 @@ class ProfesionalReagendamientoView(APIView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def _profesional(self, request):
-        """Obtiene el perfil profesional asociado a la sesión autenticada."""
+        """Devuelve el perfil asociado a request.user, o None si no existe."""
         return Profesional.objects.filter(id_usuario=request.user).first()
 
     def get(self, request):
-        """Lista expedientes y prestaciones habilitadas para el profesional autenticado."""
+        """Lista expedientes propios y prestaciones habilitadas para iniciar un cambio.
+
+        Args:
+            request: Petición del profesional autenticado.
+
+        Returns:
+            Response: 200 con hasta cincuenta expedientes recientes, prestaciones
+            habilitadas y política; 404 si falta el perfil. Incluye disponibilidad
+            adicional en PENDIENTE_PROFESIONAL y ESPERANDO_NUEVO_BLOQUE.
+        """
         profesional = self._profesional(request)
         if profesional is None:
             return error("Perfil profesional no encontrado.", 404)
@@ -878,7 +1133,22 @@ class ProfesionalReagendamientoView(APIView):
         })
 
     def post(self, request):
-        """Procesa contrapropuestas y solicitudes profesionales con evidencia validada."""
+        """Inicia un expediente profesional o responde una negociación abierta.
+
+        Args:
+            request: Petición con accion. SOLICITAR_PROFESIONAL exige id_prestacion,
+                motivo de 20 a 2000 caracteres, política vigente aceptada, evidencia
+                y alternativas. Las respuestas requieren id; RECHAZAR_CON_ALTERNATIVAS
+                exige motivo de 10 a 500 caracteres y alternativas, y OFRECER_ALTERNATIVAS
+                requiere la disponibilidad adicional solicitada por administración.
+
+        Returns:
+            Response: 201 al iniciar, 200 al responder, 400 por datos/evidencia
+            inválidos, 404 por perfil o expediente ajeno/inexistente y 409 por estado,
+            reserva o disponibilidad incompatibles. Permite una contrapropuesta y
+            una entrega adicional según el historial. ACEPTAR deja LISTO_CONFIRMAR;
+            ninguna de estas acciones cambia por sí misma la reserva original.
+        """
         profesional = self._profesional(request)
         if profesional is None:
             return error("Perfil profesional no encontrado.", 404)
@@ -1079,7 +1349,18 @@ class EvidenciaReagendamientoAdministracionView(APIView):
     http_method_names = ["get", "head", "options"]
 
     def get(self, request, pk):
-        """Descarga evidencia privada tras revalidar permiso, integridad y expediente."""
+        """Entrega la evidencia al administrador responsable como archivo privado.
+
+        Args:
+            request: Petición administrativa autenticada.
+            pk (int): Identificador del expediente.
+
+        Returns:
+            HttpResponse | Response: Adjunto binario sin caché o error de permiso/404
+            si faltan expediente, metadatos, extensión admitida o contenido. Exige
+            que exista evidencia_sha256, pero no recalcula ni compara el hash al
+            descargar. El nombre de descarga se construye con el identificador.
+        """
         with transaction.atomic():
             obj = (
                 SolicitudReagendamiento.objects.defer("evidencia_contenido")
