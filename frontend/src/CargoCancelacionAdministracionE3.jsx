@@ -1,11 +1,15 @@
-// Permite revisar y registrar el cargo económico de un expediente de cancelación autorizado.
+// Configura el porcentaje de cancelación; la evaluación y la liquidación usan flujos separados.
 import { useEffect, useState } from 'react'
 import AdminNavegacion from './AdminNavegacion.jsx'
 import './Administracion.css'
 
 const URL = '/api/backoffice/configuracion/cancelaciones/'
 
-// Formatea el cargo porcentual sin modificar el valor que valida el backend.
+/**
+ * Formatea el porcentaje configurado sin modificar el valor persistido.
+ * @param {number|string|null|undefined} valor Porcentaje recibido de la API.
+ * @returns {string} Porcentaje con hasta cuatro decimales o indicación de ausencia/invalidez.
+ */
 const mostrarPorcentaje = (valor) => {
   if (valor == null || valor === '') return 'Sin configurar'
   const numero = Number(valor)
@@ -14,7 +18,11 @@ const mostrarPorcentaje = (valor) => {
     : 'No disponible'
 }
 
-// Presenta la fecha de registro con formato regional para interpretar el historial.
+/**
+ * Presenta una fecha con formato chileno en la zona horaria del navegador.
+ * @param {string|null|undefined} valor Fecha recibida del servidor.
+ * @returns {string} Fecha legible o indicación de dato ausente/inválido.
+ */
 const fechaLocal = (valor) => {
   if (!valor) return 'Sin información'
   const fecha = new Date(valor)
@@ -22,7 +30,12 @@ const fechaLocal = (valor) => {
     fecha.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-// Adapta el detalle del rechazo al formulario y conserva el código HTTP.
+/**
+ * Prioriza mensaje, detail y errores de valor_nuevo al explicar un rechazo.
+ * @param {Object|null} datos Cuerpo de la respuesta.
+ * @param {number} codigo Estado HTTP usado cuando faltan detalles del servidor.
+ * @returns {string} Mensaje para el formulario, según el contrato textual de la API.
+ */
 const detalleError = (datos, codigo) => {
   if (datos?.mensaje) return datos.mensaje
   if (datos?.detail) return String(datos.detail)
@@ -31,7 +44,11 @@ const detalleError = (datos, codigo) => {
   return `No se pudo completar la operación (HTTP ${codigo}).`
 }
 
-// Presenta el parámetro de cargo por cancelación y conserva el historial de cambios.
+/**
+ * Consulta el porcentaje de cancelación y permite revisarlo antes de enviar un PATCH.
+ * El backend valida y conserva el historial; guardar no aplica cargos a expedientes.
+ * @returns {import('react').ReactElement} Configuración e historial administrativos.
+ */
 export default function CargoCancelacionAdministracionE3() {
   const [parametro, setParametro] = useState(null)
   const [historial, setHistorial] = useState([])
@@ -46,7 +63,10 @@ export default function CargoCancelacionAdministracionE3() {
   useEffect(() => {
     // Desactiva las actualizaciones del cargo y su historial al desmontar la pantalla.
     let activo = true
-    // Obtiene del backend el cargo vigente y sus cambios históricos.
+    /**
+     * Consulta parámetro e historial y descarta resultados de un efecto ya limpiado.
+     * @returns {Promise<void>} Captura los errores y termina el estado de carga vigente.
+     */
     async function cargar() {
       try {
         const respuesta = await fetch(URL, {
@@ -77,7 +97,10 @@ export default function CargoCancelacionAdministracionE3() {
     Number.isFinite(valor) && valor >= 0 && valor <= 100
   const modificado = valido && (parametro === null || valor !== Number(parametro.valor_actual))
 
-  // Envía el nuevo cargo por cancelación para validarlo y registrarlo en el historial.
+  /**
+   * Envía el porcentaje normalizado tras confirmar el cambio y obtener un token CSRF.
+   * @returns {Promise<void>} Actualiza mensajes y recarga el historial; captura los errores.
+   */
   async function guardar() {
     if (!confirmando || !modificado || guardando) return
     setError('')

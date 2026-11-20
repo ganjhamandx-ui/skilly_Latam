@@ -1,25 +1,44 @@
-// Registra abonos administrativos sobre pagos existentes y refresca el saldo desde la API.
+// Registra constancias de abono simulado y consulta su destino; no calcula saldos bancarios.
 import { useCallback, useState } from 'react'
 import useCargaAsincrona from './useCargaAsincrona.js'
 import './RegistroAbonoAdministracion.css'
-// Obtiene el token CSRF para registrar el abono en la sesión vigente.
+/**
+ * Obtiene un token CSRF en la sesión vigente para registrar el abono.
+ * @returns {Promise<string>} Token entregado por el servidor.
+ * @throws {Error} Si falla la conexión, la respuesta HTTP o falta el token.
+ */
 const csrf = async () => {
   const r=await fetch('/api/acceso/csrf/',{credentials:'same-origin',cache:'no-store'})
   const d=await r.json().catch(()=>({}))
   if(!r.ok||!d.csrfToken)throw new Error('No se pudo obtener el token CSRF.')
   return d.csrfToken
 }
-// Interpreta la respuesta del módulo de abonos y conserva los errores comunicables.
+/**
+ * Lee la respuesta y convierte los rechazos HTTP en errores comunicables.
+ * @param {Response} r Respuesta fetch de la API de abonos.
+ * @returns {Promise<Object>} Cuerpo JSON o un objeto vacío si no puede leerse.
+ * @throws {Error} Si el estado HTTP no es satisfactorio.
+ */
 async function leer(r){
   const d=await r.json().catch(()=>({}))
   if(!r.ok)throw new Error(d.mensaje||d.detail||Object.values(d).flat().join(' · ')||`Error HTTP ${r.status}`)
   return d
 }
-// Inicializa el registro de abono para la prestación administrativa seleccionada.
+/**
+ * Reinicia el estado del formulario cuando cambia el identificador del pago.
+ * @param {Object} props Datos del pago seleccionado.
+ * @param {Object} props.pago Pago con id_pago, estado, neto y moneda.
+ * @returns {import('react').ReactElement} Instancia del formulario asociada a ese pago.
+ */
 export default function RegistroAbonoAdministracion({pago}){
  return <RegistroAbono key={pago.id_pago} pago={pago}/>
 }
-// Guía la revisión de destino y registro de un abono para la prestación.
+/**
+ * Consulta el destino autorizado y permite registrar una constancia académica.
+ * @param {Object} props Datos necesarios para consultar el pago.
+ * @param {Object} props.pago Pago mostrado; el formulario solo se renderiza si está LIBERADO.
+ * @returns {import('react').ReactElement|null} Cuenta, constancia o formulario de abono simulado.
+ */
 function RegistroAbono({pago}){
  const [datos,setDatos]=useState(null)
  const [referencia,setReferencia]=useState('')
@@ -34,9 +53,16 @@ function RegistroAbono({pago}){
  const aplicarConsulta=useCallback(d=>{setDatos(d);setError('');setCargando(false)},[])
  const fallarConsulta=useCallback(e=>{setError(e.message);setCargando(false)},[])
  const recargar=useCargaAsincrona(consultar,aplicarConsulta,fallarConsulta)
- // Consulta el destino autorizado y los abonos previos para la prestación.
+ /**
+  * Reinicia el estado de consulta y recarga destino y abono del pago seleccionado.
+  * @returns {Promise<void>} La gestión de resultados corresponde a useCargaAsincrona.
+  */
  async function cargar(){setCargando(true);setError('');await recargar()}
- // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
+ /**
+  * Solicita confirmación local y registra el abono simulado con protección CSRF.
+  * @param {import('react').FormEvent} e Envío del formulario cuya navegación se evita.
+  * @returns {Promise<void>} Refresca la constancia al guardar o presenta el error recibido.
+  */
  async function registrar(e){
   e.preventDefault()
   if(cargando||!confirmado||!referencia.trim()||datos?.abono)return

@@ -1,5 +1,10 @@
-// Uso futuro: solo con instrucciones de pago fijadas en la operación.
-// Nunca renderiza otras cuentas, estados administrativos ni historial.
+/**
+ * Presenta los datos receptores entregados por el flujo de pago empresarial.
+ * No determina si la cuenta quedó fijada: esa condición depende de la respuesta de la API.
+ * @param {Object} props Datos seleccionados por el contenedor.
+ * @param {Object|null} props.cuentaFijada Titular, RUT, banco, tipo, número y correo.
+ * @returns {import('react').ReactElement|null} Datos bancarios o null si no hay cuenta.
+ */
 export default function CuentaReceptoraOrganizacion({ cuentaFijada }) {
   if (!cuentaFijada) return null
   const campos = [

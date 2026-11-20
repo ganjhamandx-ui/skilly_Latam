@@ -4,14 +4,25 @@ import useCargaAsincrona from './useCargaAsincrona.js'
 
 const api = '/api/pagos/administracion/'
 
-// Escoge el mensaje de la API de reversas y prepara una respuesta de error visible.
+/**
+ * Selecciona un mensaje textual del servidor o una explicación con el estado HTTP.
+ * @param {Object|null} datos Cuerpo de la respuesta.
+ * @param {number} codigo Código HTTP usado como alternativa.
+ * @returns {string} Mensaje visible de error.
+ */
 function errorTexto(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `Operación no completada (HTTP ${codigo}).`
 }
 
-// Envía solicitudes de reversa con las credenciales de sesión y comunica errores HTTP.
+/**
+ * Consulta la API con cookies y sin caché, salvo opciones explícitas del llamador.
+ * @param {string} ruta URL solicitada.
+ * @param {RequestInit} [opciones={}] Opciones fetch; se aplican al final y pueden reemplazar headers.
+ * @returns {Promise<Object>} JSON recibido o un objeto vacío si no se puede leer.
+ * @throws {Error} Si falla fetch o la respuesta HTTP no es satisfactoria.
+ */
 async function peticion(ruta, opciones = {}) {
   const respuesta = await fetch(ruta, {
     credentials: 'same-origin', cache: 'no-store',
@@ -23,7 +34,11 @@ async function peticion(ruta, opciones = {}) {
   return datos
 }
 
-// Solicita un token CSRF con las cookies de la sesión antes de una escritura.
+/**
+ * Solicita un token CSRF con las cookies de la sesión antes de una escritura.
+ * @returns {Promise<string>} Token emitido por la API.
+ * @throws {Error} Si falla la petición o la respuesta no incluye csrfToken.
+ */
 async function obtenerCsrf() {
   const datos = await peticion('/api/acceso/csrf/')
   if (!datos.csrfToken) throw new Error('No se obtuvo CSRF.')
@@ -33,12 +48,24 @@ async function obtenerCsrf() {
 const campos = { width: '100%', padding: 10, borderRadius: 8,
   border: '1px solid #abc7b9', boxSizing: 'border-box', font: 'inherit' }
 
-// Reinicia el formulario de reversas al seleccionar otro pago.
+/**
+ * Reinicia el estado de reversas al cambiar el identificador del pago seleccionado.
+ * @param {Object} props Contexto económico mostrado por el contenedor.
+ * @param {Object|null} props.pago Pago y sus estados de verificación y liberación.
+ * @param {function(): void} [props.alActualizar] Solicita refrescar los datos del contenedor.
+ * @returns {import('react').ReactElement} Panel asociado a la identidad del pago.
+ */
 export default function GestionReversasPagoE3({ pago, alActualizar }) {
   return <GestionReversasPago key={pago?.id_pago} pago={pago} alActualizar={alActualizar} />
 }
 
-// Presenta solicitudes de reversa y sus decisiones dentro del expediente del pago.
+/**
+ * Consulta reversas y ofrece solicitud, rechazo o devolución total simulada según los datos recibidos.
+ * @param {Object} props Datos y notificación del panel de reversas.
+ * @param {Object|null} props.pago Pago seleccionado; el backend revalida cada operación.
+ * @param {function(): void} [props.alActualizar] Callback de actualización, invocado sin esperarlo.
+ * @returns {import('react').ReactElement} Historial y controles de gestión académica.
+ */
 function GestionReversasPago({ pago, alActualizar }) {
   const idPago = pago?.id_pago
   const [reversas, setReversas] = useState([])
@@ -61,10 +88,17 @@ function GestionReversasPago({ pago, alActualizar }) {
   }, [])
   const fallarConsulta = useCallback((e) => { setError(e.message); setCargando(false) }, [])
   const recargar = useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
-  // Recupera las reversas del pago seleccionado y las acciones disponibles.
+  /**
+   * Recarga las reversas y activa el estado de consulta del panel.
+   * @returns {Promise<void>} Los callbacks de useCargaAsincrona aplican resultado o error.
+   */
   async function cargar() { setCargando(true); setError(''); await recargar() }
 
-  // Envía el monto y fundamento de la reversa para revisión del backend.
+  /**
+   * Envía únicamente el motivo de una solicitud de reversa tras confirmación local.
+   * El importe y la autorización se determinan en el backend.
+   * @returns {Promise<void>} Recarga el historial y notifica al contenedor, o presenta un error.
+   */
   async function solicitar() {
     if (procesando || motivo.trim().length < 20) {
       setError('Describe el motivo de la reversa (mínimo 20 caracteres).')
@@ -84,7 +118,12 @@ function GestionReversasPago({ pago, alActualizar }) {
     finally { setProcesando(false) }
   }
 
-  // Registra la decisión sobre una reversa seleccionada y refresca su historial.
+  /**
+   * Registra rechazo o devolución simulada con fundamento y confirmaciones del formulario.
+   * @param {Object} reversa Solicitud con id_reversa que se desea resolver.
+   * @param {'RECHAZAR_SOLICITUD'|'REGISTRAR_DEVOLUCION_SIMULADA'} accion Decisión administrativa.
+   * @returns {Promise<void>} Recarga el panel al guardar; los fallos se muestran localmente.
+   */
   async function resolver(reversa, accion) {
     if (procesando || fundamento.trim().length < 20) {
       setError('Explica la decisión administrativa (mínimo 20 caracteres).')

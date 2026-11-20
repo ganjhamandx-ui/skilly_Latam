@@ -6,7 +6,11 @@ import './CuentaCobroProfesional.css'
 const API = '/api/profesionales/'
 const inicial = { titular: '', rut_titular: '', banco: '', tipo_cuenta: 'VISTA', numero_cuenta: '', correo: '' }
 
-// Convierte el momento de registro a una fecha legible para el profesional.
+/**
+ * Formatea el instante de registro en la zona America/Santiago.
+ * @param {string|null|undefined} fecha Instante recibido de la API.
+ * @returns {string} Fecha legible o «No registrada» si falta o es inválida.
+ */
 function fechaRegistroChile(fecha) {
   if (!fecha) return 'No registrada'
   const fechaValida = new Date(fecha)
@@ -17,7 +21,12 @@ function fechaRegistroChile(fecha) {
 }
 
 
-// Interpreta el resultado de la API de cuenta de cobro y propaga fallos HTTP.
+/**
+ * Lee la respuesta de cuenta o abonos y propaga los rechazos HTTP.
+ * @param {Response} respuesta Respuesta de fetch.
+ * @returns {Promise<Object>} JSON recibido o un objeto vacío si falla su lectura.
+ * @throws {Error} Si el estado HTTP no es satisfactorio.
+ */
 async function jsonRespuesta(respuesta) {
   const datos = await respuesta.json().catch(() => ({}))
   if (!respuesta.ok) {
@@ -27,7 +36,11 @@ async function jsonRespuesta(respuesta) {
   return datos
 }
 
-// Presenta al profesional su cuenta de destino y el formulario para actualizarla.
+/**
+ * Consulta cuenta y abonos propios y permite reemplazar los datos bancarios.
+ * La cuenta consultada llega enmascarada; al editar se exige reingresar su número.
+ * @returns {import('react').ReactElement} Formulario, cuenta e historial de abonos simulados.
+ */
 export default function CuentaCobroProfesional() {
   const [cuenta, setCuenta] = useState(null)
   const [abonos, setAbonos] = useState([])
@@ -61,7 +74,11 @@ export default function CuentaCobroProfesional() {
   }, [])
   useCargaAsincrona(consultar, aplicarConsulta, fallarConsulta)
 
-  // Envía la cuenta de cobro con las credenciales y validaciones de la sesión.
+  /**
+   * Envía la cuenta completa por PUT y reemplaza la representación local por la respuesta.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Vacía el formulario al guardar y presenta los errores capturados.
+   */
   async function guardar(evento) {
     evento.preventDefault()
     if (guardando) return
@@ -86,7 +103,12 @@ export default function CuentaCobroProfesional() {
     finally { setGuardando(false) }
   }
 
-  // Vincula un campo del formulario con su valor actual y su edición.
+  /**
+   * Actualiza un campo del formulario preservando los demás valores.
+   * @param {string} nombre Clave del dato bancario editado.
+   * @param {string} valor Valor recibido del control.
+   * @returns {void}
+   */
   const campo = (nombre, valor) => setFormulario((anterior) => ({ ...anterior, [nombre]: valor }))
 
   return <section className="ccp-modulo">

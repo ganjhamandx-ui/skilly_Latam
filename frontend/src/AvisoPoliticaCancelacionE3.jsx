@@ -2,7 +2,19 @@ import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import './AvisoPoliticaCancelacionE3.css'
 
-/** Presentación solamente: la aceptación real se registra en la API de Fase 6B. */
+/**
+ * Presenta la política en un portal y conserva foco y desplazamiento del documento.
+ * La aceptación real corresponde al callback del contenedor y a su petición a la API.
+ * @param {Object} props Propiedades controladas por el flujo de contratación.
+ * @param {Object|null} props.politica Porcentaje, texto y versión de la política.
+ * @param {boolean} props.acepto Valor del consentimiento en el formulario.
+ * @param {function(boolean): void} props.onCambiarAceptacion Actualiza el consentimiento local.
+ * @param {boolean} props.guardando Deshabilita la aceptación durante su registro.
+ * @param {string} props.error Mensaje de error del registro.
+ * @param {function(): void} props.onAceptar Solicita persistir la aceptación.
+ * @param {function(): void} props.onCerrar Cierra el aviso; también se invoca con Escape.
+ * @returns {import('react').ReactPortal} Diálogo insertado en document.body.
+ */
 export default function AvisoPoliticaCancelacionE3({
   politica, acepto, onCambiarAceptacion, guardando, error, onAceptar, onCerrar,
 }) {
@@ -25,7 +37,11 @@ export default function AvisoPoliticaCancelacionE3({
     }
   }, [])
 
-  // Controla las teclas del diálogo para cerrar o mantener una navegación de foco accesible.
+  /**
+   * Cierra con Escape y mantiene Tab entre los extremos enfocables del panel.
+   * @param {import('react').KeyboardEvent} evento Evento de teclado del diálogo.
+   * @returns {void}
+   */
   function manejarTeclado(evento) {
     if (evento.key === 'Escape') {
       evento.preventDefault()

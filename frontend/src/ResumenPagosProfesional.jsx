@@ -29,18 +29,30 @@ const orden = [
   'referencia', 'observacion',
 ]
 
-// Distingue claves que se excluyen del detalle privado de recomendaciones.
+/**
+ * Detecta nombres de campos sensibles para omitirlos en la presentación de pagos.
+ * @param {string} clave Nombre de campo recibido en un objeto de la API.
+ * @returns {boolean} Coincidencia textual; no sustituye el filtrado de datos del servidor.
+ */
 function esRestringido(clave) {
   return /password|contrasena|token|secret|hash|csrf|credential/i.test(clave)
 }
 
-// Presenta un nombre de campo obtenido de la API en una forma legible.
+/**
+ * Usa una etiqueta conocida o convierte guiones bajos del nombre en espacios.
+ * @param {string} clave Nombre del campo de pago.
+ * @returns {string} Etiqueta de presentación con inicial mayúscula.
+ */
 function etiqueta(clave) {
   return etiquetas[clave] ?? clave.replaceAll('_', ' ')
     .replace(/^./, (letra) => letra.toUpperCase())
 }
 
-// Formatea el valor de un dato de pago antes de mostrarlo al profesional.
+/**
+ * Representa valores JSON recursivamente y omite claves sensibles de objetos anidados.
+ * @param {*} valor Dato escalar, lista u objeto acíclico recibido del servidor.
+ * @returns {string} Texto legible; null, undefined y cadena vacía se muestran como no informados.
+ */
 function representar(valor) {
   if (valor == null || valor === '') return 'No informado'
   if (typeof valor === 'boolean') return valor ? 'Sí' : 'No'
@@ -54,7 +66,11 @@ function representar(valor) {
   return String(valor)
 }
 
-// Convierte un valor mostrado a número solo cuando puede usarse en un importe.
+/**
+ * Convierte números finitos o textos decimales simples a valores de presentación.
+ * @param {*} valor Dato que debe ser número o texto con signo menos opcional y punto decimal.
+ * @returns {number|null} Valor finito; null para separadores locales, exponentes u otros formatos.
+ */
 function valorNumerico(valor) {
   if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null
   if (typeof valor !== 'string' || !/^-?\d+(?:\.\d+)?$/.test(valor.trim())) return null
@@ -62,13 +78,22 @@ function valorNumerico(valor) {
   return Number.isFinite(numero) ? numero : null
 }
 
-// Identifica la unidad monetaria del pago y aplica el formato correspondiente.
+/**
+ * Normaliza la moneda a tres letras mayúsculas, con CLP como valor alternativo.
+ * @param {Object} pago Registro con moneda opcional.
+ * @returns {string} Código de presentación; no valida que exista en el catálogo ISO.
+ */
 function monedaDe(pago) {
   const codigo = String(pago.moneda || 'CLP').toUpperCase()
   return /^[A-Z]{3}$/.test(codigo) ? codigo : 'CLP'
 }
 
-// Formatea importes sin modificar los montos que maneja el backend.
+/**
+ * Formatea un importe con hasta dos decimales y agrega la moneda recibida.
+ * @param {number|string|null} valor Importe que se convertirá solo para presentación.
+ * @param {string} moneda Código que acompañará al texto.
+ * @returns {string} Importe regional o «No informado» cuando no es convertible.
+ */
 function dinero(valor, moneda) {
   const numero = valorNumerico(valor)
   if (numero === null) return 'No informado'
@@ -77,7 +102,11 @@ function dinero(valor, moneda) {
   }).format(numero)} ${moneda}`
 }
 
-// Presenta la tasa de comisión como porcentaje en el resumen profesional.
+/**
+ * Presenta una tasa porcentual ya calculada por el backend.
+ * @param {number|string|null} valor Porcentaje sin reescalarlo.
+ * @returns {string} Tasa con hasta cuatro decimales o «No informada».
+ */
 function tasa(valor) {
   const numero = valorNumerico(valor)
   if (numero === null) return 'No informada'
@@ -86,7 +115,11 @@ function tasa(valor) {
   }).format(numero)} %`
 }
 
-// Presenta el momento del pago en el contexto regional chileno.
+/**
+ * Mantiene las fechas sin hora y convierte los instantes a America/Santiago.
+ * @param {*} valor Fecha o instante recibido del servidor.
+ * @returns {string} Texto local; conserva el texto original si Date no lo reconoce.
+ */
 function fechaChile(valor) {
   if (valor == null || valor === '') return 'No informada'
   const texto = String(valor)
@@ -103,7 +136,11 @@ function fechaChile(valor) {
   }).format(fecha)
 }
 
-// Agrupa los estados de pago para elegir su presentación en el resumen profesional.
+/**
+ * Clasifica visualmente un estado mediante coincidencias de texto, sin validar transiciones.
+ * @param {*} estado Estado que se convierte a texto en mayúsculas.
+ * @returns {'positivo'|'negativo'|'pendiente'} Clase visual del indicador.
+ */
 function clasificarEstado(estado) {
   const valor = String(estado ?? '').toUpperCase()
   if (/LIBERAD|PAGADO|COMPLETAD|APROBAD/.test(valor)) return 'positivo'
@@ -111,7 +148,12 @@ function clasificarEstado(estado) {
   return 'pendiente'
 }
 
-// Presenta los pagos de las prestaciones propias con su comisión y estado.
+/**
+ * Muestra importes y estados recibidos del backend sin recalcular la distribución del pago.
+ * @param {Object} props Datos previamente filtrados para el profesional.
+ * @param {Array<Object>} props.pagos Registros de pago; valores ausentes o no listados muestran vacío.
+ * @returns {import('react').ReactElement} Resumen con desglose y campos adicionales permitidos.
+ */
 export default function ResumenPagosProfesional({ pagos }) {
   if (!Array.isArray(pagos) || pagos.length === 0) {
     return <p>No hay pagos para mostrar.</p>

@@ -1,7 +1,14 @@
 import './EntregablesPorServicioAdministracionE3.css'
 import { useEffect, useState } from 'react'
 
-// Usa la misma referencia privada que autoriza el seguimiento empresarial.
+/**
+ * Consulta adjuntos autorizados y muestra los correspondientes a una entrega.
+ * Cancela la lectura anterior al cambiar de referencia, entrega o desmontarse.
+ * @param {Object} props Identificación del seguimiento privado.
+ * @param {string} props.referencia Referencia firmada usada también para descargar.
+ * @param {number|string} props.idEntrega Entrega cuyo identificador se compara numéricamente.
+ * @returns {import('react').ReactElement|null} Enlaces de descarga, error o nada si no hay datos.
+ */
 export default function AdjuntosEntregaEmpresaE3({ referencia, idEntrega }) {
   const [archivos, setArchivos] = useState([])
   const [error, setError] = useState('')
@@ -9,7 +16,10 @@ export default function AdjuntosEntregaEmpresaE3({ referencia, idEntrega }) {
     // Cancela la lectura de adjuntos al cambiar de entrega o desmontar la pantalla.
     if (!referencia || !idEntrega) return undefined
     const controller = new AbortController()
-    // Carga metadatos de los adjuntos disponibles mediante la referencia de seguimiento.
+    /**
+     * Carga metadatos y aplica el resultado solo mientras la señal siga activa.
+     * @returns {Promise<void>} Los fallos se presentan en el estado local del componente.
+     */
     const consultar = async () => {
       try {
         const r = await fetch(`/api/seguimiento/empresa/${encodeURIComponent(referencia)}/entregables/`, {

@@ -5,10 +5,26 @@ import AdminNavegacion from './AdminNavegacion.jsx'
 import './Administracion.css'
 
 const API = '/api/seguimiento/administracion/cancelaciones/'
+/**
+ * Extrae el mensaje administrativo o combina errores de campo de la respuesta.
+ * @param {Object|null} datos JSON recibido del servidor.
+ * @param {number} codigo Código HTTP usado si no hay detalles.
+ * @returns {string} Mensaje según el contrato textual de la API.
+ */
 const textoError = (datos, codigo) => datos?.mensaje || datos?.detail ||
   Object.values(datos || {}).flat().join(' | ') || `Error HTTP ${codigo}`
+/**
+ * Formatea un monto para presentación en CLP sin decimales visibles.
+ * @param {number|string|null} valor Importe del backend; valores falsos se presentan como cero.
+ * @returns {string} Texto monetario regional, sin modificar el importe persistido.
+ */
 const pesos = (valor) => Number(valor || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })
 
+/**
+ * Coordina la consulta, evaluación y autorización de liquidaciones de cancelación.
+ * Mantiene cada resultado de liquidación asociado al expediente y a la revisión consultada.
+ * @returns {import('react').ReactElement} Bandeja privada con formularios y cierre simulado.
+ */
 export default function ExpedientesCancelacionAdministracionE3() {
   const [lista, setLista] = useState([])
   const [elegido, setElegido] = useState(null)
@@ -55,7 +71,11 @@ export default function ExpedientesCancelacionAdministracionE3() {
   }, [elegidoId, estadoElegido, revision])
 
 
-  // La liquidación solicita una reversa y conserva la separación respecto del movimiento bancario.
+  /**
+   * Autoriza la liquidación documentada tras confirmar derechos y ausencia de movimiento bancario.
+   * @param {import('react').FormEvent} e Envío del formulario que se cancela.
+   * @returns {Promise<void>} Guarda el resultado y fuerza su consulta posterior, o presenta el error.
+   */
   async function registrarLiquidacion(e) {
     e.preventDefault()
     if (!elegido || guardando || !derechosVerificados || !confirmacionSinDinero) return
@@ -77,7 +97,11 @@ export default function ExpedientesCancelacionAdministracionE3() {
     finally{setGuardando(false)}
   }
 
-  // Evaluar el expediente no sustituye la resolución formal de un reclamo asociado.
+  /**
+   * Envía la evaluación del expediente pendiente sin resolver el reclamo asociado.
+   * @param {import('react').FormEvent} e Envío del formulario que se cancela.
+   * @returns {Promise<void>} Actualiza el expediente con la respuesta o muestra el rechazo.
+   */
   async function resolver(e) {
     e.preventDefault()
     if (!elegido || elegido.estado !== 'PENDIENTE' || guardando) return
