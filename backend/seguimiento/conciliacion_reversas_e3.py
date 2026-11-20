@@ -21,7 +21,12 @@ from .politica_conciliacion_e3 import desglose_parcial, ConciliacionInvalida
 
 
 class ConciliacionReversaE3(models.Model):
-    """Registra la conciliación final de una reversa parcial."""
+    """Vincula una conciliación documental única con liquidación, pago y reversa.
+
+    Inicialmente conserva importes pendientes sin ejecutar devoluciones. El cierre
+    simulado puede actualizar su estado y remanente mediante el servicio de cierre.
+    Las relaciones uno a uno impiden reutilizar esos registros en otra conciliación.
+    """
 
     id_conciliacion = models.BigAutoField(primary_key=True)
     id_liquidacion = models.OneToOneField(LiquidacionCancelacionE3, models.DO_NOTHING, db_column='id_liquidacion')
@@ -54,7 +59,16 @@ class ConciliacionSerializer(serializers.Serializer):
 
 
 def datos_conciliacion(c):
-    """Serializa una conciliación o devuelve nulo cuando no existe."""
+    """Serializa una conciliación con importes textuales, o conserva su ausencia.
+
+    Args:
+        c (ConciliacionReversaE3 | None): Registro a presentar.
+
+    Returns:
+        dict | None: Identificadores, importes, estado, fundamento y fecha. La nota
+        fija describe la fase documental inicial; no consulta estados actuales de
+        pago o reversa ni recalcula la distribución.
+    """
 
     if c is None:
         return None
@@ -79,7 +93,16 @@ class ConciliarReversaParcialE3View(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
-        """Consulta la conciliación documental vinculada al expediente."""
+        """Consulta la conciliación documental vinculada al expediente.
+
+        Args:
+            request (Request): Petición de una sesión administrativa activa.
+            id_expediente (int): Expediente usado para localizar la liquidación.
+
+        Returns:
+            Response: HTTP 200 con ``conciliacion`` serializada o ``None`` si
+            no existe conciliación o liquidación; este último caso incluye mensaje.
+        """
         liquidacion = LiquidacionCancelacionE3.objects.filter(id_expediente_id=id_expediente).first()
         if not liquidacion:
             return Response({'conciliacion': None, 'mensaje':'No hay liquidación para este expediente.'})
@@ -87,7 +110,26 @@ class ConciliarReversaParcialE3View(APIView):
         return Response({'conciliacion': datos_conciliacion(c)})
 
     def post(self, request, id_expediente):
-        """Registra la conciliación parcial bajo bloqueos sin ejecutar movimientos bancarios."""
+        """Registra una conciliación parcial sin resolver la reversa ni liberar el pago.
+
+        Args:
+            request (Request): Sesión administrativa con CSRF, fundamento y ambas
+                confirmaciones de simulación y saldo pendiente en ``True``.
+            id_expediente (int): Expediente resuelto cuya prestación está cancelada.
+
+        Returns:
+            Response: HTTP 201 con el registro documental; HTTP 400 por confirmaciones
+            falsas, 404 si falta liquidación y 409 por duplicidad, relaciones, estados
+            o importes inconsistentes. Pago y reversa permanecen retenido y solicitada.
+
+        Raises:
+            serializers.ValidationError: Si los campos de entrada son inválidos;
+                DRF responde HTTP 400 antes de tomar bloqueos.
+
+        Note:
+            Bloquea primero el pago, después la liquidación y la reversa. La suma
+            de trabajo, cargo y devolución debe coincidir con el total verificado.
+        """
         entrada = ConciliacionSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data

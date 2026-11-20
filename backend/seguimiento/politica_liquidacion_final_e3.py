@@ -7,7 +7,17 @@ CENTAVO = Decimal('0.01')
 PESO = Decimal('1')
 
 def numero(valor):
-    """Convierte un importe a decimal finito y no negativo."""
+    """Convierte un valor a decimal finito sin restringir aquí su signo.
+
+    Args:
+        valor (Decimal | str | int | float): Importe o porcentaje convertible a texto.
+
+    Returns:
+        Decimal: Número finito; los rangos se validan en ``calcular_liquidacion``.
+
+    Raises:
+        ValueError: Si no puede convertirse o representa NaN o infinito.
+    """
 
     try:
         n = Decimal(str(valor))
@@ -19,7 +29,32 @@ def numero(valor):
 
 def calcular_liquidacion(*, total, trabajo, porcentaje, decision, origen,
                          cargo_solicitado, aceptacion_previa, excepcion_legal=False):
-    """Calcula topes y distribución final sin persistir ni transferir fondos."""
+    """Calcula la distribución autorizable y el tope de cargo sobre el saldo.
+
+    El tope solo se habilita para una cancelación injustificada iniciada por la
+    organización, con aceptación previa y sin excepción legal. Se redondea a
+    pesos con ROUND_HALF_UP. Los importes restantes se expresan en centavos.
+
+    Args:
+        total (Decimal): Monto positivo de la contratación.
+        trabajo (Decimal): Trabajo acreditado, entre cero y el total.
+        porcentaje (Decimal): Porcentaje contratado entre cero y cien.
+        decision (str): ``JUSTIFICADA``, ``INJUSTIFICADA`` o
+            ``INCUMPLIMIENTO_CONTRAPARTE``.
+        origen (str): Actor solicitante; solo ``ORGANIZACION`` habilita cargo.
+        cargo_solicitado (Decimal): Importe no negativo que no puede superar el tope.
+        aceptacion_previa (bool): Si existe aceptación válida anterior al pago.
+        excepcion_legal (bool): Si la evaluación exige dejar el tope en cero.
+
+    Returns:
+        dict: Total, trabajo, saldo, porcentaje contratado, cargo máximo, cargo
+        autorizado y devolución autorizada como Decimal. El saldo es total menos
+        trabajo y la devolución es saldo menos cargo. No guarda ni mueve dinero.
+
+    Raises:
+        ValueError: Si hay valores no finitos, rangos o decisión inválidos,
+            importes con más de dos decimales, cargo sobre el tope o devolución negativa.
+    """
 
     total, trabajo, porcentaje, cargo_solicitado = [numero(x) for x in
         (total, trabajo, porcentaje, cargo_solicitado)]

@@ -21,7 +21,12 @@ from .politica_liquidacion_final_e3 import calcular_liquidacion
 
 
 class LiquidacionCancelacionE3(models.Model):
-    """Registra montos y enlaces económicos derivados de una cancelación."""
+    """Conserva la autorización económica de un expediente y un pago únicos.
+
+    Puede tener una reversa asociada cuando la devolución es positiva. El porcentaje
+    y la versión reflejan la aceptación previa al pago, no la configuración actual.
+    La persistencia usa una tabla SQL preexistente y no representa un cobro o abono.
+    """
 
     id_liquidacion = models.BigAutoField(primary_key=True)
     id_expediente = models.OneToOneField(ExpedienteCancelacion, models.DO_NOTHING, db_column='id_expediente')
@@ -56,7 +61,15 @@ class LiquidacionSerializer(serializers.Serializer):
 
 
 def datos_liquidacion(l):
-    """Serializa el resultado económico sin exponer datos bancarios."""
+    """Serializa el resultado económico sin exponer datos bancarios.
+
+    Args:
+        l (LiquidacionCancelacionE3): Registro existente que se desea presentar.
+
+    Returns:
+        dict: Identificadores, estado, fundamento, fecha e importes convertidos
+        a texto. La nota describe la autorización documental, no un pago ejecutado.
+    """
 
     return {'id_liquidacion':l.pk,'id_expediente':l.id_expediente_id,
       'id_pago':l.id_pago_id,'id_reversa':l.id_reversa_id,
@@ -69,18 +82,51 @@ def datos_liquidacion(l):
 
 @method_decorator(csrf_protect, name='dispatch')
 class LiquidarCancelacionE3View(APIView):
-    """Calcula y persiste una liquidación idempotente bajo bloqueo transaccional."""
+    """Autoriza una liquidación administrativa y rechaza registros duplicados.
+
+    Exige sesión administrativa y CSRF. Un reintento sobre un expediente ya liquidado
+    devuelve conflicto; no crea otra liquidación ni vuelve a solicitar su reversa.
+    """
 
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
-        """Consulta la liquidación documentada para un expediente."""
+        """Consulta la liquidación documentada para un expediente.
+
+        Args:
+            request (Request): Petición administrativa autenticada.
+            id_expediente (int): Identificador usado para buscar la liquidación.
+
+        Returns:
+            Response: HTTP 200 con ``liquidacion`` serializada o ``None`` si no existe.
+        """
         liq = LiquidacionCancelacionE3.objects.filter(id_expediente_id=id_expediente).first()
         return Response({'liquidacion':datos_liquidacion(liq) if liq else None})
 
     def post(self, request, id_expediente):
-        """Crea la liquidación y solicita su reversa bajo validaciones transaccionales."""
+        """Autoriza importes y solicita una reversa sin ejecutar movimientos bancarios.
+
+        Bloquea expediente y pago, exige resolución favorable y prestación cancelada,
+        y rechaza liquidaciones o reversas previas. El cargo se calcula con la política
+        aceptada antes del pago; cualquier reclamo debe autorizar la misma devolución.
+
+        Args:
+            request (Request): Sesión administrativa con CSRF, cargo autorizado,
+                fundamento, confirmaciones de derechos y ausencia de movimiento
+                bancario, y la marca opcional de excepción legal.
+            id_expediente (int): Expediente resuelto que se liquidará.
+
+        Returns:
+            Response: HTTP 201 con liquidación y reversa ``SOLICITADA`` si corresponde;
+            sin devolución queda ``PENDIENTE_CONCILIACION``. HTTP 400 si faltan
+            confirmaciones, 404 si no existe expediente y 409 por estados, duplicados,
+            política o importes incompatibles.
+
+        Raises:
+            serializers.ValidationError: Si el cuerpo no satisface el serializador;
+                DRF lo convierte en HTTP 400 antes de iniciar la transacción.
+        """
         s = LiquidacionSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         entrada = s.validated_data

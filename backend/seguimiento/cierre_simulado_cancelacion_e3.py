@@ -1,8 +1,8 @@
-"""Cierre ACADEMICO de la distribucion de una cancelacion parcial E3.
+"""Registra el cierre académico de distribución de una cancelación parcial E3.
 
-No conecta bancos, Webpay ni transferencias. Registra asientos de simulacion
-separados y cambia los estados EXPLICITAMENTE a *_SIMULADO para no confundirlos
-con una liberacion bancaria real. No sustituye un sistema de pagos productivo.
+No conecta bancos ni Webpay. Registra asientos de simulación y estados específicos
+en pago, reversa, liquidación y conciliación dentro de una transacción. Los registros
+permiten seguir los destinos económicos sin representar movimientos bancarios.
 """
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -27,7 +27,24 @@ CENTAVO = Decimal('0.01')
 
 
 def detalles(liquidacion, pago, *, terminado=False):
-    """Valida la cuadratura y calcula destinos simulados sin mover dinero."""
+    """Comprueba la cuadratura y desglosa los destinos de la simulación.
+
+    Args:
+        liquidacion (LiquidacionCancelacionE3): Total, trabajo, cargo y devolución.
+        pago (Pago): Aporta el porcentaje de comisión aplicado al contratar.
+        terminado (bool): Selecciona el estado y la nota de presentación;
+            no comprueba ni modifica estados persistidos.
+
+    Returns:
+        dict: Importes como texto decimal y marca ``sin_movimiento_bancario``.
+        La comisión se calcula sobre el trabajo con ROUND_HALF_UP a centavos;
+        SKILLY recibe documentalmente comisión más cargo y el profesional el
+        trabajo menos comisión. Los tres destinos deben sumar el total.
+
+    Raises:
+        ValueError: Si los valores convertidos no son finitos, están fuera de
+            rango o los destinos no cuadran con el total de la liquidación.
+    """
 
     trabajo = Decimal(liquidacion.monto_trabajo)
     total = Decimal(liquidacion.monto_total)
@@ -68,7 +85,17 @@ class CierreSimuladoCancelacionE3View(APIView):
     permission_classes = [EsAdministracionSkilly]
 
     def get(self, request, id_expediente):
-        """Previsualiza o consulta la distribución ya simulada del expediente."""
+        """Consulta la distribución calculada a partir de la liquidación.
+
+        Args:
+            request (Request): Petición de una sesión administrativa activa.
+            id_expediente (int): Identificador del expediente de cancelación.
+
+        Returns:
+            Response: HTTP 200 con ``cierre`` o ``None`` si no hay liquidación;
+            HTTP 409 si falta el pago o el cálculo detecta importes inconsistentes.
+            El estado de liquidación distingue previsualización de cierre simulado.
+        """
 
         liquidacion = LiquidacionCancelacionE3.objects.filter(id_expediente_id=id_expediente).first()
         if not liquidacion:
@@ -84,7 +111,29 @@ class CierreSimuladoCancelacionE3View(APIView):
 
     @method_decorator(csrf_protect)
     def post(self, request, id_expediente):
-        """Cierra la simulación con bloqueos, trazabilidad e idempotencia."""
+        """Registra una distribución académica consistente y admite su reintento.
+
+        Bloquea pago, liquidación, reversa y conciliación en ese orden. Exige
+        cancelación aprobada, prestación cancelada, pago retenido y verificado,
+        reversa única solicitada e importes coincidentes. Si existe reclamo,
+        su resolución debe autorizar la misma devolución. Crea la conciliación
+        documental si falta y guarda conjuntamente estados simulados e historial.
+
+        Args:
+            request (Request): Sesión administrativa con CSRF y los booleanos
+                ``confirmar_simulacion`` y ``confirmar_sin_dinero_real`` en ``True``.
+            id_expediente (int): Expediente cuya liquidación se cerrará.
+
+        Returns:
+            Response: HTTP 201 al registrar; HTTP 200 en un reintento cuyo pago,
+            reversa y conciliación ya tienen estados simulados compatibles;
+            HTTP 400 si faltan confirmaciones; HTTP 409 ante relaciones, estados,
+            importes o cierres previos incompatibles. No ejecuta devoluciones reales.
+
+        Raises:
+            LiquidacionCancelacionE3.DoesNotExist: Si desaparece la liquidación
+                entre la lectura inicial y su recuperación bajo bloqueo.
+        """
 
         if request.data.get('confirmar_simulacion') is not True or request.data.get('confirmar_sin_dinero_real') is not True:
             return Response({'mensaje': 'Confirma expresamente la simulacion y que no se movera dinero real.'}, status=400)

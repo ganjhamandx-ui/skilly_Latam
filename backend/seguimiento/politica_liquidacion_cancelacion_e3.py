@@ -1,14 +1,35 @@
 """Cálculo puro, sin retiros ni devolución de fondos.
 
-El cargo real está deliberadamente bloqueado hasta incorporar aceptación versionada
-anterior al pago y controles de retracto. No usar el cálculo teórico como cobro.
+Esta proyección mantiene el cargo ejecutado en cero y no evalúa aceptación
+versionada ni excepciones legales. La autorización documental se calcula en
+politica_liquidacion_final_e3; el cargo teórico de este módulo no constituye cobro.
 """
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 
 def proyectar_liquidacion(*, monto_total, monto_trabajo, porcentaje,
                           origen, decision, aceptacion_previa_valida=False):
-    """Proyecta trabajo, cargo y devolución sin ejecutar movimientos de dinero."""
+    """Proyecta la devolución y un cargo teórico sin autorizar cobros.
+
+    Args:
+        monto_total (Decimal | str): Total finito y no negativo.
+        monto_trabajo (Decimal | str): Trabajo acreditado entre cero y el total.
+        porcentaje (Decimal | str): Porcentaje finito entre cero y cien.
+        origen (str): Solo ``ORGANIZACION`` habilita el cálculo del cargo teórico.
+        decision (str): ``INJUSTIFICADA`` permite ese cálculo; con
+            ``RECHAZAR_SOLICITUD`` no se propone devolución.
+        aceptacion_previa_valida (bool): Parámetro conservado en el contrato;
+            esta proyección no lo utiliza ni permite ejecutar el cargo.
+
+    Returns:
+        dict: Cargo teórico redondeado a pesos con ROUND_HALF_UP, cargo ejecutado
+        siempre cero y devolución propuesta igual al saldo sin trabajo. Si se
+        rechaza la solicitud, ambos cargos son cero y la devolución es ``None``.
+
+    Raises:
+        ValueError: Si los importes o el porcentaje no son números finitos
+            dentro de sus rangos, o el trabajo supera el total.
+    """
 
     try:
         total = Decimal(str(monto_total))
@@ -27,8 +48,8 @@ def proyectar_liquidacion(*, monto_total, monto_trabajo, porcentaje,
     teorico = Decimal('0')
     if origen == 'ORGANIZACION' and decision == 'INJUSTIFICADA':
         teorico = (saldo * pct / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-    # Aun no existe consentimiento versionado previo al pago:
-    # nunca ejecutar cobros por penalizacion en esta fase.
+    # Esta proyección conserva el cargo ejecutado en cero; la autorización
+    # con aceptación versionada se evalúa en politica_liquidacion_final_e3.
     cargo = Decimal('0')
     return {'cargo_teorico': teorico, 'cargo_ejecutado': cargo,
             'devolucion_propuesta': saldo}

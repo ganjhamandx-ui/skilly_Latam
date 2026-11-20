@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react'
 
-// Presenta los montos del prototipo con el formato monetario local.
+/**
+ * Formatea un importe para mostrar pesos chilenos sin decimales.
+ * @param {string|number|null|undefined} n Importe decimal recibido de la API.
+ * @returns {string} Texto monetario; los valores falsos se presentan como cero.
+ */
 const CLP = (n) => Number(n || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })
 const API = '/api/seguimiento/administracion/cancelaciones/'
 
 /**
  * Previsualiza y confirma la distribución económica simulada de un expediente.
  * Nunca representa una transferencia o devolución bancaria real.
+ *
+ * @param {Object} props Propiedades de la sección administrativa.
+ * @param {number|string} props.idExpediente Identificador usado en consultas y cierre.
+ * @param {boolean} props.habilitado Permite consultar y mostrar el cierre.
+ * @param {function(): void} [props.onCompletado] Notificación tras guardar el resultado;
+ * su retorno no se espera.
+ * @returns {import('react').ReactElement|null} Desglose y confirmación, o null si está deshabilitado.
  */
 export default function CierreEconomicoSimuladoE3({ idExpediente, habilitado, onCompletado }) {
   const [cierre, setCierre] = useState(null)
@@ -40,7 +51,12 @@ export default function CierreEconomicoSimuladoE3({ idExpediente, habilitado, on
   // El estado persistido impide mostrar de nuevo el botón después de registrar el cierre.
   const terminado = cierre?.estado === 'DISTRIBUIDO_SIMULADO'
 
-  // Obtiene un token CSRF vigente antes de registrar el cierre administrativo.
+  /**
+   * Confirma la simulación con CSRF y actualiza el desglose devuelto por Django.
+   * Omite envíos en curso, cierres terminados y confirmaciones no aceptadas.
+   * Los fallos se muestran en el estado de error y siempre se libera el indicador de envío.
+   * @returns {Promise<void>} Finalización del intento; los errores capturados no se propagan.
+   */
   async function finalizar() {
     if (enviando || terminado || !confirmado) return
     if (!window.confirm('¿Confirmar el cierre económico y la distribución para las tres partes?')) return
