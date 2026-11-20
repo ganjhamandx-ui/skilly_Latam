@@ -29,7 +29,11 @@ const TARJETAS = [
   },
 ]
 
-// Presenta los importes en la unidad indicada por los indicadores administrativos.
+/**
+ * Presenta un importe de los indicadores en CLP con hasta dos decimales.
+ * @param {number|string|null} valor Dato numérico; null o undefined se representan como cero.
+ * @returns {string} Importe regional o «No disponible» si no es finito.
+ */
 function monto(valor) {
   const numero = Number(valor ?? 0)
 
@@ -42,7 +46,12 @@ function monto(valor) {
   }).format(numero)} CLP`
 }
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Obtiene el mensaje de rechazo de indicadores o incluye el código HTTP como alternativa.
+ * @param {Object|null} datos Respuesta JSON del servidor.
+ * @param {number} codigo Estado HTTP.
+ * @returns {string} Mensaje según el contrato textual del endpoint.
+ */
 function mensajeError(datos, codigo) {
   return (
     datos?.mensaje ||
@@ -51,7 +60,10 @@ function mensajeError(datos, codigo) {
   )
 }
 
-// Presenta las métricas agregadas que el backend habilita para administración.
+/**
+ * Consulta conteos, estados e importes calculados por el backend y permite explorar su detalle.
+ * @returns {import('react').ReactElement} Panel de indicadores de solo lectura con diálogo accesible.
+ */
 export default function IndicadoresAdministracion() {
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -60,10 +72,13 @@ export default function IndicadoresAdministracion() {
   const [revision, setRevision] = useState(0)
 
   useEffect(() => {
-    // Aplana los detalles de validación del formulario de propuesta nueva.
+    // Descarta el resultado cuando cambia la revisión o se desmonta esta consulta.
     let activo = true
 
-    // Recupera los indicadores agregados y distingue error de consulta de falta de datos.
+    /**
+     * Exige indicadores, estados y resumen_financiero antes de aplicar la respuesta vigente.
+     * @returns {Promise<void>} Presenta los errores de consulta sin inventar cifras ausentes.
+     */
     async function consultar() {
       try {
         const respuesta = await fetch(
@@ -123,7 +138,10 @@ export default function IndicadoresAdministracion() {
     }
   }, [revision])
 
-  // Vuelve a consultar la información visible sin recargar toda la aplicación.
+  /**
+   * Inicia otra consulta de indicadores mediante el contador de revisión.
+   * @returns {void} Limpia el error y activa el estado de carga.
+   */
   function recargar() {
     setError('')
     setCargando(true)

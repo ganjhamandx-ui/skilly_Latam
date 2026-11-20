@@ -6,7 +6,12 @@ import './Administracion.css'
 
 const URL = '/api/backoffice/configuracion/comision/'
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Prioriza el mensaje general o el error de valor_nuevo de la configuración.
+ * @param {Object|null} datos Respuesta JSON del servidor.
+ * @param {number} codigo Estado HTTP de respaldo.
+ * @returns {string} Mensaje según el contrato textual de la API.
+ */
 function mensajeError(datos, codigo) {
   return datos?.mensaje || datos?.detail ||
     (datos?.valor_nuevo
@@ -14,7 +19,11 @@ function mensajeError(datos, codigo) {
       : `Error HTTP ${codigo}.`)
 }
 
-// Presenta la tasa de comisión con precisión suficiente para su revisión.
+/**
+ * Formatea una tasa de comisión con hasta cuatro decimales.
+ * @param {number|string|null} valor Porcentaje recibido sin reescalarlo.
+ * @returns {string} Porcentaje regional o indicación de ausencia/invalidez.
+ */
 function porcentaje(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No configurado'
@@ -28,7 +37,11 @@ function porcentaje(valor) {
     : 'No disponible'
 }
 
-// Presenta la fecha de registro con formato regional para interpretar el historial.
+/**
+ * Presenta la fecha del historial con locale chileno y zona del navegador.
+ * @param {string|null} valor Fecha recibida.
+ * @returns {string} Fecha legible o explicación de dato ausente/inválido.
+ */
 function fechaLocal(valor) {
   if (!valor) return 'Sin información'
 
@@ -42,7 +55,10 @@ function fechaLocal(valor) {
       })
 }
 
-// Expone la comisión vigente e inicia la edición de su valor administrativo.
+/**
+ * Consulta comisión e historial y exige revisar el cambio antes de enviarlo por PATCH.
+ * @returns {import('react').ReactElement} Configuración y diálogos de edición y confirmación.
+ */
 export default function ComisionAdministracion() {
   const [parametro, setParametro] = useState(null)
   const [historial, setHistorial] = useState([])
@@ -64,7 +80,10 @@ export default function ComisionAdministracion() {
     // Trae la configuración de comisión mientras la consulta sigue vigente.
     let activo = true
 
-    // Consulta la comisión efectiva y su historial para sincronizar el formulario.
+    /**
+     * Consulta la configuración y trata 404 como parámetro todavía no configurado.
+     * @returns {Promise<void>} Aplica el resultado únicamente mientras el efecto sigue activo.
+     */
     async function cargar() {
       try {
         const respuesta = await fetch(URL, {
@@ -137,7 +156,11 @@ export default function ComisionAdministracion() {
     const anterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
-    // Permite activar la interacción del registro con teclado.
+    /**
+     * Retrocede de confirmación a edición, o cierra la edición con Escape si no se está guardando.
+     * @param {KeyboardEvent} evento Evento del documento.
+     * @returns {void}
+     */
     function tecla(evento) {
       if (evento.key === 'Escape' && !guardando) {
         setModo(
@@ -154,7 +177,10 @@ export default function ComisionAdministracion() {
     }
   }, [modo, guardando])
 
-  // Vuelve a consultar la información visible sin recargar toda la aplicación.
+  /**
+   * Limpia mensajes y cambia la revisión para consultar nuevamente parámetro e historial.
+   * @returns {void}
+   */
   function recargar() {
     setError('')
     setAviso('')
@@ -162,7 +188,10 @@ export default function ComisionAdministracion() {
     setRevision((anterior) => anterior + 1)
   }
 
-  // Inicializa los campos con el parámetro vigente antes de editarlo.
+  /**
+   * Abre la edición con el valor vigente expresado con coma decimal para el formulario.
+   * @returns {void} Deja el campo vacío cuando todavía no existe el parámetro.
+   */
   function abrirEdicion() {
     setValorNuevo(
       parametro ? String(parametro.valor_actual).replace('.', ',') : '',
@@ -190,8 +219,11 @@ export default function ComisionAdministracion() {
     !parametro || numeroNuevo !== Number(parametro.valor_actual)
   )
 
+  /**
+   * Guarda el porcentaje normalizado solamente desde la confirmación y si difiere del vigente.
+   * @returns {Promise<void>} Cierra el diálogo y recarga la configuración al guardar, o muestra el error.
+   */
   async function guardar() {
-    // No guardar si no se confirmó explícitamente.
     if (
       modo !== 'confirmar' ||
       !diferente ||
@@ -225,7 +257,7 @@ export default function ComisionAdministracion() {
         )
       }
 
-      // Se mantiene el endpoint PATCH original.
+      // El backend conserva el cambio y su historial dentro de la misma transacción.
       const respuesta = await fetch(URL, {
         method: 'PATCH',
         credentials: 'same-origin',

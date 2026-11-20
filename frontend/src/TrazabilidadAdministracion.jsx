@@ -52,7 +52,11 @@ const NOMBRES_ACCION = {
     'Cambio de estado',
 }
 
-// Convierte el identificador de entidad auditada en una etiqueta para el historial.
+/**
+ * Obtiene el nombre conocido de una entidad o adapta su código a texto.
+ * @param {string|null} codigo Tipo de entidad registrado en el evento.
+ * @returns {string} Etiqueta para el historial y sus filtros.
+ */
 function etiquetaEntidad(codigo) {
   return (
     NOMBRES_ENTIDAD[codigo] ||
@@ -60,7 +64,11 @@ function etiquetaEntidad(codigo) {
   )
 }
 
-// Traduce el código de operación auditada para leer la cronología.
+/**
+ * Resuelve una acción conocida o convierte su código a una etiqueta con inicial mayúscula.
+ * @param {string|null} codigo Acción registrada por el backend.
+ * @returns {string} Nombre legible de la operación.
+ */
 function etiquetaAccion(codigo) {
   if (NOMBRES_ACCION[codigo]) {
     return NOMBRES_ACCION[codigo]
@@ -78,7 +86,12 @@ function etiquetaAccion(codigo) {
   )
 }
 
-// Recupera el mensaje de validación y usa un texto legible si la respuesta no lo trae.
+/**
+ * Selecciona el error de trazabilidad o un texto con el estado HTTP.
+ * @param {Object|null} datos Respuesta JSON.
+ * @param {number} codigo Estado HTTP de respaldo.
+ * @returns {string} Mensaje según el contrato textual de la API.
+ */
 function textoError(datos, codigo) {
   return (
     datos?.mensaje ||
@@ -87,7 +100,11 @@ function textoError(datos, codigo) {
   )
 }
 
-// Presenta una fecha de registro con un formato regional legible.
+/**
+ * Formatea el momento del evento con locale chileno y zona del navegador.
+ * @param {string|null} valor Fecha recibida del servidor.
+ * @returns {string} Fecha legible o indicación de ausencia/invalidez.
+ */
 function fechaLegible(valor) {
   if (!valor) return 'Sin fecha'
 
@@ -101,6 +118,11 @@ function fechaLegible(valor) {
       })
 }
 
+/**
+ * Consulta eventos y sus detalles manteniendo separados filtros editados y filtros aplicados.
+ * Construye las opciones de entidad y acción a partir de los eventos existentes.
+ * @returns {import('react').ReactElement} Historial administrativo de solo lectura.
+ */
 export default function TrazabilidadAdministracion() {
   // Valores seleccionados por el administrador.
   const [tipo, setTipo] = useState('')
@@ -137,7 +159,12 @@ export default function TrazabilidadAdministracion() {
     // Actualiza el historial y sus filtros mientras la vista permanece activa.
     let activo = true
 
-    // Centraliza la lectura de la API de trazabilidad y el manejo de errores HTTP.
+    /**
+     * Consulta una ruta de trazabilidad y exige una lista eventos válida.
+     * @param {string} url URL del historial, con filtros opcionales.
+     * @returns {Promise<Object[]>} Eventos de la respuesta.
+     * @throws {Error} Si falla la conexión, el estado HTTP o el formato del listado.
+     */
     async function obtener(url) {
       const respuesta = await fetch(url, {
         method: 'GET',
@@ -167,7 +194,10 @@ export default function TrazabilidadAdministracion() {
       return datos.eventos
     }
 
-    // Consulta el historial de operaciones con los filtros activos.
+    /**
+     * Consulta primero el catálogo completo y después el listado filtrado si hay criterios.
+     * @returns {Promise<void>} Aplica ambos resultados solo mientras este efecto permanece activo.
+     */
     async function consultar() {
       try {
         // Consulta general: nombres reales
@@ -223,7 +253,11 @@ export default function TrazabilidadAdministracion() {
     const anterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
-    // Cierra el detalle de auditoría cuando se pulsa la tecla Escape.
+    /**
+     * Cierra el detalle seleccionado al pulsar Escape.
+     * @param {KeyboardEvent} evento Evento del documento mientras el diálogo está abierto.
+     * @returns {void}
+     */
     function alEscapar(evento) {
       if (evento.key === 'Escape') {
         setIdDetalle(null)
@@ -235,7 +269,10 @@ export default function TrazabilidadAdministracion() {
       alEscapar,
     )
 
-    // Obtiene los antecedentes autorizados del evento de auditoría seleccionado.
+    /**
+     * Consulta el evento seleccionado y descarta su resultado al cerrar o cambiar de selección.
+     * @returns {Promise<void>} Actualiza detalle o error sin modificar el historial.
+     */
     async function consultarDetalle() {
       try {
         const respuesta = await fetch(
@@ -328,7 +365,11 @@ export default function TrazabilidadAdministracion() {
     ),
   )
 
-  // Carga las opciones que permiten acotar el historial de auditoría.
+  /**
+   * Valida el identificador positivo y aplica los criterios escritos para iniciar otra consulta.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {void} Omite los filtros vacíos y conserva los nombres de parámetros del backend.
+   */
   function consultarFiltros(evento) {
     evento.preventDefault()
 
@@ -365,7 +406,10 @@ export default function TrazabilidadAdministracion() {
     setFiltros(nuevos)
   }
 
-  // Restablece los criterios para recuperar el listado completo.
+  /**
+   * Restablece controles y filtros enviados para volver a consultar todos los eventos.
+   * @returns {void}
+   */
   function limpiarFiltros() {
     setTipo('')
     setAccion('')
@@ -376,7 +420,10 @@ export default function TrazabilidadAdministracion() {
     setFiltros({})
   }
 
-  // Vuelve a consultar la información visible sin recargar toda la aplicación.
+  /**
+   * Recarga los eventos con los filtros ya aplicados y vacía el resultado anterior mientras consulta.
+   * @returns {void}
+   */
   function recargar() {
     setError('')
     setCargando(true)
@@ -387,7 +434,11 @@ export default function TrazabilidadAdministracion() {
     )
   }
 
-  // Selecciona un registro y solicita sus datos antes de presentar el diálogo.
+  /**
+   * Selecciona un evento y prepara el estado para que el efecto consulte su detalle.
+   * @param {number|string} id Identificador del evento del listado.
+   * @returns {void}
+   */
   function abrirDetalle(id) {
     setDetalle(null)
     setErrorDetalle('')
