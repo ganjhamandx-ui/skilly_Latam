@@ -28,6 +28,7 @@ from .revision_documental import revision_completa
 
 
 class ReservarEntrevistaSerializer(serializers.Serializer):
+    """Valida un identificador positivo de bloque; la vista comprueba sus cupos."""
     id_bloque_entrevista = serializers.IntegerField(
         min_value=1
     )
@@ -35,6 +36,12 @@ class ReservarEntrevistaSerializer(serializers.Serializer):
 
 @method_decorator(csrf_protect, name="dispatch")
 class ReservaEntrevistaProfesionalView(APIView):
+    """Consulta horarios y reserva entrevistas para el profesional autenticado.
+
+    Exige una solicitud aprobada, documentos vigentes aprobados individualmente
+    y ausencia de entrevistas no canceladas. La reserva bloquea la solicitud
+    y el bloque para volver a comprobar esas condiciones dentro de la transacción.
+    """
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -44,6 +51,17 @@ class ReservaEntrevistaProfesionalView(APIView):
     ]
 
     def obtener_validacion(self, usuario, bloquear=False):
+        """Busca el perfil y su solicitud más reciente, cualquiera que sea su estado.
+
+        Args:
+            usuario: Usuario autenticado asociado al perfil profesional.
+            bloquear (bool): Bloquea la solicitud seleccionada; requiere que el
+                llamador gestione la transacción.
+
+        Returns:
+            tuple: Profesional y solicitud; ambos son None si falta el perfil,
+            o solo la solicitud es None cuando el perfil no tiene solicitudes.
+        """
         profesional = Profesional.objects.filter(
             id_usuario=usuario
         ).first()
@@ -66,6 +84,17 @@ class ReservaEntrevistaProfesionalView(APIView):
         return profesional, solicitud
 
     def validar_solicitud(self, profesional, solicitud):
+        """Comprueba los requisitos documentales y la ausencia de otra entrevista.
+
+        Args:
+            profesional: Perfil encontrado o None.
+            solicitud: Solicitud más reciente o None.
+
+        Returns:
+            Response | None: Error 404 si falta el perfil o la solicitud, error 409
+            si no está aprobada, quedan documentos pendientes o existe cualquier
+            entrevista no cancelada; None cuando se puede continuar.
+        """
         if profesional is None:
             return Response(
                 {
@@ -124,6 +153,15 @@ class ReservaEntrevistaProfesionalView(APIView):
         return None
 
     def bloque_en_horario_valido(self, bloque, ahora):
+        """Comprueba que el intervalo sea creciente y todavía no haya comenzado.
+
+        Args:
+            bloque: Bloque con fecha, hora_inicio y hora_fin.
+            ahora: Fecha y hora actual en la zona local usada por los bloques.
+
+        Returns:
+            bool: Validez temporal; no comprueba estado, capacidad ni ocupación.
+        """
         if bloque.fecha < ahora.date():
             return False
 
@@ -141,6 +179,16 @@ class ReservaEntrevistaProfesionalView(APIView):
         return True
 
     def get(self, request):
+        """Lista bloques disponibles con cupos para una solicitud habilitada.
+
+        Args:
+            request: Petición autenticada del profesional.
+
+        Returns:
+            Response: 200 con bloques futuros y cupos descontando toda entrevista
+            no cancelada; 404 o 409 si falla la habilitación. La lista es informativa:
+            los cupos se vuelven a validar al reservar.
+        """
         profesional, solicitud = self.obtener_validacion(
             request.user
         )
@@ -218,6 +266,16 @@ class ReservaEntrevistaProfesionalView(APIView):
         )
 
     def post(self, request):
+        """Reserva un cupo tras bloquear y revalidar la solicitud y el bloque.
+
+        Args:
+            request: Petición con id_bloque_entrevista positivo.
+
+        Returns:
+            Response: 201 con la entrevista AGENDADA; 400 por entrada inválida,
+            404 por recursos inexistentes o 409 por requisitos, horario o cupo
+            incumplidos. Una entrevista existente impide crear otra.
+        """
         entrada = ReservarEntrevistaSerializer(
             data=request.data
         )
@@ -329,6 +387,7 @@ class ReservaEntrevistaProfesionalView(APIView):
 
 
 class CancelarEntrevistaProfesionalSerializer(serializers.Serializer):
+    """Exige un motivo de cancelación de entre 10 y 500 caracteres sin espacios externos."""
     motivo = serializers.CharField(
         trim_whitespace=True, min_length=10, max_length=500
     )
@@ -348,6 +407,18 @@ class CancelarEntrevistaProfesionalView(APIView):
     http_method_names = ["post", "options"]
 
     def post(self, request):
+        """Cancela la entrevista agendada más reciente de la última validación.
+
+        Args:
+            request: Petición del profesional con un motivo válido.
+
+        Returns:
+            Response: 200 con la entrevista cancelada y requiere_revision cuando
+            faltan menos de 24 horas; 400 por motivo inválido, 404 por falta de
+            perfil o solicitud y 409 si la validación no está aprobada, no hay
+            entrevista agendada o esta ya comenzó. Registra el motivo y el evento
+            de trazabilidad dentro de la misma transacción.
+        """
         entrada = CancelarEntrevistaProfesionalSerializer(data=request.data)
         if not entrada.is_valid():
             return Response(entrada.errors, status=status.HTTP_400_BAD_REQUEST)

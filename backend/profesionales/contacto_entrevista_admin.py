@@ -16,11 +16,24 @@ ACCION_CONTACTO = "CONTACTO_PREENTREVISTA_REALIZADO"
 
 @method_decorator(csrf_protect, name="dispatch")
 class ConfirmarContactoEntrevistaAdminView(APIView):
+    """Registra el contacto previo realizado sin enviar mensajes ni cambiar la entrevista."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
     http_method_names = ["post", "options"]
 
     def post(self, request, id_entrevista):
+        """Confirma el contacto de una entrevista AGENDADA mediante trazabilidad.
+
+        Args:
+            request: Petición administrativa con confirmar igual al booleano True
+                y sin otras claves.
+            id_entrevista (int): Entrevista cuyo contacto ya realizó administración.
+
+        Returns:
+            Response: 200 con contactado y fecha_contacto, 400 por datos inválidos,
+            404 si no existe la entrevista o 409 si no está AGENDADA. Bajo bloqueo
+            de la entrevista, reutiliza el evento existente para evitar duplicarlo.
+        """
         if request.data and (not isinstance(request.data, dict) or set(request.data) - {"confirmar"}):
             return Response({"mensaje": "Datos no permitidos."}, status=status.HTTP_400_BAD_REQUEST)
         if request.data.get("confirmar") is not True:

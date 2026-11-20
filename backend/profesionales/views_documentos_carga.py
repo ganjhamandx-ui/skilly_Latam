@@ -27,6 +27,15 @@ DIRECTORIO_PRIVADO = "skilly/documentos_profesionales/"
 
 
 def obtener_profesional(request):
+    """Obtiene el perfil únicamente cuando el usuario tiene rol PROFESIONAL.
+
+    Args:
+        request: Petición con el usuario autenticado.
+
+    Returns:
+        Profesional | None: Primer perfil asociado o None si falta o el rol
+        no corresponde; no comprueba su estado de validación.
+    """
     if getattr(request.user, "rol", None) != "PROFESIONAL":
         return None
 
@@ -36,7 +45,20 @@ def obtener_profesional(request):
 
 
 def detectar_extension(archivo):
-    """Confirma firma y extension, sin ejecutar ni interpretar macros."""
+    """Contrasta la extensión del nombre con la firma inicial del archivo.
+
+    Para DOCX también examina el índice del contenedor: exige las entradas de
+    Word, limita su cantidad y tamaño declarado y rechaza nombres de macros o
+    ejecutables. No valida íntegramente el documento ni acredita que sea inocuo.
+
+    Args:
+        archivo: Archivo con name, read y seek, cuyo cursor comienza en cero.
+
+    Returns:
+        str | None: Extensión admitida, incluido .jpeg, o None si no coincide
+        con las comprobaciones. Restablece el cursor tras leer la cabecera y
+        tras inspeccionar el contenido de un contenedor DOCX reconocido.
+    """
     nombre = str(archivo.name).replace("\\", "/").split("/")[-1]
     extension = ("." + nombre.rsplit(".", 1)[-1].lower()) if "." in nombre else ""
     admitidas = {".pdf", ".jpg", ".jpeg", ".png", ".docx", ".doc"}
@@ -71,12 +93,29 @@ def detectar_extension(archivo):
 
 @method_decorator(csrf_protect, name="dispatch")
 class SubirDocumentoProfesionalView(APIView):
+    """Recibe archivos multipart privados y conserva el historial de versiones rechazadas."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     parser_classes = [MultiPartParser, FormParser]
     http_method_names = ["post", "options"]
 
     def post(self, request):
+        """Guarda un documento nuevo o sustituye una revisión individual rechazada.
+
+        Args:
+            request: Petición multipart con archivo, tipo_documento y, para una
+                corrección, id_documento_reemplazado del mismo profesional y tipo.
+
+        Returns:
+            Response: 201 con el documento privado, 400 por datos o archivo
+            inválidos, 403 si falta el perfil autorizado o 409 por restricciones
+            del proceso. Durante la validación inicial solo se permite corregir
+            documentos rechazados; un perfil APROBADO puede agregar otros nuevos.
+
+        La base de datos conserva el documento sustituido y marca su revisión como
+        REEMPLAZADA. Si falla la persistencia después de guardar el archivo, se
+        intenta eliminar la nueva referencia; los errores no tratados se propagan.
+        """
         profesional = obtener_profesional(request)
 
         if profesional is None:
@@ -229,11 +268,27 @@ class SubirDocumentoProfesionalView(APIView):
 
 
 class DescargarDocumentoProfesionalView(APIView):
+    """Entrega como adjuntos los documentos pertenecientes al profesional autenticado."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     http_method_names = ["get", "head", "options"]
 
     def get(self, request, id_documento):
+        """Descarga un archivo propio con ruta privada y extensión admitida.
+
+        Args:
+            request: Petición del profesional propietario.
+            id_documento (int): Identificador del documento solicitado.
+
+        Returns:
+            FileResponse | Response: Archivo sin caché o respuesta 403 si no
+            existe un perfil autorizado.
+
+        Raises:
+            Http404: Si el documento no pertenece al perfil, la ruta es inválida,
+                el archivo no existe o su extensión no está admitida.
+            OSError: Si el almacenamiento falla al abrir el archivo.
+        """
         profesional = obtener_profesional(request)
 
         if profesional is None:

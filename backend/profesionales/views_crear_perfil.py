@@ -13,11 +13,23 @@ from profesionales.serializers import PerfilProfesionalSerializer
 
 
 class CrearMiPerfilProfesionalView(APIView):
+    """Crea un único perfil PENDIENTE para el usuario profesional autenticado."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     http_method_names = ["post", "options"]
 
     def post(self, request):
+        """Registra el perfil tras bloquear al usuario para impedir duplicados.
+
+        Args:
+            request: Petición del profesional con nombres, apellidos y los campos
+                editables admitidos por PerfilProfesionalSerializer.
+
+        Returns:
+            Response: 201 con el perfil, 400 por datos inválidos, 403 si el rol no
+            es PROFESIONAL o 409 si el usuario ya tiene un perfil. Los campos de
+            validación y fecha de registro se fijan en el servidor.
+        """
         if getattr(request.user, "rol", None) != "PROFESIONAL":
             return Response(
                 {"mensaje": "Solo los profesionales pueden crear su perfil."},

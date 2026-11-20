@@ -19,10 +19,21 @@ TIPOS = {
 
 
 def referencia_autorizada(documento):
-    """Acepta solo rutas internas conocidas asociadas al profesional propietario.
+    """Acepta rutas internas conocidas del documento y determina su tipo MIME.
 
-    El prefijo legado existe unicamente para registros sinteticos antiguos;
-    no implica que el archivo exista realmente en el almacenamiento.
+    El prefijo legado se conserva para registros sintéticos antiguos y no
+    acredita la existencia física del archivo. Esta función valida la ruta;
+    la vista debe comprobar previamente quién puede consultar el documento.
+
+    Args:
+        documento: Registro con referencia_archivo e id_profesional_id.
+
+    Returns:
+        tuple[str, str]: Referencia relativa y tipo MIME permitido.
+
+    Raises:
+        Http404: Si la ruta contiene segmentos inseguros, no pertenece a un
+            prefijo admitido o no termina en .pdf, .jpg o .png.
     """
     referencia = str(documento.referencia_archivo or "")
     if not referencia or "\\" in referencia or "\x00" in referencia:
@@ -51,6 +62,21 @@ def referencia_autorizada(documento):
 
 
 def respuesta_documento_privado(documento, *, visualizar=False):
+    """Abre un documento autorizado sin exponer una URL pública del almacén.
+
+    Args:
+        documento: Registro cuyo acceso ya fue autorizado por la vista.
+        visualizar (bool): Si es True, solicita presentación en línea;
+            de lo contrario, devuelve el archivo como adjunto.
+
+    Returns:
+        FileResponse: Flujo binario con nombre original, tipo MIME y cabeceras
+        que impiden su almacenamiento en caché y la inferencia de contenido.
+
+    Raises:
+        Http404: Si la referencia no es válida, el archivo no existe o su
+            apertura produce FileNotFoundError u OSError.
+    """
     referencia, tipo = referencia_autorizada(documento)
     if not default_storage.exists(referencia):
         raise Http404("El archivo fisico de este registro no esta disponible.")

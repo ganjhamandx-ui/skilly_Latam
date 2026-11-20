@@ -28,6 +28,7 @@ from .revision_documental import documentos_vigentes
 
 
 class ResultadoEntrevistaAdminSerializer(serializers.Serializer):
+    """Exige resultado final, observación y confirmación de que la entrevista se realizó."""
     resultado = serializers.ChoiceField(choices=["APROBADO", "RECHAZADO"])
     observacion = serializers.CharField(
         allow_blank=False,
@@ -37,6 +38,17 @@ class ResultadoEntrevistaAdminSerializer(serializers.Serializer):
     confirmacion_realizada = serializers.BooleanField(required=True)
 
     def validate_confirmacion_realizada(self, valor):
+        """Exige confirmación afirmativa después de convertir el campo a booleano.
+
+        Args:
+            valor (bool): Valor convertido por BooleanField.
+
+        Returns:
+            bool: True cuando la entrevista fue confirmada.
+
+        Raises:
+            serializers.ValidationError: Si valor no es True.
+        """
         if valor is not True:
             raise serializers.ValidationError(
                 "Debe confirmar que la entrevista se realizo antes de resolver."
@@ -46,11 +58,27 @@ class ResultadoEntrevistaAdminSerializer(serializers.Serializer):
 
 @method_decorator(csrf_protect, name="dispatch")
 class ResolverEntrevistaYValidacionAdminView(APIView):
+    """Resuelve la entrevista y la validación final del perfil en una transacción."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
     http_method_names = ["post", "options"]
 
     def post(self, request, id_validacion):
+        """Registra el resultado final una vez terminado el horario de entrevista.
+
+        Args:
+            request: Petición con resultado APROBADO o RECHAZADO, observacion y
+                confirmacion_realizada afirmativa.
+            id_validacion (int): Solicitud documental previamente APROBADA.
+
+        Returns:
+            Response: 200 con la solicitud y el resultado reflejado en el perfil;
+            400 por datos inválidos, 404 si no existe la solicitud o 409 por
+            precondiciones incumplidas. Exige perfil PENDIENTE, documentos vigentes
+            aprobados del mismo propietario y última entrevista AGENDADA cuyo
+            horario haya concluido. Marca la entrevista REALIZADA y conserva la
+            aprobación documental; no admite volver a resolver el perfil.
+        """
         entrada = ResultadoEntrevistaAdminSerializer(data=request.data)
         if not entrada.is_valid():
             return Response(entrada.errors, status=status.HTTP_400_BAD_REQUEST)

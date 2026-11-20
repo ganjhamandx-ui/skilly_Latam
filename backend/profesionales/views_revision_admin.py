@@ -19,11 +19,31 @@ from .revision_documental import documentos_vigentes
 
 @method_decorator(csrf_protect, name="dispatch")
 class ResolverValidacionDocumentalAdminView(APIView):
+    """Resuelve documentos individualmente y el estado conjunto de su solicitud.
+
+    La aprobación documental habilita la reserva de entrevista; no cambia por
+    sí misma el estado de validación del perfil profesional.
+    """
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
     http_method_names = ["post", "options"]
 
     def post(self, request, id_validacion):
+        """Aplica una acción administrativa con bloqueo de solicitud y revisiones.
+
+        Args:
+            request: Petición con accion y observacion opcional. REVISAR_DOCUMENTO
+                requiere id_documento y decision APROBADA o RECHAZADA. El rechazo
+                individual o global exige observación, de hasta 4000 caracteres.
+            id_validacion (int): Solicitud que se revisará.
+
+        Returns:
+            Response: 200 con el estado resultante; 400 por entrada inválida,
+            404 por solicitud o documento ajeno/inexistente y 409 por transición
+            incompatible. Repetir INICIAR_REVISION en EN_REVISION conserva el
+            estado. APROBAR y FINALIZAR_REVISION exigen que todas las revisiones
+            vigentes estén APROBADAS; un documento ya aprobado no se modifica.
+        """
         accion = str(request.data.get("accion") or "").strip().upper()
         observacion = str(
             request.data.get("observacion") or ""

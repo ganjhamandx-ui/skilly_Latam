@@ -20,11 +20,23 @@ from profesionales.serializers import EstadoValidacionSerializer
 
 
 class SolicitarMiValidacionView(APIView):
+    """Crea la primera solicitud de validación y vincula los documentos del perfil."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsProfesional]
     http_method_names = ["post", "options"]
 
     def post(self, request):
+        """Envía a revisión los documentos existentes bajo bloqueo del profesional.
+
+        Args:
+            request: Petición del profesional autenticado; no requiere campos
+                adicionales para crear la solicitud.
+
+        Returns:
+            Response: 201 con solicitud PENDIENTE y cantidad de documentos, 400 si
+            no hay documentos, 404 si falta el perfil o 409 con la solicitud más
+            reciente si ya existe cualquiera, independientemente de su estado.
+        """
         with transaction.atomic():
             profesional = (
                 Profesional.objects

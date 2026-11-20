@@ -17,12 +17,32 @@ from acceso.permissions import EsAdministracionSkilly
 
 
 class DescargarDocumentoValidacionAdminView(APIView):
+    """Permite descargar documentos del profesional asociado a una solicitud de validación."""
     authentication_classes = [SesionSkillyAuthentication]
     permission_classes = [EsAdministracionSkilly]
     http_method_names = ["get", "options"]
 
     def get(self, request, id_validacion, id_documento):
 
+        """Entrega un documento privado al personal con rol ADMIN_SKILLY.
+
+        La pertenencia se comprueba contra el profesional de la solicitud; no se
+        exige un vínculo ValidacionDocumento concreto ni un estado de revisión.
+
+        Args:
+            request: Petición administrativa autenticada.
+            id_validacion (int): Solicitud que determina el propietario esperado.
+            id_documento (int): Documento de ese profesional.
+
+        Returns:
+            FileResponse | Response: Adjunto privado sin caché o respuesta 403 si
+            el rol del usuario no es ADMIN_SKILLY.
+
+        Raises:
+            Http404: Si faltan registros, la ruta es inválida, la extensión no
+                está admitida o el archivo no existe.
+            OSError: Si falla la apertura en el almacenamiento.
+        """
         if getattr(request.user, "rol", None) != "ADMIN_SKILLY":
             return Response(
                 {"mensaje": "Acceso exclusivo de administracion."},

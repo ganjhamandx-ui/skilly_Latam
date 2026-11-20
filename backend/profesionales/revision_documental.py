@@ -9,6 +9,17 @@ from .models import ValidacionDocumento
 
 
 def documentos_vigentes(solicitud, bloquear=False):
+    """Obtiene las revisiones que no fueron sustituidas por otra versión.
+
+    Args:
+        solicitud: SolicitudValidacion cuyas revisiones se consultan.
+        bloquear (bool): Solicita select_for_update; el llamador debe mantener
+            una transacción cuando el motor requiera ese contexto.
+
+    Returns:
+        list[ValidacionDocumento]: Revisiones con su documento relacionado,
+        ordenadas por identificador de documento y sin estado REEMPLAZADA.
+    """
     qs = (ValidacionDocumento.objects
           .select_related("id_documento")
           .filter(id_validacion=solicitud)
@@ -19,6 +30,15 @@ def documentos_vigentes(solicitud, bloquear=False):
 
 
 def revision_completa(solicitud):
+    """Comprueba que exista al menos un documento vigente y todos estén aprobados.
+
+    Args:
+        solicitud: Solicitud de validación y profesional esperado.
+
+    Returns:
+        bool: True si cada revisión vigente está APROBADA y pertenece al mismo
+        profesional de la solicitud. Una colección vacía devuelve False.
+    """
     vigentes = documentos_vigentes(solicitud)
     return bool(vigentes) and all(
         v.estado_revision == "APROBADA"

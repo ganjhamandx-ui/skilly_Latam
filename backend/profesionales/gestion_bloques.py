@@ -38,6 +38,7 @@ CAMPOS_BLOQUE = {
 
 
 class DatosBloqueEntrevistaSerializer(serializers.Serializer):
+    """Valida los campos de un bloque con capacidad positiva y estado administrativo."""
     fecha = serializers.DateField()
 
     hora_inicio = serializers.TimeField()
@@ -55,6 +56,15 @@ class DatosBloqueEntrevistaSerializer(serializers.Serializer):
 
 
 def respuesta_error(mensaje, codigo):
+    """Construye una Response con el mensaje y código HTTP recibidos.
+
+    Args:
+        mensaje (str): Explicación del rechazo para el cliente.
+        codigo (int): Estado HTTP de la respuesta.
+
+    Returns:
+        Response: Objeto con la clave mensaje.
+    """
     return Response(
         {"mensaje": mensaje},
         status=codigo,
@@ -62,6 +72,14 @@ def respuesta_error(mensaje, codigo):
 
 
 def validar_campos(datos):
+    """Rechaza cuerpos vacíos, distintos de dict o con campos no admitidos.
+
+    Args:
+        datos: Cuerpo recibido antes de validar tipos y campos obligatorios.
+
+    Returns:
+        Response | None: Error 400 o None si las claves son admisibles.
+    """
     if not isinstance(datos, dict) or not datos:
         return respuesta_error(
             "Debe enviar los datos del bloque.",
@@ -81,6 +99,17 @@ def validar_campos(datos):
 
 
 def validar_horario(fecha, hora_inicio, hora_fin):
+    """Valida que el bloque tenga duración positiva y un inicio futuro local.
+
+    Args:
+        fecha (date): Día del bloque.
+        hora_inicio (time): Hora local de inicio.
+        hora_fin (time): Hora local de término.
+
+    Returns:
+        Response | None: Error 400 si el intervalo es inválido o ya comenzó;
+        None si supera la validación temporal.
+    """
     if hora_inicio >= hora_fin:
         return respuesta_error(
             "La hora de término debe ser posterior "
@@ -120,6 +149,21 @@ def existe_conflicto_horario(
     hora_fin,
     excluir_id=None,
 ):
+    """Detecta solapamientos con bloques disponibles del mismo gestor y día.
+
+    Los intervalos contiguos no se consideran solapados. La consulta no bloquea
+    registros; las vistas coordinan las escrituras bloqueando al gestor.
+
+    Args:
+        gestor_id (int | None): Identificador del gestor del bloque.
+        fecha (date): Día que se consultará.
+        hora_inicio (time): Inicio del intervalo propuesto.
+        hora_fin (time): Fin del intervalo propuesto.
+        excluir_id (int | None): Bloque actual que debe ignorarse al editar.
+
+    Returns:
+        bool: Si existe un bloque DISPONIBLE con intersección temporal.
+    """
     bloques = BloqueEntrevistaValidacion.objects.filter(
         id_usuario_gestor_id=gestor_id,
         fecha=fecha,
@@ -138,6 +182,7 @@ def existe_conflicto_horario(
 
 @method_decorator(csrf_protect, name="dispatch")
 class CrearBloqueEntrevistaAdministracionView(APIView):
+    """Crea bloques del gestor autenticado con sesión administrativa y protección CSRF."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -147,6 +192,16 @@ class CrearBloqueEntrevistaAdministracionView(APIView):
     ]
 
     def post(self, request):
+        """Crea un bloque futuro y registra el evento administrativo.
+
+        Args:
+            request: Petición con fecha, horas, capacidad y estado opcional.
+
+        Returns:
+            Response: 201 con el bloque, 400 por campos u horario inválidos o 409
+            si un bloque DISPONIBLE se solapa con otro del mismo gestor. Bloquea
+            al usuario gestor para coordinar creaciones concurrentes.
+        """
         error = validar_campos(request.data)
 
         if error is not None:
@@ -243,6 +298,7 @@ class CrearBloqueEntrevistaAdministracionView(APIView):
 class ModificarBloqueEntrevistaAdministracionView(
     APIView
 ):
+    """Permite a administración modificar bloques conservando las entrevistas reservadas."""
     authentication_classes = [
         SesionSkillyAuthentication
     ]
@@ -256,6 +312,18 @@ class ModificarBloqueEntrevistaAdministracionView(
         request,
         id_bloque_entrevista,
     ):
+        """Actualiza campos del bloque bajo bloqueo del registro y de su gestor.
+
+        Args:
+            request: Petición con al menos un campo permitido para modificar.
+            id_bloque_entrevista (int): Identificador del bloque administrado.
+
+        Returns:
+            Response: 200 con el bloque actualizado, 400 por entrada u horario
+            inválidos, 404 si no existe o 409 por solapamiento, estado incompatible
+            o reservas que impidan cambiar el horario, deshabilitar el bloque o
+            reducir su capacidad. Las entrevistas canceladas no ocupan cupos.
+        """
         error = validar_campos(request.data)
 
         if error is not None:
