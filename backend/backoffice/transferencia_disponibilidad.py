@@ -15,12 +15,30 @@ from pagos.models import Pago
 
 
 class DisponibilidadTransferenciaEmpresaView(APIView):
-    """Informa si la transferencia está habilitada sin revelar cuentas receptoras."""
+    """Consulta habilitación y cuenta principal para una referencia empresarial válida.
+
+    Este adaptador se conserva en las pruebas de identidad bancaria; la ruta
+    empresarial está vinculada al adaptador del módulo pagos.
+    """
 
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request, referencia):
+        """Comprueba requisitos de contratación antes de devolver la cuenta principal.
+
+        Args:
+            request: Petición HTTP; la autorización utiliza la referencia firmada.
+            referencia: Referencia que vincula la solicitud y su contacto empresarial.
+
+        Returns:
+            Response: Disponibilidad y cuenta principal activa cuando corresponde;
+            400 para referencia inválida, 404 si falta la prestación y 503 cuando
+            la identidad de la conexión no está autorizada.
+
+        Raises:
+            DatabaseError: Si falla una consulta de prestación, pago o cuenta.
+        """
         datos = leer_referencia_seguimiento(referencia)
         if datos is None:
             return Response({'mensaje': 'Referencia de seguimiento no válida.'}, status=400)

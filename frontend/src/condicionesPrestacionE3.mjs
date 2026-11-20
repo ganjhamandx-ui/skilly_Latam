@@ -92,7 +92,10 @@ export function extraerSeccionesCondiciones(texto) {
   const lineas = texto.replace(/\r\n?/g, '\n').split('\n')
   let actual = null
 
-  // Conserva el bloque de texto bajo la etiqueta detectada antes de avanzar a la siguiente.
+  /**
+   * Recorta el contenido de la sección actual y la incorpora solo si conserva texto.
+   * @returns {void}
+   */
   function guardar() {
     if (actual) {
       actual.contenido = actual.contenido.trim()
