@@ -1,8 +1,12 @@
 
-// Muestra oportunidades compatibles y permite postular sin alterar la solicitud publicada.
+// Consulta las solicitudes asociadas al profesional; no ofrece acciones de postulación.
 import { useEffect, useState } from 'react'
 
-// Da formato a datos de la oportunidad profesional y a valores ausentes.
+/**
+ * Convierte un dato de la oportunidad en texto legible.
+ * @param {*} valor Dato individual de la respuesta.
+ * @returns {string} Texto o «No informado» para null, undefined o cadena vacía.
+ */
 function mostrar(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No informado'
@@ -11,7 +15,11 @@ function mostrar(valor) {
   return String(valor)
 }
 
-// Presenta la fecha almacenada en un formato adecuado para la ficha.
+/**
+ * Presenta una fecha con formato chileno en la zona del navegador.
+ * @param {string|null} valor Fecha del registro.
+ * @returns {string} Fecha legible, texto original si es inválido o «No informada» si falta.
+ */
 function fecha(valor) {
   if (!valor) return 'No informada'
 
@@ -24,7 +32,10 @@ function fecha(valor) {
   return fechaConvertida.toLocaleDateString('es-CL')
 }
 
-// Presenta las propuestas de asociación disponibles para el profesional autenticado.
+/**
+ * Consulta las oportunidades asociadas a la sesión profesional y sus estados de coordinación.
+ * @returns {import('react').ReactElement} Listado de solo lectura con actualización manual.
+ */
 export default function OportunidadesProfesional() {
   const [oportunidades, setOportunidades] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -35,7 +46,10 @@ export default function OportunidadesProfesional() {
     // Cancela la lectura privada de oportunidades al salir del componente.
     const controlador = new AbortController()
 
-    // Recupera las oportunidades asignadas a la sesión profesional.
+    /**
+     * Consulta oportunidades y valida la lista antes de aplicarla si la petición sigue vigente.
+     * @returns {Promise<void>} Conserva los resultados o muestra el error, ignorando abortos.
+     */
     async function consultar() {
       setCargando(true)
       setError('')

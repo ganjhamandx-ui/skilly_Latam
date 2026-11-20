@@ -12,14 +12,19 @@ const formularioInicial = {
   ids_competencias: [],
 }
 
-// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
+/**
+ * Compone un mensaje de rechazo a partir del detalle general o los errores de campo.
+ * @param {Object} datos Cuerpo JSON recibido de la API.
+ * @param {number} codigo Estado HTTP usado si el cuerpo no aporta detalles.
+ * @returns {string} Explicación del error al crear la propuesta.
+ */
 function obtenerError(datos, codigo) {
   if (typeof datos.mensaje === 'string') return datos.mensaje
   if (typeof datos.detail === 'string') return datos.detail
 
   const campos = Object.entries(datos)
     .map(([campo, valor]) => {
-      // Actualiza las métricas mientras corresponde a la revisión activa.
+      // Conserva el nombre del campo para identificar qué dato rechazó el servidor.
       const texto = Array.isArray(valor)
         ? valor.join(', ')
         : typeof valor === 'string'
@@ -33,7 +38,13 @@ function obtenerError(datos, codigo) {
   return campos || `Error HTTP ${codigo}`
 }
 
-// Recibe la primera versión del servicio y sus categorías y competencias asociadas.
+/**
+ * Carga catálogos al abrir y permite crear la primera versión del servicio como borrador.
+ * @param {Object} props Integración con el listado del portal profesional.
+ * @param {function(): (void|Promise<void>)} [props.onCreada] Refresca el listado después del alta;
+ * un fallo de este callback no se presenta como un fallo al crear el servicio.
+ * @returns {import('react').ReactElement} Formulario desplegable y mensajes de resultado.
+ */
 export default function NuevaPropuesta({ onCreada }) {
   const [formulario, setFormulario] = useState(formularioInicial)
   const [abierto, setAbierto] = useState(false)
@@ -45,7 +56,12 @@ export default function NuevaPropuesta({ onCreada }) {
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
 
-  // Actualiza el campo editado sin descartar los otros valores del formulario.
+  /**
+   * Actualiza un dato del borrador preservando los demás campos.
+   * @param {string} campo Clave del formulario.
+   * @param {string|number[]} valor Valor introducido o selección de identificadores.
+   * @returns {void}
+   */
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -53,7 +69,10 @@ export default function NuevaPropuesta({ onCreada }) {
     }))
   }
 
-  // Obtiene categorías y competencias que sirven como opciones autorizadas del formulario.
+  /**
+   * Consulta categorías y competencias y exige que ambas colecciones sean listas.
+   * @returns {Promise<void>} Conserva catálogos válidos o muestra el fallo para permitir reintentar.
+   */
   async function cargarCatalogos() {
     if (cargandoCatalogos) return
 
@@ -94,7 +113,10 @@ export default function NuevaPropuesta({ onCreada }) {
     }
   }
 
-  // Abre o cierra el formulario sin enviar la propuesta.
+  /**
+   * Alterna el formulario e inicia la carga de catálogos al abrir si todavía no están disponibles.
+   * @returns {void} No espera la consulta ni envía el borrador.
+   */
   function alternarFormulario() {
     if (!abierto && !catalogosCargados) {
       void cargarCatalogos()
@@ -102,7 +124,12 @@ export default function NuevaPropuesta({ onCreada }) {
     setAbierto((actual) => !actual)
   }
 
-  // Actualiza la selección de competencias sin duplicar identificadores.
+  /**
+   * Agrega la competencia marcada o elimina todas sus coincidencias al desmarcar.
+   * @param {number} idCompetencia Identificador del control de selección.
+   * @param {boolean} seleccionado Estado de la casilla; la rama de alta no elimina duplicados previos.
+   * @returns {void}
+   */
   function alternarCompetencia(idCompetencia, seleccionado) {
     setFormulario((actual) => ({
       ...actual,
@@ -112,7 +139,11 @@ export default function NuevaPropuesta({ onCreada }) {
     }))
   }
 
-  // Envía la propuesta nueva con su categoría, competencias y detalles.
+  /**
+   * Valida nombre, descripción y categoría local antes de confirmar y crear el borrador con CSRF.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Limpia el borrador y espera onCreada al guardar; los errores se muestran localmente.
+   */
   async function guardar(evento) {
     evento.preventDefault()
 

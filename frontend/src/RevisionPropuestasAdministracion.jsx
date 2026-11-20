@@ -5,7 +5,12 @@ import './RevisionPropuestasAdministracion.css'
 
 const API = '/api/marketplace/administracion'
 
-// Prefiere el detalle del servidor y conserva el código HTTP como diagnóstico de respaldo.
+/**
+ * Extrae el mensaje de revisión o reúne los errores por campo, incluidos valores compuestos.
+ * @param {Object|null} datos JSON recibido del servidor.
+ * @param {number} codigo Estado HTTP usado cuando no hay información adicional.
+ * @returns {string} Explicación del rechazo administrativo.
+ */
 function obtenerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -32,7 +37,13 @@ function obtenerError(datos, codigo) {
   return `No se completó la operación (HTTP ${codigo}).`
 }
 
-// Centraliza la lectura de la API de propuestas y el tratamiento de errores.
+/**
+ * Consulta la API con opciones reemplazables y combina Accept con las cabeceras del llamador.
+ * @param {string} ruta URL de la operación.
+ * @param {RequestInit} [opciones={}] Opciones fetch; headers se espera como objeto de cabeceras.
+ * @returns {Promise<Object>} JSON recibido o un objeto vacío si no puede leerse.
+ * @throws {Error} Si falla fetch o la respuesta HTTP no es satisfactoria.
+ */
 async function consultar(ruta, opciones = {}) {
   const respuesta = await fetch(ruta, {
     credentials: 'same-origin',
@@ -53,7 +64,11 @@ async function consultar(ruta, opciones = {}) {
   return datos
 }
 
-// Presenta la fecha almacenada en un formato adecuado para la ficha.
+/**
+ * Formatea una fecha con locale chileno y zona horaria del navegador.
+ * @param {string|null} valor Fecha recibida del servidor.
+ * @returns {string} Fecha legible, texto original si es inválido o «Sin fecha» si falta.
+ */
 function fecha(valor) {
   if (!valor) return 'Sin fecha'
 
@@ -64,7 +79,11 @@ function fecha(valor) {
     : convertido.toLocaleString('es-CL')
 }
 
-// Proyecta los datos de la propuesta revisada a los campos editables.
+/**
+ * Inicializa los campos de una revisión desde el servicio y sus relaciones actuales.
+ * @param {Object} servicio Servicio con categoría y competencias representadas como objetos.
+ * @returns {Object} Borrador editable, con observación y contenido revisado inicialmente vacíos.
+ */
 function formularioDesdeServicio(servicio) {
   return {
     nombre: servicio.nombre ?? '',
@@ -81,7 +100,11 @@ function formularioDesdeServicio(servicio) {
   }
 }
 
-// Carga propuestas pendientes y prepara la decisión sobre la versión revisada.
+/**
+ * Comprueba la sesión administrativa y coordina propuestas pendientes e historial de revisiones.
+ * Permite solicitar correcciones o enviar una versión comercial al profesional sin publicarla.
+ * @returns {import('react').ReactElement} Bandeja y diálogo de revisión con control de foco.
+ */
 export default function RevisionPropuestasAdministracion() {
   const [sesion, setSesion] = useState('cargando')
 
@@ -102,8 +125,11 @@ export default function RevisionPropuestasAdministracion() {
   const [formulario, setFormulario] = useState(null)
   const [guardando, setGuardando] = useState(false)
 
+  /**
+   * Consulta pendientes e historial en paralelo y extrae los catálogos de la bandeja.
+   * @returns {Promise<void>} Actualiza las listas si ambas respuestas tienen la estructura prevista.
+   */
   const cargar = useCallback(async () => {
-    // Actualiza la bandeja de revisión y permite reintentar después de un fallo.
     setConsultando(true)
     setError('')
 
@@ -150,7 +176,10 @@ export default function RevisionPropuestasAdministracion() {
     // Carga los datos iniciales que necesita la revisión administrativa.
     let activo = true
 
-    // Inicia la consulta de propuestas y las opciones disponibles para revisión.
+    /**
+     * Verifica el rol ADMIN_SKILLY antes de iniciar las consultas de la bandeja.
+     * @returns {Promise<void>} Cambia la vista a administrador o sin permiso según la respuesta.
+     */
     async function iniciar() {
       try {
         const datos = await consultar(
@@ -183,7 +212,11 @@ export default function RevisionPropuestasAdministracion() {
   const detalleRef = useRef(null)
   useDialogoAccesible(Boolean(seleccionado && formulario), detalleRef, () => setSeleccionado(null), guardando)
 
-  // Abre el detalle de la versión que se va a revisar.
+  /**
+   * Selecciona un servicio y reinicia el borrador y los mensajes de revisión.
+   * @param {Object} servicio Registro seleccionado de la bandeja pendiente.
+   * @returns {void}
+   */
   function abrir(servicio) {
     setSeleccionado(servicio)
     setDecision('')
@@ -192,7 +225,12 @@ export default function RevisionPropuestasAdministracion() {
     setAviso('')
   }
 
-  // Actualiza el campo editado sin descartar los otros valores del formulario.
+  /**
+   * Actualiza un campo del borrador de revisión.
+   * @param {string} campo Clave editable.
+   * @param {string|number[]} valor Dato introducido.
+   * @returns {void}
+   */
   function cambiar(campo, valor) {
     setFormulario((anterior) => ({
       ...anterior,
@@ -200,7 +238,12 @@ export default function RevisionPropuestasAdministracion() {
     }))
   }
 
-  // Añade o retira la competencia elegida del borrador de revisión.
+  /**
+   * Agrega o retira una competencia y conserva una sola coincidencia del identificador marcado.
+   * @param {number} id Identificador de competencia.
+   * @param {boolean} marcado Estado de selección.
+   * @returns {void}
+   */
   function marcarCompetencia(id, marcado) {
     setFormulario((anterior) => ({
       ...anterior,
@@ -217,7 +260,12 @@ export default function RevisionPropuestasAdministracion() {
     }))
   }
 
-  // Registrar una decisión usando la API existente.
+  /**
+   * Envía correcciones o una versión propuesta después de validar datos y confirmar la decisión.
+   * La aprobación exige precio entero CLP y justificación si cambia el precio o hay reconsideración.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Cierra el detalle y recarga la bandeja al guardar; presenta errores localmente.
+   */
   async function guardar(evento) {
     evento.preventDefault()
 

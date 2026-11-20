@@ -19,7 +19,11 @@ const etiquetas = {
   fecha_revision: 'Fecha de revisión',
 }
 
-// Interpretar información enviada por Django.
+/**
+ * Intenta decodificar texto JSON únicamente cuando comienza con una llave o un corchete.
+ * @param {*} valor Contenido recibido en la revisión.
+ * @returns {*} Valor decodificado o el original si no es texto JSON reconocible.
+ */
 function interpretar(valor) {
   if (typeof valor !== 'string') return valor
 
@@ -39,7 +43,11 @@ function interpretar(valor) {
   }
 }
 
-// Presentar datos generales de forma legible.
+/**
+ * Representa valores de la versión revisada sin modificar su contenido.
+ * @param {*} valor Dato JSON acíclico recibido del servidor.
+ * @returns {string} Texto legible; en listas de objetos prioriza su propiedad nombre.
+ */
 function presentar(valor) {
   if (
     valor === null ||
@@ -81,7 +89,11 @@ function presentar(valor) {
   return String(valor)
 }
 
-// Extraer la versión final enviada por Skilly.
+/**
+ * Resuelve la versión estructurada desde los campos compatibles del historial de revisión.
+ * @param {Object|null} revision Registro con propuesta_skilly, version_propuesta o contenido_revisado.
+ * @returns {Object|null} Objeto version_propuesta interno o contenido completo; null si no es un objeto.
+ */
 function extraerVersion(revision) {
   const contenido = interpretar(
     revision?.propuesta_skilly ??
@@ -108,8 +120,15 @@ function extraerVersion(revision) {
   return contenido
 }
 
-// Buscar nombres sin fijar categorías ni competencias
-// de manera manual en el código.
+/**
+ * Resuelve un nombre recibido directamente o lo busca en el catálogo actual.
+ * @param {Object[]} lista Catálogo consultado.
+ * @param {string} campoId Campo identificador de cada elemento.
+ * @param {*} valor Identificador escalar u objeto con nombre o identificador.
+ * @param {string} tipo Etiqueta utilizada cuando no se encuentra el nombre.
+ * @param {boolean} cargando Indica si todavía se consulta el catálogo.
+ * @returns {string} Nombre, estado de carga o identificador legible como alternativa.
+ */
 function obtenerNombreCatalogo(
   lista,
   campoId,
@@ -161,7 +180,13 @@ function obtenerNombreCatalogo(
   return `${tipo} #${identificador} (nombre no disponible)`
 }
 
-// Resolver los nombres de competencias seleccionadas.
+/**
+ * Resuelve las competencias seleccionadas mediante el catálogo disponible.
+ * @param {*[]|null} valores Referencias de competencias recibidas.
+ * @param {Object[]} competencias Catálogo actual.
+ * @param {boolean} cargando Estado de la consulta de catálogo.
+ * @returns {string} Nombres separados por coma o indicación de ausencia/lista vacía.
+ */
 function presentarCompetencias(
   valores,
   competencias,
@@ -193,7 +218,12 @@ function presentarCompetencias(
   ).join(', ')
 }
 
-// Muestra el contenido enviado a revisión con las acciones administrativas habilitadas.
+/**
+ * Presenta la versión revisada para lectura del profesional y resuelve nombres de catálogo.
+ * @param {Object} props Revisión que se desea consultar.
+ * @param {Object|null} props.revision Registro de revisión, con estructura actual o compatible.
+ * @returns {import('react').ReactElement} Detalle de solo lectura; no envía decisiones administrativas.
+ */
 export default function DetalleRevision({ revision }) {
   const [catalogos, setCatalogos] = useState(null)
   const [errorCatalogos, setErrorCatalogos] = useState(false)
@@ -204,7 +234,10 @@ export default function DetalleRevision({ revision }) {
     // Carga los catálogos para interpretar los identificadores de la propuesta.
     let activo = true
 
-    // Obtiene categorías y competencias que sirven como opciones autorizadas del formulario.
+    /**
+     * Consulta los catálogos y aplica el resultado solo mientras este efecto siga vigente.
+     * @returns {Promise<void>} En caso de fallo conserva la posibilidad de mostrar identificadores.
+     */
     async function cargarCatalogos() {
       try {
         const respuesta = await fetch(
@@ -289,7 +322,12 @@ export default function DetalleRevision({ revision }) {
     !errorCatalogos
   )
 
-  // Da formato al dato de propuesta revisada según su uso en la ficha.
+  /**
+   * Resuelve categoría o competencias por catálogo y representa el resto como texto.
+   * @param {string} clave Nombre de campo de la versión.
+   * @param {*} valor Dato asociado.
+   * @returns {string} Texto para la ficha de revisión.
+   */
   function presentarCampo(clave, valor) {
     if (clave === 'id_categoria') {
       return obtenerNombreCatalogo(

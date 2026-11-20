@@ -2,7 +2,11 @@
 import { useState } from 'react'
 import './EditarPropuesta.css'
 
-// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
+/**
+ * Convierte números y textos para inicializar campos de entrada.
+ * @param {*} valor Dato de la propuesta.
+ * @returns {string} Texto del valor, o cadena vacía para tipos distintos de número y string.
+ */
 function texto(valor) {
   if (valor === null || valor === undefined) return ''
   if (typeof valor === 'string' || typeof valor === 'number') {
@@ -11,7 +15,11 @@ function texto(valor) {
   return ''
 }
 
-// Resuelve el identificador de la categoría antes de llenar el formulario de propuesta.
+/**
+ * Resuelve una categoría recibida como identificador escalar u objeto.
+ * @param {Object} servicio Servicio con id_categoria opcional.
+ * @returns {string} Identificador textual o cadena vacía si no puede obtenerse.
+ */
 function obtenerCategoria(servicio) {
   const valor = servicio.id_categoria
 
@@ -26,7 +34,11 @@ function obtenerCategoria(servicio) {
   return ''
 }
 
-// Normaliza las competencias de la propuesta para compararlas con el catálogo.
+/**
+ * Normaliza competencias escalares u objetos y elimina identificadores inválidos y repetidos.
+ * @param {Object} servicio Registro con ids_competencias o competencias.
+ * @returns {number[]|null} Identificadores enteros seguros positivos, o null si no llegó una lista.
+ */
 function obtenerCompetencias(servicio) {
   const valores = servicio.ids_competencias ?? servicio.competencias
 
@@ -49,7 +61,12 @@ function obtenerCompetencias(servicio) {
   return [...new Set(ids)]
 }
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Compone el mensaje de rechazo de edición desde el detalle general o los errores de campo.
+ * @param {Object} datos JSON recibido del servidor.
+ * @param {number} codigo Código HTTP usado como alternativa.
+ * @returns {string} Explicación del error.
+ */
 function mensajeError(datos, codigo) {
   if (typeof datos.mensaje === 'string') return datos.mensaje
   if (typeof datos.detail === 'string') return datos.detail
@@ -70,7 +87,14 @@ function mensajeError(datos, codigo) {
   return textoErrores || `Error HTTP ${codigo}`
 }
 
-// Carga la versión editable de un servicio propio y sincroniza sus cambios con la API.
+/**
+ * Inicializa un borrador de edición desde el servicio y carga catálogos al abrirlo.
+ * @param {Object} props Servicio propio e integración con el portal.
+ * @param {Object} props.servicio Datos iniciales; su cambio no reinicializa automáticamente el estado local.
+ * @param {number|string} props.idServicio Identificador usado en la ruta de actualización.
+ * @param {function(): (void|Promise<void>)} [props.onActualizada] Refresca el contenedor después de guardar.
+ * @returns {import('react').ReactElement} Formulario de edición sin publicación automática.
+ */
 export default function EditarPropuesta({
   servicio,
   idServicio,
@@ -99,7 +123,12 @@ export default function EditarPropuesta({
     ids_competencias: obtenerCompetencias(servicio) ?? [],
   }))
 
-  // Actualiza el campo editado sin descartar los otros valores del formulario.
+  /**
+   * Reemplaza un campo de edición sin descartar el resto del borrador.
+   * @param {string} campo Clave del formulario.
+   * @param {string|number[]} valor Valor editado.
+   * @returns {void}
+   */
   function cambiar(campo, valor) {
     setFormulario((actual) => ({
       ...actual,
@@ -107,7 +136,10 @@ export default function EditarPropuesta({
     }))
   }
 
-  // Obtiene categorías y competencias que sirven como opciones autorizadas del formulario.
+  /**
+   * Consulta las opciones de categoría y competencia y comprueba la estructura de ambas listas.
+   * @returns {Promise<void>} Actualiza los catálogos o presenta el error permitiendo reintentar.
+   */
   async function cargarCatalogos() {
     if (cargandoCatalogos) return
 
@@ -150,7 +182,10 @@ export default function EditarPropuesta({
     }
   }
 
-  // Abre o cierra el formulario sin enviar la propuesta.
+  /**
+   * Alterna el formulario y solicita catálogos al abrir cuando todavía no fueron cargados.
+   * @returns {void} La consulta se inicia sin esperar su resultado.
+   */
   function alternarFormulario() {
     if (!abierto && !catalogosCargados) {
       void cargarCatalogos()
@@ -159,7 +194,12 @@ export default function EditarPropuesta({
     setAbierto((actual) => !actual)
   }
 
-  // Actualiza la selección de competencias sin duplicar identificadores.
+  /**
+   * Marca la selección como modificada y agrega o retira un identificador sin duplicarlo.
+   * @param {number} idCompetencia Identificador del catálogo.
+   * @param {boolean} seleccionado Estado de la casilla.
+   * @returns {void}
+   */
   function alternarCompetencia(idCompetencia, seleccionado) {
     setCompetenciasModificadas(true)
 
@@ -171,7 +211,12 @@ export default function EditarPropuesta({
     }))
   }
 
-  // Envía la versión corregida de la propuesta y actualiza su estado visible.
+  /**
+   * Actualiza un servicio BORRADOR o CORRECCION_SOLICITADA tras confirmar la edición.
+   * Solo envía categoría si cambió y competencias si se editaron; omite campos opcionales vacíos.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Espera el refresco del contenedor sin confundir su fallo con el guardado.
+   */
   async function guardar(evento) {
     evento.preventDefault()
 
