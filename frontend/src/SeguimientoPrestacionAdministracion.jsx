@@ -2,7 +2,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-// Presenta los registros en formato local y conserva el día civil de las fechas sin hora.
+/**
+ * Conserva el día civil de fechas sin hora y localiza las marcas temporales.
+ * @param {string|null|undefined} valor Fecha o marca temporal del registro.
+ * @returns {string} Fecha legible, valor original inválido o «No registrada».
+ */
 function formatoFecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -26,7 +30,12 @@ function formatoFecha(valor) {
   })
 }
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Selecciona un mensaje textual de la API o una descripción del estado HTTP.
+ * @param {Object|null} datos Respuesta recibida.
+ * @param {number} codigo Estado HTTP de la operación.
+ * @returns {string} Mensaje para el panel de seguimiento.
+ */
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -39,7 +48,14 @@ function mensajeError(datos, codigo) {
   return `No se pudo consultar el seguimiento (HTTP ${codigo}).`
 }
 
-// Consulta el historial y presenta la acción de cierre según la respuesta del backend.
+/**
+ * Consulta avances, entregas y observaciones en un diálogo administrativo.
+ * El servidor informa si el cierre está habilitado y vuelve a validar al cerrar.
+ * @param {Object} props Propiedades del panel.
+ * @param {number|string} props.idPrestacion Identificador de la prestación.
+ * @param {string} props.estadoPrestacion Estado inicial informado por la ficha.
+ * @returns {import('react').ReactElement} Acceso al diálogo y detalle consultado.
+ */
 export default function SeguimientoPrestacionAdministracion({
   idPrestacion,
   estadoPrestacion,
@@ -80,7 +96,11 @@ export default function SeguimientoPrestacionAdministracion({
 
     const controlador = new AbortController()
 
-    // Consulta la prestación y verifica que el historial recibido tenga todos los grupos.
+    /**
+     * Valida la estructura del historial antes de mostrarlo.
+     * Una consulta cancelada no actualiza datos, errores ni indicadores.
+     * @returns {Promise<void>} Finalización de la lectura con errores gestionados.
+     */
     async function consultar() {
       setCargando(true)
       setError('')
@@ -146,7 +166,10 @@ export default function SeguimientoPrestacionAdministracion({
     return () => controlador.abort()
   }, [abierto, idPrestacion, revision])
 
-  // Inicializa la consulta de seguimiento al abrir el diálogo.
+  /**
+   * Limpia el detalle anterior y abre el diálogo para consultar la prestación.
+   * @returns {void}
+   */
   function abrir() {
     setDatos(null)
     setError('')
@@ -154,12 +177,20 @@ export default function SeguimientoPrestacionAdministracion({
     setAbierto(true)
   }
 
-  // Cierra la consulta de seguimiento sin cambiar la prestación.
+  /**
+   * Cierra el diálogo; la limpieza del efecto cancela su consulta pendiente.
+   * @returns {void}
+   */
   function cerrar() {
     setAbierto(false)
   }
 
-  // Solicita el cierre después de leer el token CSRF y recarga el estado confirmado.
+  /**
+   * Solicita confirmación y registra el cierre habilitado por el servidor.
+   * Tras una respuesta satisfactoria provoca una nueva consulta del historial.
+   * Los rechazos se muestran en el diálogo y no se propagan al evento.
+   * @returns {Promise<void>} Finalización de la solicitud de cierre.
+   */
   async function finalizarPrestacion() {
     if (!datos?.cierre?.habilitado || finalizando) return
     if (!window.confirm(`¿Finalizar formalmente la prestación #${idPrestacion}? Esta acción no libera el pago.`)) return

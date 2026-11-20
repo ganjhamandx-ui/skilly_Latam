@@ -2,12 +2,21 @@ import { useEffect, useState } from 'react'
 import { ACCIONES, accionesDisponibles, bloquesElegibles, validarCambioAgenda } from './politicasAgendaPrestacionE3.mjs'
 import './AgendaPrestacionAdministracionE3.css'
 
-// Recupera el mensaje de validación y usa un texto legible si la respuesta no lo trae.
+/**
+ * Recupera el mensaje de la API con una descripción HTTP como respaldo.
+ * @param {Object|null} datos Cuerpo de la respuesta.
+ * @param {number} codigo Estado HTTP recibido.
+ * @returns {*} Primer mensaje disponible o texto de respaldo.
+ */
 function textoError(datos, codigo) {
   return datos?.mensaje || datos?.detail || `No se completó la operación (HTTP ${codigo}).`
 }
 
-// Combina el día y las horas del bloque al presentarlo para selección.
+/**
+ * Describe el horario de un bloque usando la zona local del navegador.
+ * @param {Object} b Bloque con fecha, horas e identificador de disponibilidad.
+ * @returns {string} Inicio, hora final e identificador para distinguir la opción.
+ */
 function fechaBloque(b) {
   const fecha = new Date(`${b.fecha}T${b.hora_inicio}`)
   const inicio = Number.isNaN(fecha.getTime())
@@ -16,7 +25,15 @@ function fechaBloque(b) {
   return `${inicio} a ${String(b.hora_fin).slice(0, 5)} · Bloque #${b.id_disponibilidad}`
 }
 
-/** Administración decide cambios usando el endpoint seguro ya existente (no pagos). */
+/**
+ * Gestiona cancelación, postergación y reagendamiento con motivo administrativo.
+ * Consulta reservas y bloques al abrirse; el servidor valida cada cambio de agenda.
+ * @param {Object} props Propiedades de la prestación.
+ * @param {number|string} props.idPrestacion Identificador que se envía a la API.
+ * @param {string} props.estadoPrestacion Estado inicial que determina la visibilidad.
+ * @param {function(): (void|Promise<void>)} [props.onActualizado] Recarga la ficha general.
+ * @returns {import('react').ReactElement|null} Panel si el estado inicial admite acciones.
+ */
 export default function AgendaPrestacionAdministracionE3({ idPrestacion, estadoPrestacion, onActualizado }) {
   const [abierto, setAbierto] = useState(false)
   const [datos, setDatos] = useState(null)
@@ -34,7 +51,11 @@ export default function AgendaPrestacionAdministracionE3({ idPrestacion, estadoP
     // Vincula la lectura de agenda a la apertura actual del diálogo.
     if (!abierto) return undefined
     const controlador = new AbortController()
-    // Consulta la agenda y las opciones disponibles para la prestación.
+    /**
+     * Consulta reservas y disponibilidad, comprobando la estructura recibida.
+     * Ignora resultados y errores cuando la consulta ya fue cancelada.
+     * @returns {Promise<void>} Finalización de la lectura.
+     */
     async function cargar() {
       setCargando(true)
       setError('')
@@ -64,7 +85,12 @@ export default function AgendaPrestacionAdministracionE3({ idPrestacion, estadoP
   const bloques = bloquesElegibles(datos?.bloques_profesional)
   const reservaActiva = (datos?.reservas ?? []).find((reserva) => reserva.estado === 'ACTIVA')
 
-  // Envía la acción de agenda seleccionada con sus campos y actualiza el expediente.
+  /**
+   * Valida y confirma la operación antes de enviarla con CSRF.
+   * Un fallo al recargar la ficha externa se informa sin invalidar el cambio aplicado.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del formulario.
+   * @returns {Promise<void>} Finalización del cambio y del callback opcional.
+   */
   async function ejecutar(evento) {
     evento.preventDefault()
     if (guardando || cargando || !datos) return

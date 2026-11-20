@@ -4,7 +4,12 @@ import CondicionesPrestacionE3 from './CondicionesPrestacionE3.jsx'
 
 const API = '/api'
 
-// Traduce el error devuelto por la API de condiciones antes de notificarlo.
+/**
+ * Extrae un mensaje general o los errores de campos representados como listas.
+ * @param {Object|null} datos Respuesta de la API.
+ * @param {number} codigo Estado HTTP usado cuando no hay un mensaje reconocible.
+ * @returns {string} Explicación del rechazo.
+ */
 function extraerError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -21,7 +26,15 @@ function extraerError(datos, codigo) {
   return `No fue posible registrar las condiciones (HTTP ${codigo}).`
 }
 
-// Permite comunicar a los actores las condiciones acordadas de la prestación.
+/**
+ * Publica condiciones de una prestación pendiente y muestra las ya registradas.
+ * La publicación deja el texto disponible para quien consulte su referencia.
+ * @param {Object} props Propiedades del formulario.
+ * @param {number|string} props.idSolicitud Solicitud de coordinación vinculada.
+ * @param {Object|null} props.prestacion Prestación y condiciones registradas.
+ * @param {function(Object): void} [props.onRegistrado] Recibe la prestación confirmada.
+ * @returns {import('react').ReactElement|null} Formulario o condiciones, si corresponde.
+ */
 export default function ComunicarCondicionesAdministracion({
   idSolicitud,
   prestacion,
@@ -43,7 +56,13 @@ export default function ComunicarCondicionesAdministracion({
 
   if (!pendiente && !condicionesRegistradas) return null
 
-  // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
+  /**
+   * Confirma y publica el texto una sola vez mientras la prestación está pendiente.
+   * Conserva las condiciones confirmadas localmente e invoca el callback sin esperarlo.
+   * Los errores se presentan en el formulario y se libera el bloqueo de escritura.
+   * @param {import('react').FormEvent<HTMLFormElement>} event Envío del formulario.
+   * @returns {Promise<void>} Finalización de la publicación.
+   */
   async function registrar(evento) {
     evento.preventDefault()
     const texto = condiciones.trim()

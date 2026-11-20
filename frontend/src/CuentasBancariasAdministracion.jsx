@@ -10,7 +10,11 @@ const vacio = { titular:'', rut_titular:'', banco:'', tipo_cuenta:'', numero_cue
 const etiquetas = { titular:'Titular', rut_titular:'RUT del titular', banco:'Banco', tipo_cuenta:'Tipo de cuenta', numero_cuenta:'Número de cuenta', correo:'Correo de comprobantes' }
 const tipos = ['CORRIENTE','VISTA','CUENTA_RUT','AHORRO']
 
-// Administra cuentas bancarias e historial de SKILLY con las acciones permitidas por estado.
+/**
+ * Administra cuentas receptoras y consulta el historial de sus modificaciones.
+ * Las escrituras obtienen CSRF y recargan las cuentas confirmadas por el servidor.
+ * @returns {import('react').ReactElement} Formulario, cuentas e historial opcional.
+ */
 export default function CuentasBancariasAdministracion() {
   const [cuentas,setCuentas]=useState([])
   const [historial,setHistorial]=useState([])
@@ -20,6 +24,12 @@ export default function CuentasBancariasAdministracion() {
   const [cargando,setCargando]=useState(true)
   const [trabajando,setTrabajando]=useState(false)
   const [verHistorial,setVerHistorial]=useState(false)
+  /**
+   * Obtiene las cuentas visibles para la sesión administrativa.
+   * @param {AbortSignal} signal Señal que cancela una consulta sustituida.
+   * @returns {Promise<Object>} Respuesta con la colección de cuentas.
+   * @throws {Error} Si falla la conexión o el servidor rechaza la consulta.
+   */
   const consultar=useCallback(async (signal)=>{
       const r=await fetch(API,{credentials:'same-origin',headers:{Accept:'application/json'},signal})
       const d=await r.json().catch(()=>({}))
@@ -29,22 +39,40 @@ export default function CuentasBancariasAdministracion() {
   const aplicarConsulta=useCallback(d=>{setCuentas(d.cuentas || []);setError('');setCargando(false)},[])
   const fallarConsulta=useCallback(e=>{setError(e.message);setCargando(false)},[])
   const recargar=useCargaAsincrona(consultar,aplicarConsulta,fallarConsulta)
-  // Recupera las cuentas habilitadas para la sesión de administración.
+  /**
+   * Reinicia los indicadores y espera la recarga gestionada por el hook.
+   * @returns {Promise<void>} Finalización de la consulta y sus callbacks.
+   */
   async function cargar(){setCargando(true);setError('');await recargar()}
-  // Carga los cambios registrados para la cuenta seleccionada en administración.
+  /**
+   * Consulta el historial general de cuentas y abre su panel.
+   * Los fallos de lectura se muestran en el mensaje del formulario.
+   * @returns {Promise<void>} Finalización de la consulta.
+   */
   async function historialCuentas(){
     try {const r=await fetch(`${API}historial/`,{credentials:'same-origin'});const d=await r.json();
       if(!r.ok)throw new Error(d.mensaje||`HTTP ${r.status}`);setHistorial(d.historial||[]);setVerHistorial(true)}
     catch(e){setError(e.message)}
   }
-  // Solicita un token CSRF con las cookies de la sesión antes de una escritura.
+  /**
+   * Solicita el token asociado a las cookies de la sesión.
+   * @returns {Promise<string>} Token necesario para la siguiente escritura.
+   * @throws {Error} Si falla la consulta o no se recibe un token válido.
+   */
   async function obtenerCsrf(){
     const r=await fetch('/api/acceso/csrf/',{credentials:'same-origin',cache:'no-store'})
     const d=await r.json().catch(()=>({}))
     if(!r.ok||!d.csrfToken)throw new Error('No se pudo obtener el token de seguridad.')
     return d.csrfToken
   }
-  // Transmite operaciones de cuenta con el token CSRF y la sesión administrativa.
+  /**
+   * Envía una operación y recarga cuentas e historial si este está abierto.
+   * Los errores se reflejan en pantalla y el bloqueo se libera al terminar.
+   * @param {string} url Endpoint de creación o modificación de la cuenta.
+   * @param {string} method Método HTTP de escritura.
+   * @param {Object} body Datos o acción que validará el servidor.
+   * @returns {Promise<void>} Finalización de la escritura y las recargas.
+   */
   async function enviar(url,method,body){
     setTrabajando(true);setError('')
     try {const csrf=await obtenerCsrf();const r=await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf},body:JSON.stringify(body)});
@@ -52,11 +80,20 @@ export default function CuentasBancariasAdministracion() {
       setForm(vacio);setEditando(null);await cargar();if(verHistorial) await historialCuentas()
     }catch(e){setError(e.message)}finally{setTrabajando(false)}
   }
-  // Valida y remite las modificaciones de la cuenta que se está administrando.
+  /**
+   * Inicia la creación o modificación según la cuenta en edición.
+   * @param {import('react').FormEvent<HTMLFormElement>} e Envío del formulario.
+   * @returns {void}
+   */
   function guardar(e){e.preventDefault();if(trabajando)return;
     enviar(editando?`${API}${editando}/`:API,editando?'PATCH':'POST',editando?{...form,accion:'MODIFICAR'}:form)
   }
-  // Envía la operación administrativa elegida sobre la cuenta bancaria seleccionada.
+  /**
+   * Solicita confirmación antes de cambiar la vigencia o la cuenta principal.
+   * @param {Object} c Cuenta seleccionada, con identificador y datos bancarios.
+   * @param {'ACTIVAR'|'DESACTIVAR'|'PRINCIPAL'} accion Operación solicitada.
+   * @returns {void}
+   */
   function accion(c,accion){
     if(trabajando)return
     const descripcion={ACTIVAR:'activar',DESACTIVAR:'desactivar',PRINCIPAL:'seleccionar como principal'}[accion]
