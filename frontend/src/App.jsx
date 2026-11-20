@@ -4,7 +4,11 @@ import './App.css'
 
 const API_SERVICIOS = '/api/marketplace/servicios/'
 
-// Selecciona un detalle visible para informar un fallo de catálogo o solicitud.
+/**
+ * Distingue un servicio ausente de los demás errores HTTP del catálogo.
+ * @param {Response} respuesta Respuesta rechazada por la API.
+ * @returns {string} Mensaje para el catálogo o la ficha.
+ */
 function obtenerMensajeError(respuesta) {
   if (respuesta.status === 404) {
     return 'El servicio solicitado no existe o dejó de estar publicado.'
@@ -13,7 +17,13 @@ function obtenerMensajeError(respuesta) {
   return `No fue posible consultar Skilly (HTTP ${respuesta.status}).`
 }
 
-// Carga los servicios publicados desde el endpoint que consume el Marketplace.
+/**
+ * Consulta servicios publicados con una búsqueda textual opcional.
+ * @param {string} busqueda Texto que se recorta antes de enviarse como parámetro q.
+ * @param {AbortSignal} [signal] Señal de cancelación de la lectura.
+ * @returns {Promise<Object[]>} Colección de servicios devuelta por la API.
+ * @throws {Error} Si falla la conexión, el HTTP, el JSON o la estructura del catálogo.
+ */
 async function consultarServicios(busqueda, signal) {
   const parametros = new URLSearchParams()
 
@@ -44,7 +54,11 @@ async function consultarServicios(busqueda, signal) {
   return datos.servicios
 }
 
-// Traduce la modalidad del servicio para el catálogo sin alterar su valor de API.
+/**
+ * Traduce modalidades conocidas y conserva las etiquetas no reconocidas.
+ * @param {string|null} valor Modalidad del servicio.
+ * @returns {string} Etiqueta legible o «Por confirmar».
+ */
 function obtenerModalidad(valor) {
   if (!valor) return 'Por confirmar'
 
@@ -57,7 +71,12 @@ function obtenerModalidad(valor) {
   return modalidades[valor.toUpperCase()] || valor
 }
 
-// Presenta el precio del servicio en moneda chilena para la ficha pública.
+/**
+ * Formatea importes enteros seguros en CLP y conserva las condiciones textuales.
+ * Admite el símbolo monetario y puntos de miles sin interpretar valores decimales.
+ * @param {number|string|null} precio Precio o descripción comercial.
+ * @returns {string} Precio formateado, texto recibido o invitación a consultar condiciones.
+ */
 function formatearPrecio(precio) {
   if (precio === null || precio === undefined || precio === '') {
     return 'Consultar condiciones'
@@ -89,7 +108,11 @@ function formatearPrecio(precio) {
 }
 
 
-// SKILLY_FORMATO_83E
+/**
+ * Presenta el día civil del bloque sin convertir zonas horarias.
+ * @param {string} fecha Fecha cuyo prefijo se espera en formato año-mes-día.
+ * @returns {string} Día/mes/año, valor original o cadena vacía para otros tipos.
+ */
 function fechaBloqueChile(fecha) {
   if (typeof fecha !== 'string') return ''
   const partes = fecha.slice(0, 10).split('-')
@@ -97,13 +120,22 @@ function fechaBloqueChile(fecha) {
   return `${partes[2]}/${partes[1]}/${partes[0]}`
 }
 
-// Presenta la hora civil del bloque sin desplazarla por conversión de zona.
+/**
+ * Abrevia la hora civil del bloque a sus cinco primeras posiciones.
+ * @param {string} hora Hora recibida del catálogo.
+ * @returns {string} Hora abreviada o cadena vacía para otros tipos.
+ */
 function horaBloqueChile(hora) {
   if (typeof hora !== 'string') return ''
   return hora.slice(0, 5)
 }
 
-// Valida el dígito verificador del RUT mediante módulo 11 antes de enviar la solicitud.
+/**
+ * Comprueba formato y dígito verificador del RUT mediante módulo once.
+ * Retira puntos, espacios y guiones antes de realizar el cálculo.
+ * @param {string} valor RUT capturado por el formulario.
+ * @returns {boolean} Si el formato admitido y el dígito verificador coinciden.
+ */
 function rutChilenoValido(valor) {
   const rut = String(valor || '').toUpperCase().replace(/[.\s-]/g, '')
   if (!/^\d{1,8}[\dK]$/.test(rut)) return false
@@ -118,7 +150,12 @@ function rutChilenoValido(valor) {
   return digito === esperado
 }
 
-// Monta el catálogo y gestiona la ficha y la solicitud pública del servicio elegido.
+/**
+ * Presenta el catálogo público y gestiona solicitudes desde la ficha de un servicio.
+ * La búsqueda se consulta en la API; categoría, modalidad y disponibilidad se filtran
+ * localmente. Una referencia mutable evita envíos simultáneos del formulario.
+ * @returns {import('react').ReactElement} Portada, catálogo y diálogo de solicitud.
+ */
 function App() {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('Todos')
@@ -138,7 +175,6 @@ function App() {
     ? '/portal-profesional'
     : rolSesionActiva === 'ADMIN_SKILLY' ? '/administracion' : null
 
-  // SKILLY_SOLICITUDES_80D
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
   const solicitudEnCurso = useRef(false)
@@ -164,11 +200,15 @@ function App() {
   })
 
   // La portada pública no inicia ni cierra sesiones: solo consulta si ya hay
-  // una sesión profesional válida para ofrecer el regreso al portal.
+  // una sesión profesional o administrativa válida para ofrecer el regreso al portal.
   useEffect(() => {
     // Cancela la lectura de sesión al desmontar la pantalla del catálogo.
     const controlador = new AbortController()
-    // Consulta la sesión real para decidir qué acciones de acceso mostrar en el catálogo.
+    /**
+     * Consulta el rol para ofrecer el regreso al portal profesional o administrativo.
+     * Los fallos de sesión no impiden consultar el catálogo público.
+     * @returns {Promise<void>} Finalización de la consulta opcional de sesión.
+     */
     async function comprobarSesionActiva() {
       try {
         const respuesta = await fetch('/api/acceso/sesion-actual/', {
@@ -205,7 +245,11 @@ function App() {
     // Carga los servicios iniciales y cancela la consulta al salir de la pantalla.
     const controlador = new AbortController()
 
-    // Actualiza el listado público y diferencia fallos de red de un catálogo vacío.
+    /**
+     * Consulta el catálogo completo usado para construir las categorías disponibles.
+     * Ignora resultados de una consulta cancelada y presenta los demás errores.
+     * @returns {Promise<void>} Finalización de la lectura del catálogo.
+     */
     async function cargarCatalogo() {
       try {
         const servicios = await consultarServicios('', controlador.signal)
@@ -294,7 +338,7 @@ function App() {
   const serviciosFiltrados = useMemo(() => {
     // Calcula el listado visible a partir de los resultados de la consulta.
     return resultados.filter((servicio) => {
-      // Contrasta cada servicio con los criterios de categoría y búsqueda.
+      // Aplica categoría, modalidad y disponibilidad a los resultados de la búsqueda.
       const categoriaCoincide =
         categoria === 'Todos' ||
         String(servicio.categoria?.id_categoria) === categoria
@@ -314,7 +358,10 @@ function App() {
     })
   }, [resultados, categoria, modalidadFiltro, soloDisponibles])
 
-  // Navega al catálogo y preserva la experiencia de regreso al listado.
+  /**
+   * Desplaza la página al catálogo y cierra el menú de navegación.
+   * @returns {void}
+   */
   function irAlMarketplace() {
     document.getElementById('marketplace')?.scrollIntoView({
       behavior: 'smooth',
@@ -322,19 +369,32 @@ function App() {
     setMenuAbierto(false)
   }
 
-  // Vuelve a ejecutar la consulta después de un fallo en el listado.
+  /**
+   * Solicita recargar catálogo y resultados tras limpiar el error visible.
+   * @returns {void}
+   */
   function reintentar() {
     setErrorCatalogo('')
     setRecargar((anterior) => anterior + 1)
   }
 
-  // Conserva los demás campos mientras se actualiza el valor editado en la solicitud.
+  /**
+   * Actualiza el campo cuyo nombre identifica el control del formulario.
+   * @param {import('react').ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>} evento Cambio del control.
+   * @returns {void}
+   */
   function actualizarSolicitud(evento) {
     const { name, value } = evento.target
     setDatosSolicitud((actual) => ({ ...actual, [name]: value }))
   }
 
-  // Relaciona el formulario con el servicio activo y envía la solicitud a la API.
+  /**
+   * Valida horario y RUT antes de enviar la solicitud vinculada al servicio activo.
+   * Exige una referencia de seguimiento para confirmar el registro y la conserva aunque
+   * falle la actualización posterior del detalle o del catálogo.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío de la solicitud.
+   * @returns {Promise<void>} Finalización del registro y actualización de disponibilidad.
+   */
   async function enviarSolicitud(evento) {
     evento.preventDefault()
 
@@ -444,7 +504,12 @@ function App() {
     }
   }
 
-  // Selecciona un registro y solicita sus datos antes de presentar el diálogo.
+  /**
+   * Limpia el formulario anterior y consulta el servicio seleccionado.
+   * Conserva su identificador para recuperar el foco después de cerrar el diálogo.
+   * @param {number|string} idServicio Identificador público del servicio.
+   * @returns {Promise<void>} Finalización de la consulta con errores en el diálogo.
+   */
   async function abrirDetalle(idServicio) {
     servicioDisparadorId.current = idServicio
     devolverFocoAlCerrar.current = false
@@ -487,7 +552,10 @@ function App() {
     }
   }
 
-  // Descarta la selección del diálogo y evita dejar visible información anterior.
+  /**
+   * Cierra la ficha y solicita recuperar el foco cuando no se está enviando una solicitud.
+   * @returns {void}
+   */
   function cerrarDetalle() {
     if (enviandoSolicitud || solicitudEnCurso.current) return
     devolverFocoAlCerrar.current = true
