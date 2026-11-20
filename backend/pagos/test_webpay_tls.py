@@ -8,7 +8,9 @@ from .webpay_cliente_e3 import contexto_tls_webpay, peticion_webpay, ErrorWebpay
 
 
 class WebpayTlsTests(unittest.TestCase):
+    """Comprueba verificación TLS y tratamiento de errores mediante transporte simulado."""
     def test_verifica_certificado_y_hostname_con_tls_moderno(self):
+        """Exige certificado, nombre de servidor y TLS mínimo 1.2 sin limitar la versión máxima."""
         contexto = contexto_tls_webpay()
         self.assertTrue(contexto.check_hostname)
         self.assertEqual(contexto.verify_mode, ssl.CERT_REQUIRED)
@@ -17,6 +19,11 @@ class WebpayTlsTests(unittest.TestCase):
 
     @patch('pagos.webpay_cliente_e3.urlopen')
     def test_transporte_recibe_contexto_verificado_y_timeout(self, abrir):
+        """Comprueba que el transporte reciba contexto verificado y timeout de doce segundos.
+
+        Args:
+            abrir: Sustituto de urlopen que entrega una respuesta JSON sintética.
+        """
         abrir.return_value.__enter__.return_value = io.BytesIO(b'{"status":"test"}')
         self.assertEqual(peticion_webpay('GET', token='token-sintetico'), {'status': 'test'})
         contexto = abrir.call_args.kwargs['context']
@@ -27,6 +34,11 @@ class WebpayTlsTests(unittest.TestCase):
 
     @patch('pagos.webpay_cliente_e3.urlopen', side_effect=ssl.SSLCertVerificationError('certificado de prueba no confiable'))
     def test_fallo_de_certificado_no_se_reintenta_sin_verificacion(self, abrir):
+        """Comprueba que un fallo de certificado termine sin reintentos inseguros.
+
+        Args:
+            abrir: Sustituto de urlopen que lanza un error de verificación TLS.
+        """
         with self.assertRaises(ErrorWebpay):
             peticion_webpay('GET', token='token-sintetico')
         abrir.assert_called_once()

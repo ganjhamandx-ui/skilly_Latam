@@ -10,9 +10,23 @@ from pagos.views import LiberarPagoAdministracionView
 
 
 class LiberacionSeguraTests(SimpleTestCase):
+    """Comprueba condiciones de liberación y ausencia de movimientos duplicados."""
     def ejecutar(self, *, verificacion="VERIFICADO", estado_pago="RETENIDO",
                  estado_prestacion="CONTRATADA", reversa=False, reclamo=False,
                  estado_entrega="ACEPTADA"):
+        """Despacha la liberación con registros, transacción y trazabilidad simulados.
+
+        Args:
+            verificacion: Estado de verificación del pago.
+            estado_pago: Estado inicial del pago.
+            estado_prestacion: Estado de la prestación vinculada.
+            reversa: Indica si existe una reversa que bloquea la liberación.
+            reclamo: Indica si existe un reclamo que bloquea la liberación.
+            estado_entrega: Estado de la última entrega simulada.
+
+        Returns:
+            tuple: Respuesta, pago y cantidades de entradas de historial y trazabilidad.
+        """
         pago = SimpleNamespace(
             id_pago=901, id_prestacion_id=902, estado_pago=estado_pago,
             estado_verificacion=verificacion, monto_neto_profesional=Decimal("9000"),
@@ -47,6 +61,7 @@ class LiberacionSeguraTests(SimpleTestCase):
             return respuesta, pago, historial.create.call_count, evento.call_count
 
     def test_pago_retenido_no_verificado_no_puede_liberarse(self):
+        """Exige verificación sin modificar pago, historial ni trazabilidad ante rechazo."""
         for verificacion in ("PENDIENTE", "RECHAZADO", None):
             with self.subTest(verificacion=verificacion):
                 respuesta, pago, historial, eventos = self.ejecutar(verificacion=verificacion)
@@ -57,6 +72,7 @@ class LiberacionSeguraTests(SimpleTestCase):
                 self.assertEqual((historial, eventos), (0, 0))
 
     def test_verificado_sin_bloqueos_se_libera_una_vez(self):
+        """Comprueba una única escritura y una entrada de historial y evento al liberar."""
         respuesta, pago, historial, eventos = self.ejecutar()
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(pago.estado_pago, "LIBERADO")
@@ -64,12 +80,14 @@ class LiberacionSeguraTests(SimpleTestCase):
         self.assertEqual((historial, eventos), (1, 1))
 
     def test_reintento_liberado_no_duplica_movimientos(self):
+        """Comprueba respuesta idempotente sin escrituras cuando el pago ya está liberado."""
         respuesta, pago, historial, eventos = self.ejecutar(estado_pago="LIBERADO")
         self.assertEqual(respuesta.status_code, 200)
         pago.save.assert_not_called()
         self.assertEqual((historial, eventos), (0, 0))
 
     def test_bloqueos_existentes_impiden_liberacion(self):
+        """Comprueba bloqueos por reversa, reclamo, entrega o estados incompatibles."""
         escenarios = (
             {"reversa": True}, {"reclamo": True},
             {"estado_entrega": "CON_OBSERVACIONES"},

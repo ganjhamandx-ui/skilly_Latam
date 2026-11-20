@@ -13,9 +13,15 @@ RUTA = "/api/pagos/webpay/retorno/"
 
 
 class RetornoWebpayConfiguradoTests(SimpleTestCase):
+    """Comprueba retornos locales configurados y redirecciones con parámetros codificados."""
     @override_settings(FRONTEND_ORIGIN="http://127.0.0.2:53171", DEBUG=True)
     @patch("pagos.webpay_cliente_e3.peticion_webpay")
     def test_inicio_alternativo_conserva_importe_identificadores_y_retorno_exacto(self, proveedor):
+        """Comprueba que un origen local alternativo solo cambie el retorno configurado.
+
+        Args:
+            proveedor: Transporte Webpay simulado para inspeccionar los datos enviados.
+        """
         proveedor.return_value = {
             "token": "token-sintetico", "url": "https://webpay3gint.transbank.cl/webpayserver/initTransaction",
         }
@@ -26,6 +32,7 @@ class RetornoWebpayConfiguradoTests(SimpleTestCase):
         })
 
     def test_construye_retorno_en_cada_uso_sin_capturar_settings_al_importar(self):
+        """Comprueba que cada llamada lea el origen actual y normalice la barra final."""
         with override_settings(FRONTEND_ORIGIN="http://localhost:5173"):
             self.assertEqual(retorno_webpay(), "http://localhost:5173" + RUTA)
         with override_settings(FRONTEND_ORIGIN="https://[::1]:53175/"):
@@ -34,6 +41,11 @@ class RetornoWebpayConfiguradoTests(SimpleTestCase):
     @override_settings(FRONTEND_ORIGIN="http://127.0.0.2:53171/")
     @patch("pagos.webpay_empresa_e3.crear_referencia_seguimiento")
     def test_redirect_seguimiento_solo_usa_origen_configurado_y_codifica_query(self, referencia):
+        """Impide que el contenido de referencia o resultado altere el destino configurado.
+
+        Args:
+            referencia: Generador simulado de referencias con contenido que exige codificación.
+        """
         referencia.return_value = "referencia-sintetica&next=https://otro.invalid/"
         pago = SimpleNamespace(id_prestacion=SimpleNamespace(id_solicitud=object()))
         respuesta = redireccion(pago, "aprobado&next=//otro.invalid")
@@ -46,6 +58,7 @@ class RetornoWebpayConfiguradoTests(SimpleTestCase):
         })
 
     def test_origen_invalido_no_genera_redireccion(self):
+        """Rechaza orígenes con destino ambiguo, credenciales o rutas adicionales."""
         pago = SimpleNamespace(id_prestacion=SimpleNamespace(id_solicitud=object()))
         with patch("pagos.webpay_empresa_e3.crear_referencia_seguimiento", return_value="sintetica"):
             for origen in ("//otro.invalid", "http://usuario@127.0.0.2:53171", "http://127.0.0.2:53171/otra"):
@@ -54,6 +67,7 @@ class RetornoWebpayConfiguradoTests(SimpleTestCase):
                         redireccion(pago, "aprobado")
 
     def test_retorno_solo_acepta_loopback_puerto_explicito_y_ruta_exacta(self):
+        """Admite variantes de loopback con puerto explícito y la ruta exacta de retorno."""
         for origen in ("http://localhost:5173", "http://127.0.0.2:53171", "https://127.12.3.4:53171",
                        "http://[::1]:53171"):
             with self.subTest(origen=origen):
@@ -61,6 +75,11 @@ class RetornoWebpayConfiguradoTests(SimpleTestCase):
 
     @patch("pagos.webpay_cliente_e3.peticion_webpay")
     def test_retornos_maliciosos_o_ambiguos_se_rechazan_antes_de_contactar_proveedor(self, proveedor):
+        """Rechaza destinos externos o ambiguos sin invocar el transporte Webpay.
+
+        Args:
+            proveedor: Transporte simulado cuya ausencia de llamadas se comprueba.
+        """
         origen = "http://localhost:5173"
         for retorno in (
             origen + RUTA + "extra", origen + RUTA + "?", origen + RUTA + "#",
@@ -82,4 +101,5 @@ class RetornoWebpayConfiguradoTests(SimpleTestCase):
 
     @override_settings(DEBUG=False, FRONTEND_ORIGIN="http://127.0.0.2:53171")
     def test_origen_alternativo_no_habilita_webpay_en_produccion(self):
+        """Comprueba que DEBUG desactivado mantenga inhabilitado el ambiente de integración."""
         self.assertFalse(ambiente_disponible())

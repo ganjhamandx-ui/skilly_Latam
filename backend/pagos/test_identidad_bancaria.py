@@ -15,6 +15,16 @@ from pagos import views as pagos_views
 
 
 def conexion_ficticia(nombre='skilly', *, usuario='skilly_app', filas=()):
+    """Construye una conexión y un cursor simulados con respuestas secuenciales.
+
+    Args:
+        nombre: Nombre configurado de la base que se evaluará.
+        usuario: Rol configurado de conexión.
+        filas: Resultados sucesivos que devolverá fetchone.
+
+    Returns:
+        tuple: Conexión ficticia y cursor que permite inspeccionar las consultas.
+    """
     conexion = SimpleNamespace(settings_dict={'NAME': nombre, 'USER': usuario}, cursor=MagicMock())
     cursor = conexion.cursor.return_value.__enter__.return_value
     cursor.fetchone.side_effect = list(filas)
@@ -22,7 +32,9 @@ def conexion_ficticia(nombre='skilly', *, usuario='skilly_app', filas=()):
 
 
 class IdentidadBancariaTests(SimpleTestCase):
+    """Comprueba coincidencia estricta de base, esquema y rol sin abrir conexiones."""
     def test_base_configurada_original_y_clon_son_validas_con_mismo_rol_y_esquema(self):
+        """Admite nombres de base distintos cuando coinciden con la configuración y la identidad exigida."""
         for nombre in ('skilly', 'skilly_android_fixture', 'otra_base_configurada'):
             with self.subTest(nombre=nombre):
                 conexion, _cursor = conexion_ficticia(nombre)
@@ -30,12 +42,14 @@ class IdentidadBancariaTests(SimpleTestCase):
                 conexion.cursor.assert_not_called()
 
     def test_nombre_real_distinto_no_se_autoriza_por_ser_original_o_parecer_clon(self):
+        """Exige coincidencia exacta del nombre real con el configurado."""
         conexion, _cursor = conexion_ficticia('skilly_android_fixture')
         for real in ('skilly', 'skilly_android_otro', 'postgres'):
             with self.subTest(real=real):
                 self.assertFalse(identidad_bancaria_autorizada(conexion, (real, 'skilly', 'skilly_app')))
 
     def test_esquema_y_rol_no_se_relajan_por_coincidir_el_nombre(self):
+        """Mantiene las restricciones de esquema y rol aunque coincida la base."""
         conexion, _cursor = conexion_ficticia()
         for identidad in (('skilly', 'public', 'skilly_app'),
                           ('skilly', 'skilly_cu040_pruebas', 'skilly_app'),
@@ -45,12 +59,14 @@ class IdentidadBancariaTests(SimpleTestCase):
                 self.assertFalse(identidad_bancaria_autorizada(conexion, identidad))
 
     def test_usuario_configurado_privilegiado_o_ausente_no_se_autoriza(self):
+        """Rechaza usuarios configurados distintos del rol de aplicación exigido."""
         for usuario in ('postgres', 'root', 'otro_rol', '', None):
             conexion, _cursor = conexion_ficticia(usuario=usuario)
             with self.subTest(usuario=usuario):
                 self.assertFalse(identidad_bancaria_autorizada(conexion, ('skilly', 'skilly', 'skilly_app')))
 
     def test_configuracion_de_base_ausente_o_invalida_falla_cerrada(self):
+        """Rechaza configuraciones incompletas, tipos inesperados y nombres ambiguos."""
         for nombre in ('', ' ', None, False, 42, ' skilly', 'skilly ', 'skilly\x00'):
             conexion, _cursor = conexion_ficticia(nombre)
             with self.subTest(tipo=type(nombre).__name__):
@@ -61,10 +77,23 @@ class IdentidadBancariaTests(SimpleTestCase):
 
 
 class DisponibilidadIdentidadBancariaTests(SimpleTestCase):
+    """Comprueba los adaptadores de disponibilidad bancaria con cursores simulados."""
     modulos = (disponibilidad_pagos, disponibilidad_backoffice)
     cuenta = (7, 'Titular ficticio', '11111111-1', 'Banco ficticio', 'VISTA', '12345678', 'pruebas@example.invalid')
 
     def consultar(self, modulo, conexion, *, referencia=True, prestacion=True, pago=False):
+        """Consulta disponibilidad sustituyendo referencia, prestación, pago y conexión.
+
+        Args:
+            modulo: Adaptador de disponibilidad que se despachará.
+            conexion: Conexión ficticia con resultados de identidad y cuenta.
+            referencia: Indica si la referencia privada se considera válida.
+            prestacion: Indica si existe una prestación pendiente con condiciones.
+            pago: Indica si ya existe un pago para la prestación.
+
+        Returns:
+            Response: Respuesta producida por el adaptador bajo el escenario simulado.
+        """
         with patch.object(modulo, 'connection', conexion), \
                 patch.object(modulo, 'leer_referencia_seguimiento', return_value={'id_solicitud': 11, 'id_contacto': 12} if referencia else None), \
                 patch.object(modulo.PrestacionServicio, 'objects') as prestaciones, \
@@ -76,6 +105,7 @@ class DisponibilidadIdentidadBancariaTests(SimpleTestCase):
         return response
 
     def test_cuenta_disponible_en_original_y_base_configurada_distinta(self):
+        """Comprueba disponibilidad con identidad válida tanto en la base original como en otra configurada."""
         for modulo in self.modulos:
             for nombre in ('skilly', 'skilly_android_fixture'):
                 conexion, cursor = conexion_ficticia(nombre, filas=[(nombre, 'skilly', 'skilly_app'), (True,), self.cuenta])
@@ -87,6 +117,7 @@ class DisponibilidadIdentidadBancariaTests(SimpleTestCase):
                     self.assertEqual(cursor.execute.call_count, 3)
 
     def test_identidad_incorrecta_devuelve_503_sin_consultar_datos_de_cuentas(self):
+        """Comprueba el rechazo tras consultar identidad y antes de leer cuentas bancarias."""
         casos = (
             ('skilly_android_fixture', 'skilly_app', ('skilly', 'skilly', 'skilly_app')),
             ('skilly', 'skilly_app', ('skilly', 'public', 'skilly_app')),
@@ -105,6 +136,7 @@ class DisponibilidadIdentidadBancariaTests(SimpleTestCase):
                     self.assertEqual(cursor.execute.call_count, 1)
 
     def test_referencia_prestacion_y_pago_siguen_limitando_la_consulta(self):
+        """Comprueba que requisitos empresariales se evalúen antes de consultar datos bancarios."""
         for modulo in self.modulos:
             for argumentos, estado in (({'referencia': False}, 400), ({'prestacion': False}, 404), ({'pago': True}, 200)):
                 conexion, _cursor = conexion_ficticia()
@@ -115,6 +147,7 @@ class DisponibilidadIdentidadBancariaTests(SimpleTestCase):
                     conexion.cursor.assert_not_called()
 
     def test_base_valida_sin_principal_no_entrega_datos_bancarios(self):
+        """Comprueba indisponibilidad cuando la consulta de existencia previa devuelve falso."""
         for modulo in self.modulos:
             conexion, cursor = conexion_ficticia('skilly_android_fixture', filas=[('skilly_android_fixture', 'skilly', 'skilly_app'), (False,)])
             response = self.consultar(modulo, conexion)
@@ -125,7 +158,9 @@ class DisponibilidadIdentidadBancariaTests(SimpleTestCase):
 
 
 class CuentasAdministracionIdentidadTests(SimpleTestCase):
+    """Comprueba identidad y disponibilidad de tablas antes de consultar cuentas administrativas."""
     def test_base_configurada_distinta_permita_consultar_sin_cambiar_alias_o_tablas(self):
+        """Conserva el alias default al admitir otra base expresamente configurada."""
         conexion, cursor = conexion_ficticia('skilly_android_fixture', filas=[('skilly_android_fixture', 'skilly', 'skilly_app'), (True,)])
         with patch.object(cuentas_api, 'connections', {'default': conexion}), patch.object(cuentas_api.Cuenta, 'objects') as cuentas:
             cuentas.using.return_value.order_by.return_value = []
@@ -136,6 +171,7 @@ class CuentasAdministracionIdentidadTests(SimpleTestCase):
             self.assertEqual(cursor.execute.call_count, 2)
 
     def test_rechazo_503_no_consulta_cuentas_ni_historial_ni_tablas(self):
+        """Comprueba que una identidad rechazada impida lecturas posteriores del módulo bancario."""
         conexion, cursor = conexion_ficticia('skilly_android_fixture', filas=[('skilly', 'skilly', 'skilly_app')])
         with patch.object(cuentas_api, 'connections', {'default': conexion}), \
                 patch.object(cuentas_api.Cuenta, 'objects') as cuentas, patch.object(cuentas_api.Cambio, 'objects') as cambios:
@@ -146,6 +182,7 @@ class CuentasAdministracionIdentidadTests(SimpleTestCase):
             self.assertEqual(cursor.execute.call_count, 1)
 
     def test_tablas_inexistentes_siguen_bloqueando_modulo(self):
+        """Comprueba que la identidad válida no omita la exigencia de tablas disponibles."""
         conexion, cursor = conexion_ficticia('skilly_android_fixture', filas=[('skilly_android_fixture', 'skilly', 'skilly_app'), (False,)])
         with patch.object(cuentas_api, 'connections', {'default': conexion}), patch.object(cuentas_api.Cuenta, 'objects') as cuentas:
             response = cuentas_api.CuentasBancariasView().get(SimpleNamespace())
@@ -155,7 +192,17 @@ class CuentasAdministracionIdentidadTests(SimpleTestCase):
 
 
 class InicioTransferenciaIdentidadTests(SimpleTestCase):
+    """Comprueba rechazos de identidad y cuenta antes de guardar comprobantes o crear pagos."""
     def iniciar(self, identidad, *, usuario='skilly_app'):
+        """Prepara una transferencia y simula las consultas hasta el rechazo bancario.
+
+        Args:
+            identidad: Fila de base, esquema y rol devuelta por el cursor simulado.
+            usuario: Rol declarado en la configuración de la conexión ficticia.
+
+        Returns:
+            tuple: Respuesta de inicio de transferencia y cursor con llamadas registradas.
+        """
         conexion, cursor = conexion_ficticia('skilly_android_fixture', usuario=usuario, filas=[identidad, None])
         servicio = SimpleNamespace(id_profesional_id=31, referencia_precio='10000 CLP')
         solicitud = SimpleNamespace(id_servicio=servicio)
@@ -187,6 +234,7 @@ class InicioTransferenciaIdentidadTests(SimpleTestCase):
         return response, cursor
 
     def test_identidad_incorrecta_impide_bloqueo_bancario_guardado_y_creacion_pago(self):
+        """Comprueba el rechazo de identidad antes del bloqueo de cuenta y las escrituras."""
         for identidad, usuario in ((('skilly', 'skilly', 'skilly_app'), 'skilly_app'),
                                    (('skilly_android_fixture', 'public', 'skilly_app'), 'skilly_app'),
                                    (('skilly_android_fixture', 'skilly', 'postgres'), 'skilly_app'),
@@ -197,6 +245,7 @@ class InicioTransferenciaIdentidadTests(SimpleTestCase):
                 self.assertEqual(cursor.execute.call_count, 1)
 
     def test_base_configurada_avanza_y_conserva_rechazo_si_cuenta_mostrada_cambio(self):
+        """Comprueba que una identidad válida aún exija la cuenta receptora mostrada a la organización."""
         response, cursor = self.iniciar(('skilly_android_fixture', 'skilly', 'skilly_app'))
         self.assertEqual(response.status_code, 409)
         self.assertIn('datos bancarios cambiaron', response.data['mensaje'])

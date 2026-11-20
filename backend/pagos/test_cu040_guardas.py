@@ -14,7 +14,9 @@ from pagos.views import (
 
 class CU040ProteccionesEconomicasTests(SimpleTestCase):
 
+    """Comprueba bloqueos de liberación y duplicidad con reversas pendientes simuladas."""
     def test_no_liberar_pago_con_reversa_solicitada(self):
+        """Comprueba que una reversa solicitada impida guardar la liberación del pago."""
         pago = MagicMock()
         pago.id_pago = 900801
         pago.estado_pago = "RETENIDO"
@@ -61,6 +63,7 @@ class CU040ProteccionesEconomicasTests(SimpleTestCase):
         )
 
     def test_no_duplicar_reversa_solicitada(self):
+        """Comprueba que una solicitud previa de reversa impida crear otra."""
         pago = MagicMock()
         pago.id_pago = 900801
 

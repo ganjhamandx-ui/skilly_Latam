@@ -13,7 +13,9 @@ from pagos.comprobantes_api import ComprobanteTransferenciaAdministracionView
 
 
 class ComprobantesPrivadosTests(SimpleTestCase):
+    """Comprueba autorización y aislamiento de comprobantes con almacenamiento temporal y ORM simulado."""
     def setUp(self):
+        """Prepara un administrador ficticio y un PDF sintético en almacenamiento temporal."""
         self.factory = APIRequestFactory()
         self.usuario = SimpleNamespace(pk=901, estado="ACTIVO", rol="ADMIN_SKILLY")
         self.ruta = "comprobantes_transferencia_privados/prueba.pdf"
@@ -23,6 +25,17 @@ class ComprobantesPrivadosTests(SimpleTestCase):
         self.storage.save(self.ruta, ContentFile(b"%PDF-1.7\nPrueba sintetica"))
 
     def descargar(self, *, ruta=None, sesion=True, pago=True, fallo_apertura=False):
+        """Despacha la descarga real sustituyendo identidad, pago y almacenamiento.
+
+        Args:
+            ruta: Referencia almacenada alternativa; None usa el PDF de preparación.
+            sesion: Indica si la petición contiene identidad en una sesión firmada.
+            pago: Indica si la consulta simulada encuentra el pago.
+            fallo_apertura: Simula que el archivo desaparece antes de abrirlo.
+
+        Returns:
+            HttpResponse: Respuesta de descarga o rechazo de la vista.
+        """
         request = self.factory.get("/api/pagos/administracion/902/comprobante/")
         request.session = SessionStore()
         if sesion:
@@ -46,6 +59,7 @@ class ComprobantesPrivadosTests(SimpleTestCase):
             return response
 
     def test_admin_descarga_contenido_y_cabeceras_privadas(self):
+        """Comprueba contenido sintético, descarga como adjunto y cabeceras de privacidad."""
         response = self.descargar()
         try:
             self.assertEqual(response.status_code, 200)
@@ -58,14 +72,17 @@ class ComprobantesPrivadosTests(SimpleTestCase):
             response.close()
 
     def test_anonimo_y_profesional_no_descargan(self):
+        """Comprueba que la descarga requiera una sesión administrativa."""
         self.assertEqual(self.descargar(sesion=False).status_code, 403)
         self.usuario.rol = "PROFESIONAL"
         self.assertEqual(self.descargar().status_code, 403)
 
     def test_pago_inexistente_no_descarga(self):
+        """Comprueba el 404 cuando no se encuentra el pago solicitado."""
         self.assertEqual(self.descargar(pago=False).status_code, 404)
 
     def test_referencias_invalidas_no_abren_almacenamiento(self):
+        """Rechaza rutas ambiguas, ajenas o no admitidas antes de abrir el almacenamiento."""
         rutas = (
             "comprobantes_transferencia_privados/../otro.pdf",
             "comprobantes_transferencia_privados/..\\otro.pdf",
@@ -83,5 +100,6 @@ class ComprobantesPrivadosTests(SimpleTestCase):
                 abrir.assert_not_called()
 
     def test_archivo_ausente_o_desaparecido_responde_404(self):
+        """Comprueba el 404 tanto ante ausencia como ante desaparición durante la apertura."""
         self.assertEqual(self.descargar(ruta="comprobantes_transferencia_privados/ausente.pdf").status_code, 404)
         self.assertEqual(self.descargar(fallo_apertura=True).status_code, 404)

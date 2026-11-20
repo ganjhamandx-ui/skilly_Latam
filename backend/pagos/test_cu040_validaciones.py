@@ -12,6 +12,7 @@ from pagos.views import ReversasPagoAdministracionView
 
 class CU040ValidacionesEconomicasTests(SimpleTestCase):
 
+    """Comprueba rechazos económicos al iniciar una reversa con ORM simulado."""
     def comprobar_rechazo(
         self,
         estado_pago="RETENIDO",
@@ -20,6 +21,15 @@ class CU040ValidacionesEconomicasTests(SimpleTestCase):
         monto_autorizado=None,
         mensaje_esperado="",
     ):
+        """Configura un pago y resolución ficticios y exige conflicto sin crear reversas.
+
+        Args:
+            estado_pago: Estado inicial del pago simulado.
+            verificacion: Estado de verificación del pago.
+            monto_total: Importe total disponible en el pago.
+            monto_autorizado: Importe de la resolución; None simula ausencia de resolución.
+            mensaje_esperado: Fragmento que debe explicar el rechazo.
+        """
         pago = SimpleNamespace(
             id_pago=900801,
             estado_pago=estado_pago,
@@ -85,6 +95,7 @@ class CU040ValidacionesEconomicasTests(SimpleTestCase):
             reversas.create.assert_not_called()
 
     def test_rechaza_pago_liberado(self):
+        """Exige un pago retenido antes de iniciar una reversa."""
         self.comprobar_rechazo(
             estado_pago="LIBERADO",
             mensaje_esperado="RETENIDO",
@@ -92,6 +103,7 @@ class CU040ValidacionesEconomicasTests(SimpleTestCase):
         print("CU040 PAGO LIBERADO: BLOQUEADO")
 
     def test_rechaza_pago_no_verificado(self):
+        """Exige verificación administrativa antes de iniciar una reversa."""
         self.comprobar_rechazo(
             verificacion="PENDIENTE",
             mensaje_esperado="VERIFICADO",
@@ -99,6 +111,7 @@ class CU040ValidacionesEconomicasTests(SimpleTestCase):
         print("CU040 PAGO NO VERIFICADO: BLOQUEADO")
 
     def test_rechaza_pago_monto_cero(self):
+        """Impide iniciar una reversa sobre un pago sin importe positivo."""
         self.comprobar_rechazo(
             monto_total=Decimal("0.00"),
             mensaje_esperado="monto total",
@@ -106,6 +119,7 @@ class CU040ValidacionesEconomicasTests(SimpleTestCase):
         print("CU040 PAGO SIN MONTO VALIDO: BLOQUEADO")
 
     def test_rechaza_reversa_superior_al_pago(self):
+        """Impide que la resolución autorice devolver más que el total del pago."""
         self.comprobar_rechazo(
             monto_autorizado=Decimal("100000.01"),
             mensaje_esperado="no superar",
@@ -113,6 +127,7 @@ class CU040ValidacionesEconomicasTests(SimpleTestCase):
         print("CU040 REVERSA MAYOR AL PAGO: BLOQUEADA")
 
     def test_rechaza_reversa_monto_cero(self):
+        """Exige un importe positivo en la resolución que autoriza la reversa."""
         self.comprobar_rechazo(
             monto_autorizado=Decimal("0.00"),
             mensaje_esperado="mayor que cero",
@@ -120,6 +135,7 @@ class CU040ValidacionesEconomicasTests(SimpleTestCase):
         print("CU040 REVERSA DE MONTO CERO: BLOQUEADA")
 
     def test_rechaza_reversa_monto_negativo(self):
+        """Impide que una resolución negativa produzca una solicitud de reversa."""
         self.comprobar_rechazo(
             monto_autorizado=Decimal("-5000.00"),
             mensaje_esperado="mayor que cero",
