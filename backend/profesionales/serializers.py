@@ -15,6 +15,7 @@ from .models import (
 
 
 class PerfilProfesionalSerializer(serializers.ModelSerializer):
+    """Expone el perfil propio y permite editar presentación y contacto, no su validación."""
     correo = serializers.CharField(
         source="id_usuario.correo",
         read_only=True,
@@ -58,6 +59,14 @@ class PerfilProfesionalSerializer(serializers.ModelSerializer):
         ]
 
     def get_competencias(self, profesional):
+        """Lista las competencias vinculadas al perfil, incluidas las inactivas.
+
+        Args:
+            profesional (Profesional): Perfil cuyas relaciones se consultan.
+
+        Returns:
+            list[dict]: Identificador, nombre y estado, ordenados por nombre.
+        """
         relaciones = (
             ProfesionalCompetencia.objects
             .filter(
@@ -87,6 +96,15 @@ class PerfilProfesionalSerializer(serializers.ModelSerializer):
         ]
 
     def update(self, instance, validated_data):
+        """Persiste únicamente los campos editables presentes en los datos validados.
+
+        Args:
+            instance (Profesional): Perfil que se actualizará.
+            validated_data (dict): Campos aceptados por el serializador.
+
+        Returns:
+            Profesional: Misma instancia actualizada; no guarda si el dict está vacío.
+        """
         for campo, valor in validated_data.items():
             setattr(instance, campo, valor)
 
@@ -103,19 +121,31 @@ class PerfilProfesionalSerializer(serializers.ModelSerializer):
 class DocumentoProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Expone metadatos y revisión del documento sin revelar su referencia de almacenamiento."""
     estado_revision = serializers.SerializerMethodField()
     observacion_revision = serializers.SerializerMethodField()
 
     def _ultima_revision(self, obj):
+        """Busca la revisión del documento con mayor identificador de solicitud.
+
+        Args:
+            obj (DocumentoProfesional): Documento consultado.
+
+        Returns:
+            ValidacionDocumento | None: Último vínculo por id_validacion, sin
+            excluir revisiones reemplazadas, o None si no existe.
+        """
         return (ValidacionDocumento.objects
             .filter(id_documento=obj)
             .order_by('-id_validacion_id').first())
 
     def get_estado_revision(self, obj):
+        """Devuelve el estado de la última revisión de obj, o None si no tiene revisiones."""
         v = self._ultima_revision(obj)
         return v.estado_revision if v else None
 
     def get_observacion_revision(self, obj):
+        """Devuelve la observación de la última revisión de obj, o None si no existe."""
         v = self._ultima_revision(obj)
         return v.observacion if v else None
 
@@ -139,6 +169,7 @@ class DocumentoProfesionalSerializer(
 
 
 class EstadoValidacionSerializer(serializers.ModelSerializer):
+    """Representa identificador, estado y fechas de la solicitud sin datos internos de revisión."""
     class Meta:
         """Define la representación de SolicitudValidacion y protege sus campos de solo lectura."""
 
@@ -158,6 +189,7 @@ class EstadoValidacionSerializer(serializers.ModelSerializer):
 class RevisionValidacionAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Reúne perfil, documentos y entrevista para la revisión administrativa de una solicitud."""
     profesional = serializers.SerializerMethodField()
     documentos = serializers.SerializerMethodField()
     entrevista = serializers.SerializerMethodField()
@@ -183,6 +215,7 @@ class RevisionValidacionAdministracionSerializer(
         read_only_fields = fields
 
     def get_profesional(self, solicitud):
+        """Devuelve datos de identidad, contacto y estado del profesional de solicitud."""
         profesional = solicitud.id_profesional
 
         return {
@@ -200,6 +233,15 @@ class RevisionValidacionAdministracionSerializer(
         }
 
     def get_documentos(self, solicitud):
+        """Lista todos los vínculos documentales de la solicitud, incluidos los reemplazados.
+
+        Args:
+            solicitud (SolicitudValidacion): Solicitud cuyos documentos se consultan.
+
+        Returns:
+            list[dict]: Metadatos y estado_revision/observacion del vínculo concreto.
+            observacion_revision conserva la obtenida por el serializador del documento.
+        """
         vinculos = (
             ValidacionDocumento.objects
             .filter(id_validacion=solicitud)
@@ -216,6 +258,15 @@ class RevisionValidacionAdministracionSerializer(
         ]
 
     def get_entrevista(self, solicitud):
+        """Representa la última entrevista reservada para la solicitud.
+
+        Args:
+            solicitud (SolicitudValidacion): Solicitud consultada.
+
+        Returns:
+            dict | None: Entrevista, horario y observación, sin excluir canceladas;
+            None si no existe ninguna.
+        """
         entrevista = (
             EntrevistaValidacion.objects
             .select_related(
@@ -254,6 +305,7 @@ class RevisionValidacionAdministracionSerializer(
 class ActualizarObservacionValidacionSerializer(
     serializers.Serializer
 ):
+    """Admite reemplazar o vaciar la observación interna mediante un campo obligatorio."""
     observacion_resultado = serializers.CharField(
         required=True,
         allow_blank=True,
@@ -264,10 +316,21 @@ class ActualizarObservacionValidacionSerializer(
 class EntrevistaValidacionResumenSerializer(
     serializers.ModelSerializer
 ):
+    """Representa una entrevista con la constancia de contacto previo registrada en trazabilidad."""
     contactado = serializers.SerializerMethodField()
     fecha_contacto = serializers.SerializerMethodField()
 
     def _evento(self, entrevista):
+        """Obtiene la constancia de contacto desde el contexto o la base de datos.
+
+        Args:
+            entrevista (EntrevistaValidacion): Entrevista que se representará.
+
+        Returns:
+            EventoTrazabilidad | None: Evento del mapa contactos_por_entrevista,
+            si se proporcionó, o el más reciente por id_evento. Un mapa vacío evita
+            consultas adicionales y representa ausencia de contacto.
+        """
         cache = self.context.get("contactos_por_entrevista")
         if cache is not None:
             return cache.get(entrevista.pk)
@@ -278,9 +341,11 @@ class EntrevistaValidacionResumenSerializer(
         ).order_by("-id_evento").first())
 
     def get_contactado(self, entrevista):
+        """Devuelve si existe una constancia de contacto previo para entrevista."""
         return self._evento(entrevista) is not None
 
     def get_fecha_contacto(self, entrevista):
+        """Devuelve la fecha del evento de contacto de entrevista, o None si falta."""
         evento = self._evento(entrevista)
         return evento.fecha_evento if evento else None
 
@@ -305,6 +370,7 @@ class EntrevistaValidacionResumenSerializer(
 class BloqueEntrevistaAdministracionSerializer(
     serializers.ModelSerializer
 ):
+    """Expone bloques administrativos con sus reservas y disponibilidad por estado y cupos."""
     reservas = serializers.SerializerMethodField()
     disponibilidad = serializers.SerializerMethodField()
 
@@ -328,6 +394,15 @@ class BloqueEntrevistaAdministracionSerializer(
         read_only_fields = fields
 
     def get_disponibilidad(self, bloque):
+        """Calcula la etiqueta del bloque a partir de su estado y ocupación.
+
+        Args:
+            bloque (BloqueEntrevistaValidacion): Bloque consultado.
+
+        Returns:
+            str: DESHABILITADO, COMPLETO o DISPONIBLE. Cuenta todas las entrevistas
+            no canceladas; no comprueba que el horario todavía sea futuro.
+        """
         ocupados = (EntrevistaValidacion.objects
                     .filter(id_bloque_entrevista=bloque)
                     .exclude(estado="CANCELADA").count())
@@ -336,6 +411,16 @@ class BloqueEntrevistaAdministracionSerializer(
         return "COMPLETO" if ocupados >= bloque.capacidad else "DISPONIBLE"
 
     def get_reservas(self, bloque):
+        """Serializa las reservas del bloque y precarga sus constancias de contacto.
+
+        Args:
+            bloque (BloqueEntrevistaValidacion): Bloque cuyas entrevistas se consultan.
+
+        Returns:
+            list: Representaciones por fecha de reserva e identificador ascendentes,
+            incluidas entrevistas canceladas. El mapa de contactos conserva el
+            evento más reciente de cada entrevista y evita consultas por elemento.
+        """
         entrevistas = (
             EntrevistaValidacion.objects
             .filter(
@@ -365,6 +450,7 @@ class BloqueEntrevistaAdministracionSerializer(
 class EntrevistaProfesionalSerializer(
     serializers.ModelSerializer
 ):
+    """Representa una entrevista propia con su horario, sin observaciones administrativas."""
     bloque = serializers.SerializerMethodField()
 
     class Meta:
@@ -383,6 +469,7 @@ class EntrevistaProfesionalSerializer(
         read_only_fields = fields
 
     def get_bloque(self, entrevista):
+        """Devuelve identificador, fecha y horas del bloque vinculado a entrevista."""
         bloque = entrevista.id_bloque_entrevista
 
         return {

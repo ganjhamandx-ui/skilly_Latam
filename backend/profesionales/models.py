@@ -6,6 +6,7 @@ from acceso.models import Usuario
 
 
 class Profesional(models.Model):
+    """Perfil único por usuario con datos de presentación y estado de validación final."""
     id_profesional = models.BigAutoField(primary_key=True)
 
     id_usuario = models.OneToOneField(
@@ -51,10 +52,12 @@ class Profesional(models.Model):
         db_table = "profesional"
 
     def __str__(self):
+        """Devuelve los nombres y apellidos como etiqueta legible del perfil."""
         return f"{self.nombres} {self.apellidos}"
 
 
 class Competencia(models.Model):
+    """Competencia del catálogo, con nombre único y estado de disponibilidad."""
     id_competencia = models.BigAutoField(
         primary_key=True
     )
@@ -81,10 +84,12 @@ class Competencia(models.Model):
         db_table = "competencia"
 
     def __str__(self):
+        """Devuelve el nombre de la competencia para su representación textual."""
         return self.nombre
 
 
 class ProfesionalCompetencia(models.Model):
+    """Relaciona un perfil con una competencia mediante una clave primaria compuesta."""
     pk = models.CompositePrimaryKey(
         "id_profesional",
         "id_competencia",
@@ -112,6 +117,7 @@ class ProfesionalCompetencia(models.Model):
 
 
 class DocumentoProfesional(models.Model):
+    """Conserva metadatos y referencia interna del archivo sin almacenar sus bytes."""
     id_documento = models.BigAutoField(
         primary_key=True
     )
@@ -151,10 +157,12 @@ class DocumentoProfesional(models.Model):
         db_table = "documento_profesional"
 
     def __str__(self):
+        """Devuelve el nombre original del archivo como etiqueta del documento."""
         return self.nombre_archivo
 
 
 class SolicitudValidacion(models.Model):
+    """Conserva la revisión documental del perfil y sus fechas de asignación y resolución."""
     id_validacion = models.BigAutoField(
         primary_key=True
     )
@@ -202,6 +210,7 @@ class SolicitudValidacion(models.Model):
 
 
 class ValidacionDocumento(models.Model):
+    """Registra la revisión individual de un documento dentro de una solicitud."""
     pk = models.CompositePrimaryKey(
         "id_validacion",
         "id_documento",
@@ -236,6 +245,7 @@ class ValidacionDocumento(models.Model):
 
 
 class BloqueEntrevistaValidacion(models.Model):
+    """Define fecha, intervalo local, capacidad y gestor de un bloque de entrevistas."""
     id_bloque_entrevista = models.BigAutoField(
         primary_key=True
     )
@@ -266,6 +276,7 @@ class BloqueEntrevistaValidacion(models.Model):
 
 
 class EntrevistaValidacion(models.Model):
+    """Vincula una solicitud a un bloque y conserva el estado e historial de su entrevista."""
     id_entrevista = models.BigAutoField(
         primary_key=True
     )
@@ -301,6 +312,7 @@ class EntrevistaValidacion(models.Model):
 
 # Gestion de cuentas de cobro y registro separado de abonos bancarios.
 class CuentaPagoProfesional(models.Model):
+    """Mantiene una cuenta de cobro por perfil con el número cifrado y sus últimos dígitos."""
     id_cuenta = models.BigAutoField(primary_key=True)
     profesional = models.OneToOneField(Profesional, on_delete=models.PROTECT,
         db_column='id_profesional', related_name='cuenta_pago')
@@ -321,6 +333,11 @@ class CuentaPagoProfesional(models.Model):
 
 
 class AbonoPagoProfesional(models.Model):
+    """Conserva un abono documental único por pago y una copia del destino usado.
+
+    El número cifrado y el resumen no cambian al actualizar la cuenta vinculada.
+    El modelo almacena la constancia; no ejecuta movimientos bancarios.
+    """
     id_abono = models.BigAutoField(primary_key=True)
     pago = models.OneToOneField('pagos.Pago', on_delete=models.PROTECT,
         db_column='id_pago', related_name='abono_bancario')
