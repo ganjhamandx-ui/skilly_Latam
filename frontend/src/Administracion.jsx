@@ -16,14 +16,23 @@ const estadosCerrados = new Set([
   'CANCELADO', 'RECHAZADA', 'RECHAZADO',
 ])
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Recupera un mensaje textual de la API o describe el estado HTTP.
+ * @param {Object|null} datos Respuesta recibida.
+ * @param {number} codigo Estado HTTP.
+ * @returns {string} Explicación del rechazo.
+ */
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `La operación no se completó (HTTP ${codigo}).`
 }
 
-// Solicita un token CSRF con las cookies de la sesión antes de una escritura.
+/**
+ * Solicita el token vinculado a las cookies de la sesión administrativa.
+ * @returns {Promise<string>} Token para la siguiente escritura.
+ * @throws {Error} Si falla la conexión, se rechaza la consulta o falta el token.
+ */
 async function obtenerCsrf() {
   const respuesta = await fetch(`${API}/acceso/csrf/`, {
     credentials: 'same-origin',
@@ -36,7 +45,14 @@ async function obtenerCsrf() {
   return datos.csrfToken
 }
 
-// Lee la respuesta de API y convierte respuestas rechazadas en errores para la vista.
+/**
+ * Consulta una ruta relativa a /api y convierte rechazos HTTP en errores.
+ * Las opciones explícitas prevalecen sobre los valores predeterminados, incluidos headers.
+ * @param {string} ruta Ruta que comienza con barra dentro de la API.
+ * @param {RequestInit} [opciones={}] Opciones enviadas a fetch.
+ * @returns {Promise<*>} JSON recibido, o un objeto vacío si el cuerpo no se puede interpretar.
+ * @throws {Error} Si falla la conexión o se rechaza la respuesta HTTP.
+ */
 async function obtenerJson(ruta, opciones = {}) {
   const respuesta = await fetch(`${API}${ruta}`, {
     credentials: 'same-origin',
@@ -50,7 +66,12 @@ async function obtenerJson(ruta, opciones = {}) {
 }
 
 
-// Presenta los montos administrativos con formato local y conserva valores faltantes.
+/**
+ * Presenta un importe con hasta dos decimales y la moneda recibida.
+ * @param {number|string|null} valor Importe del pago.
+ * @param {string} moneda Moneda; CLP no exige decimales mínimos.
+ * @returns {string} Importe legible, valor no numérico original o «No informado».
+ */
 function formatoMonto(valor, moneda) {
   if (valor == null || valor === '') return 'No informado'
 
@@ -64,7 +85,12 @@ function formatoMonto(valor, moneda) {
 }
 
 
-// Integra sesión administrativa, solicitudes, coordinación y pagos en el panel interno.
+/**
+ * Integra sesión, responsabilidad de solicitudes, coordinación y gestión de pagos.
+ * Cada escritura comprueba su respuesta antes de actualizar el panel; el servidor
+ * conserva la validación de permisos, transiciones y condiciones económicas.
+ * @returns {import('react').ReactElement} Acceso o panel administrativo de la sesión.
+ */
 function Administracion() {
   const [usuario, setUsuario] = useState(null)
   const [vistaGestion, setVistaGestion] = useState('solicitudes')
@@ -104,6 +130,11 @@ function Administracion() {
 
 
 
+  /**
+   * Consulta solicitudes y sus responsables, conservando los fallos de asignación por fila.
+   * Reemplaza la selección por su versión actual si aún existe en la colección.
+   * @returns {Promise<void>} Finalización de la carga con errores en la bandeja.
+   */
   const cargar = useCallback(async () => {
     // Actualiza la bandeja junto con las asignaciones de sus solicitudes.
     setCargando(true)
@@ -149,7 +180,11 @@ function Administracion() {
   useEffect(() => {
     // Valida la sesión al montar el panel y descarta respuestas tardías al salir.
     let vigente = true
-    // Consulta la sesión y actualiza la autorización antes de usar la bandeja administrativa.
+    /**
+     * Comprueba acceso a solicitudes y rol administrativo antes de cargar la bandeja.
+     * Los fallos conservan disponible el formulario de acceso.
+     * @returns {Promise<void>} Finalización de la comprobación y carga inicial.
+     */
     async function verificar() {
       try {
         const datos = await obtenerJson(
@@ -177,7 +212,11 @@ function Administracion() {
 
     let vigente = true
 
-    // Carga la asignación, asociaciones y estado de agenda para la solicitud activa.
+    /**
+     * Consulta asociaciones, prestación y agenda para la solicitud seleccionada.
+     * La marca de vigencia evita aplicar datos cuando cambia la selección o la sesión.
+     * @returns {Promise<void>} Finalización de la lectura con errores en coordinación.
+     */
     async function consultarCoordinacion() {
       setCoordinacion(null)
       setErrorCoordinacion('')
@@ -204,6 +243,10 @@ function Administracion() {
 
 
 
+  /**
+   * Recarga la colección de pagos y vacía la lista cuando la consulta falla.
+   * @returns {Promise<void>} Finalización de la carga con errores en pagos.
+   */
   const cargarPagos = useCallback(async () => {
     // Actualiza los pagos con un estado de consulta separado de las solicitudes.
     setCargandoPagos(true)
@@ -231,7 +274,11 @@ function Administracion() {
 
     let vigente = true
 
-    // Carga la bandeja de pagos junto con los datos iniciales del panel.
+    /**
+     * Consulta la colección de pagos al disponer de una sesión administrativa.
+     * Descarta resultados cuando el efecto deja de estar vigente.
+     * @returns {Promise<void>} Finalización de la lectura con errores en pagos.
+     */
     async function consultarPagosIniciales() {
       try {
         const datos = await obtenerJson('/pagos/administracion/')
@@ -259,7 +306,11 @@ function Administracion() {
 
 
 
-  // Solicita a la API el registro de verificación de la transferencia informada.
+  /**
+   * Exige comprobación de recepción y observación para verificar una transferencia pendiente.
+   * Comprueba los estados RETENIDO y VERIFICADO antes de consultar detalle e historial.
+   * @returns {Promise<void>} Finalización de la verificación con errores en el detalle.
+   */
   async function verificarTransferencia() {
     const pago = detallePago?.pago
     if (!pago || verificandoPago || !recepcionComprobada) return
@@ -333,7 +384,12 @@ function Administracion() {
     }
   }
 
-  // Solicita la liberación al backend y actualiza el panel según la decisión devuelta.
+  /**
+   * Confirma la liberación de un pago retenido y verificado.
+   * Conserva el resultado confirmado aunque falle la recarga de su historial, e informa
+   * ese fallo por separado para evitar confundirlo con un rechazo de la liberación.
+   * @returns {Promise<void>} Finalización de la liberación y actualización del panel.
+   */
   async function liberarPagoProfesional() {
     const pago = detallePago?.pago
     if (!pago || liberandoPago || verificandoPago) return
@@ -419,7 +475,11 @@ function Administracion() {
     }
   }
 
-  // Carga el estado y la trazabilidad del pago seleccionado.
+  /**
+   * Reinicia el formulario de pago y exige detalle e historial válidos.
+   * @param {number} idPago Identificador entero seguro y positivo.
+   * @returns {Promise<void>} Finalización de la consulta con errores en el diálogo.
+   */
   async function consultarDetallePago(idPago) {
     if (!Number.isSafeInteger(idPago) || idPago <= 0) {
       setErrorDetallePago('Identificador de pago no valido.')
@@ -452,7 +512,11 @@ function Administracion() {
   }
 
 
-  // Envía el bloque escogido para programar la primera reunión de la prestación.
+  /**
+   * Solicita agendar usando la reserva activa y el pago verificado de la prestación.
+   * Comprueba la contratación y la reunión confirmadas por el servidor antes de recargar.
+   * @returns {Promise<void>} Finalización de la operación con errores en coordinación.
+   */
   async function agendarPrimeraReunion() {
     const prestacion = coordinacion?.prestacion
 
@@ -544,7 +608,11 @@ function Administracion() {
     }
   }
 
-  // Solicita la preparación de una prestación para la solicitud seleccionada.
+  /**
+   * Confirma la preparación y exige que la prestación continúe pendiente de contratación.
+   * @param {number} idProfesional Identificador entero seguro y positivo del profesional asociado.
+   * @returns {Promise<void>} Finalización de la preparación y recarga de coordinación.
+   */
   async function prepararPrestacion(idProfesional) {
     if (!seleccion || preparandoPrestacion || !coordinacion) return
 
@@ -599,7 +667,11 @@ function Administracion() {
     }
   }
 
-  // Confirma el vínculo propuesto entre la solicitud y el profesional seleccionado.
+  /**
+   * Solicita confirmar una asociación y exige el estado ACEPTADO en la respuesta.
+   * @param {number} idProfesional Identificador entero seguro y positivo del profesional.
+   * @returns {Promise<void>} Finalización de la confirmación y recarga de coordinación.
+   */
   async function confirmarAsociacion(idProfesional) {
     if (!seleccion || confirmandoAsociacion || proponiendo) return
 
@@ -654,7 +726,11 @@ function Administracion() {
     }
   }
 
-  // Envía una propuesta de asociación para su aceptación por el profesional.
+  /**
+   * Solicita crear la propuesta para la solicitud seleccionada y exige el estado PENDIENTE.
+   * La propuesta y su confirmación se gestionan como operaciones separadas.
+   * @returns {Promise<void>} Finalización de la propuesta y recarga de coordinación.
+   */
   async function proponerAsociacion() {
     if (!seleccion || proponiendo || !coordinacion) return
 
@@ -702,7 +778,12 @@ function Administracion() {
     }
   }
 
-  // Autentica la cuenta administrativa y actualiza el estado de sesión de la vista.
+  /**
+   * Autentica las credenciales y exige rol administrativo para habilitar el panel.
+   * Borra la contraseña del estado local tanto al completar como al fallar la operación.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del formulario de acceso.
+   * @returns {Promise<void>} Finalización del acceso y carga de solicitudes.
+   */
   async function iniciarSesion(evento) {
     evento.preventDefault()
     setCargando(true)
@@ -736,7 +817,11 @@ function Administracion() {
     }
   }
 
-  // Solicita que el administrador activo quede a cargo de la solicitud.
+  /**
+   * Confirma la asunción de responsabilidad y exige una asignación ACTIVA.
+   * @param {Object|null} solicitud Solicitud que asumirá el administrador de la sesión.
+   * @returns {Promise<void>} Finalización de la asignación con errores en la bandeja.
+   */
   async function autoasignar(solicitud) {
     if (asignando || !solicitud) return
 
@@ -785,7 +870,10 @@ function Administracion() {
     }
   }
 
-  // Finaliza la sesión en el backend y despeja el estado de acceso de la vista.
+  /**
+   * Solicita cerrar la sesión y limpia las colecciones privadas después de la respuesta.
+   * @returns {Promise<void>} Finalización del cierre con errores en el panel.
+   */
   async function cerrarSesion() {
     setError('')
     try {
@@ -808,12 +896,20 @@ function Administracion() {
     }
   }
 
-  // Obtiene al responsable de la asignación vigente, si existe.
+  /**
+   * Obtiene el responsable de la asignación actual consultada para una solicitud.
+   * @param {Object} item Solicitud con identificador.
+   * @returns {Object|null} Responsable recibido o null si no está disponible.
+   */
   function responsable(item) {
     return asignaciones[item.id_solicitud]?.actual?.responsable ?? null
   }
 
-  // Identifica si el estado de la prestación debe mostrar el expediente como cerrado.
+  /**
+   * Clasifica la solicitud mediante el conjunto de estados terminales de la bandeja.
+   * @param {Object} item Solicitud cuyo estado se evalúa.
+   * @returns {boolean} Si su estado está considerado cerrado en la interfaz.
+   */
   function cerrada(item) {
     return estadosCerrados.has(String(item.estado ?? '').toUpperCase())
   }
