@@ -1,4 +1,8 @@
-"""Modela solicitudes, disponibilidad, reservas y reuniones iniciales."""
+"""Mapea organizaciones, contactos, solicitudes y reservas en tablas SQL existentes.
+
+Las competencias de cada solicitud conservan la selección del servicio al enviarla.
+Las reuniones y prestaciones se modelan en coordinación, no en este módulo.
+"""
 
 from django.db import models
 
@@ -86,7 +90,7 @@ class EmpresaSolicitante(models.Model):
 
 
 class ContactoEmpresa(models.Model):
-    """Vincula un usuario de contacto con una empresa solicitante."""
+    """Conserva datos de un contacto empresarial sin crear una identidad autenticable."""
 
     id_contacto = models.BigAutoField(
         primary_key=True
@@ -203,7 +207,11 @@ class SolicitudServicio(models.Model):
 
 
 class ReservaDisponibilidad(models.Model):
-    """Reserva un bloque para una solicitud mientras su prestación está vigente."""
+    """Conserva la selección de un bloque y su evolución para una solicitud.
+
+    PENDIENTE_PAGO no confirma contratación. ACTIVA representa reserva confirmada;
+    los estados históricos permiten conservar cancelaciones y reagendamientos.
+    """
 
     id_reserva = models.BigAutoField(
         primary_key=True

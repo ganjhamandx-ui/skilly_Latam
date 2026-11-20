@@ -25,7 +25,16 @@ class SeguimientoSolicitudServicioPublicaView(
         request,
         referencia,
     ):
-        """Devuelve el seguimiento acotado asociado a una referencia privada válida."""
+        """Devuelve seguimiento acotado tras comprobar firma y vínculo con el contacto.
+
+        Args:
+            request (Request): Petición pública sin requisito de sesión.
+            referencia (str): Referencia privada de la solicitud y su contacto.
+
+        Returns:
+            Response: HTTP 200 con referencia y solicitud sin contacto empresarial;
+            HTTP 404 con el mismo mensaje para firma inválida o relación inexistente.
+        """
         datos_referencia = (
             leer_referencia_seguimiento(
                 referencia

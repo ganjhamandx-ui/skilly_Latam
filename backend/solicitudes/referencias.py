@@ -1,4 +1,9 @@
-"""Genera referencias firmadas para consultar seguimiento sin exponer IDs."""
+"""Firma referencias privadas que vinculan una solicitud y su contacto empresarial.
+
+La firma impide alterar identificadores sin invalidarlos; no cifra el contenido.
+Quien posee una referencia válida puede consultar los endpoints de seguimiento
+que la aceptan. Este módulo no configura una caducidad temporal de lectura.
+"""
 
 from django.core import signing
 
@@ -9,7 +14,15 @@ SEGUIMIENTO_SOLICITUD_SALT = (
 
 
 def crear_referencia_seguimiento(solicitud):
-    """Firma una referencia opaca para consultar una solicitud sin exponer su ID."""
+    """Firma los identificadores de solicitud y contacto para el seguimiento.
+
+    Args:
+        solicitud (SolicitudServicio): Solicitud persistida con contacto asociado.
+
+    Returns:
+        str: Referencia firmada y opcionalmente comprimida por Django. Su contenido
+        es decodificable; la protección es de integridad, no de confidencialidad.
+    """
 
     return signing.dumps(
         {
@@ -22,7 +35,16 @@ def crear_referencia_seguimiento(solicitud):
 
 
 def leer_referencia_seguimiento(referencia):
-    """Verifica la firma y devuelve los identificadores contenidos en la referencia."""
+    """Verifica la firma y la estructura de los identificadores de seguimiento.
+
+    Args:
+        referencia (str): Referencia emitida con el salt de seguimiento de solicitudes.
+
+    Returns:
+        dict | None: Id de solicitud y contacto si cumplen la comprobación de
+        enteros positivos; ``None`` ante BadSignature o estructura inválida.
+        No consulta la base de datos ni aplica max_age a la firma.
+    """
 
     try:
         datos = signing.loads(

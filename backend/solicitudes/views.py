@@ -34,7 +34,15 @@ from .serializers import (
 
 
 def obtener_profesional(usuario):
-    """Resuelve el perfil profesional activo del usuario autenticado."""
+    """Busca el primer perfil relacionado con la identidad recibida.
+
+    Args:
+        usuario (Usuario): Identidad resuelta por la autenticación de la vista.
+
+    Returns:
+        Profesional | None: Perfil asociado sin comprobar aquí estado de usuario
+        ni estado de validación profesional; ``None`` si todavía no existe.
+    """
 
     return Profesional.objects.filter(
         id_usuario=usuario
@@ -48,7 +56,19 @@ def existe_conflicto_disponibilidad(
     hora_fin,
     excluir_id=None,
 ):
-    """Detecta solapamientos de bloques vigentes para un mismo profesional."""
+    """Detecta solapamientos con bloques del profesional, sin filtrar su estado.
+
+    Args:
+        profesional (Profesional): Propietario de los bloques que se compararán.
+        fecha (date): Día del intervalo candidato.
+        hora_inicio (time): Inicio del intervalo, ya validado por el llamador.
+        hora_fin (time): Término del intervalo, posterior al inicio.
+        excluir_id (int | None): Bloque actual que se omite durante una edición.
+
+    Returns:
+        bool: Si otro bloque se solapa estrictamente. Los intervalos que solo
+        comparten un extremo no entran en conflicto. No bloquea filas.
+    """
 
     bloques = Disponibilidad.objects.filter(
         id_profesional=profesional,
@@ -79,7 +99,14 @@ class MiDisponibilidadProfesionalView(
     ]
 
     def get(self, request):
-        """Lista los bloques de disponibilidad del profesional autenticado."""
+        """Lista todos los bloques propios por fecha, hora e id ascendentes.
+
+        Args:
+            request (Request): Sesión autenticada con permiso profesional.
+
+        Returns:
+            Response: HTTP 200 con disponibilidad, incluso histórica, o 404 si falta perfil.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -122,7 +149,19 @@ class MiDisponibilidadProfesionalView(
         )
 
     def post(self, request):
-        """Crea un bloque profesional tras validar conflictos y fechas."""
+        """Crea disponibilidad y registra su trazabilidad tras validar el intervalo.
+
+        Args:
+            request (Request): Sesión profesional con CSRF, fecha y horas de inicio y fin.
+
+        Returns:
+            Response: HTTP 201 con bloque DISPONIBLE, 400 por intervalo inválido,
+            404 si falta perfil y 409 por solapamiento con otro bloque.
+
+        Note:
+            Fecha y orden de horas se validan antes de la escritura. La consulta
+            de solapamiento precede la transacción y no adquiere bloqueos.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -236,7 +275,7 @@ class MiDisponibilidadProfesionalView(
 class DetalleDisponibilidadProfesionalView(
     APIView
 ):
-    """Actualiza o deshabilita un bloque propio cuando no está reservado."""
+    """Consulta, modifica o elimina bloques propios sin reservas protegidas."""
 
     authentication_classes = [
         SesionSkillyAuthentication
@@ -251,7 +290,15 @@ class DetalleDisponibilidadProfesionalView(
         request,
         id_disponibilidad,
     ):
-        """Obtiene un bloque que pertenece al profesional autenticado."""
+        """Consulta un bloque propio sin filtrar su estado.
+
+        Args:
+            request (Request): Sesión autenticada con permiso profesional.
+            id_disponibilidad (int): Bloque solicitado.
+
+        Returns:
+            Response: HTTP 200 con el bloque o 404 si falta perfil o bloque propio.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -310,7 +357,18 @@ class DetalleDisponibilidadProfesionalView(
         request,
         id_disponibilidad,
     ):
-        """Actualiza un bloque propio si no existe reserva ni conflicto horario."""
+        """Modifica parcialmente un bloque propio bajo bloqueo de fila.
+
+        Args:
+            request (Request): Sesión profesional con CSRF y al menos fecha,
+                hora_inicio u hora_fin; los campos omitidos conservan su valor.
+            id_disponibilidad (int): Bloque DISPONIBLE que se pretende editar.
+
+        Returns:
+            Response: HTTP 200 con bloque actualizado, 400 por entrada inválida
+            o vacía, 404 por ausencia de perfil/bloque propio y 409 si hay reserva
+            PENDIENTE_PAGO/ACTIVA, estado incompatible o solapamiento.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -513,7 +571,20 @@ class DetalleDisponibilidadProfesionalView(
         request,
         id_disponibilidad,
     ):
-        """Retira un bloque propio solo cuando no mantiene reservas protegidas."""
+        """Elimina físicamente un bloque propio disponible y deja trazabilidad.
+
+        Args:
+            request (Request): Sesión profesional con CSRF válido.
+            id_disponibilidad (int): Bloque que se bloqueará antes de eliminarlo.
+
+        Returns:
+            Response: HTTP 200 con confirmación, 404 si falta perfil o bloque propio,
+            y 409 si el estado no es DISPONIBLE o existe reserva pendiente/activa.
+
+        Note:
+            Los errores de integridad de otras relaciones históricas no se capturan;
+            la transacción revierte tanto el borrado como su evento si falla.
+        """
         profesional = obtener_profesional(
             request.user
         )
@@ -628,7 +699,26 @@ class EnviarSolicitudServicioPublicaView(
         self,
         request,
     ):
-        """Crea solicitud y reserva pendiente de pago dentro de una transacción."""
+        """Registra una necesidad empresarial y su selección horaria pendiente de pago.
+
+        Args:
+            request (Request): Petición pública con servicio, disponibilidad, RUT,
+                organización, contacto, objetivo y descripción, más datos opcionales.
+
+        Returns:
+            Response: HTTP 201 con solicitud, referencia firmada e id de reserva;
+            400 por entrada inválida, 404 por servicio no publicado o bloque ausente
+            y 409 por horario ajeno, pasado, ocupado o con reserva pendiente/activa.
+
+        Raises:
+            SolicitudServicio.DoesNotExist: Si desaparece antes de recargar la respuesta.
+
+        Note:
+            Bloquea la disponibilidad antes de comprobar reservas. Reutiliza empresa
+            activa por RUT y contacto por empresa/correo sin actualizar sus datos;
+            copia modalidad, precio y competencias del servicio. La nueva reserva
+            PENDIENTE_PAGO impide otra selección, aunque el bloque aún figure DISPONIBLE.
+        """
         entrada_serializer = (
             EnviarSolicitudServicioSerializer(
                 data=request.data

@@ -32,7 +32,20 @@ class GuardarDisponibilidadProfesionalSerializer(
     )
 
     def validate(self, attrs):
-        """Valida que el bloque tenga fecha vigente y un rango horario coherente."""
+        """Valida fecha y orden horario completando campos desde el bloque actual.
+
+        Args:
+            attrs (dict): Fecha y horas validadas por campos DRF; en una edición
+                parcial, context.bloque_actual aporta los valores omitidos.
+
+        Returns:
+            dict: Datos recibidos sin incorporar los valores tomados del contexto.
+
+        Raises:
+            serializers.ValidationError: Si faltan valores, la fecha es anterior
+                a hoy o el término no supera al inicio. No comprueba si la hora
+                de inicio de hoy ya pasó ni si se solapa con otro bloque.
+        """
         bloque_actual = self.context.get(
             "bloque_actual"
         )
@@ -126,7 +139,15 @@ class DisponibilidadProfesionalSerializer(
         self,
         disponibilidad,
     ):
-        """Presenta la reserva vigente o pendiente vinculada al bloque."""
+        """Presenta la reserva más reciente del bloque, cualquiera que sea su estado.
+
+        Args:
+            disponibilidad (Disponibilidad): Bloque cuyo historial se consulta.
+
+        Returns:
+            dict | None: Id, estado, fechas y confirmada solo cuando es ACTIVA;
+            ``None`` si nunca tuvo una reserva. Desempata fechas por id descendente.
+        """
         reserva = (
             ReservaDisponibilidad.objects
             .filter(
@@ -189,7 +210,18 @@ class EnviarSolicitudServicioSerializer(
     )
 
     def validate_rut(self, valor):
-        """Normaliza y valida el RUT chileno mediante módulo 11."""
+        """Normaliza un RUT y comprueba su dígito verificador mediante módulo 11.
+
+        Args:
+            valor (str): RUT con hasta ocho dígitos de cuerpo; admite puntos,
+                guion, espacios y k minúscula, que se normalizan antes de validar.
+
+        Returns:
+            str: Cuerpo sin ceros iniciales, guion y verificador en mayúscula.
+
+        Raises:
+            serializers.ValidationError: Si el formato o el verificador no son válidos.
+        """
         # Validacion del modulo 11 chileno; normaliza antes de buscar empresa.
         rut = valor.upper().replace(".", "").replace("-", "").replace(" ", "")
         if not re.fullmatch(r"[0-9]{1,8}[0-9K]", rut):
@@ -278,7 +310,19 @@ class EnviarSolicitudServicioSerializer(
     )
 
     def validate(self, attrs):
-        """Impide alterar el precio publicado y normaliza campos opcionales vacíos."""
+        """Rechaza presupuesto enviado por el cliente y normaliza opcionales vacíos.
+
+        Args:
+            attrs (dict): Campos empresariales y de necesidad validados por DRF.
+
+        Returns:
+            dict: Mismos datos con rubro, web, cargo, teléfono y urgencia vacíos
+            convertidos a ``None``. El precio lo obtiene la vista desde el servicio.
+
+        Raises:
+            serializers.ValidationError: Si initial_data contiene referencia_presupuesto,
+                aunque su valor sea vacío o coincida con el precio publicado.
+        """
         if "referencia_presupuesto" in self.initial_data:
             raise serializers.ValidationError({
                 "referencia_presupuesto": (
@@ -304,7 +348,11 @@ class EnviarSolicitudServicioSerializer(
 class SolicitudServicioPublicaSerializer(
     serializers.ModelSerializer
 ):
-    """Presenta datos públicos de la solicitud sin información administrativa sensible."""
+    """Devuelve la confirmación de una solicitud al remitente del formulario.
+
+    Incluye correo del contacto y referencia privada de seguimiento; no es una
+    representación para publicar solicitudes en un catálogo abierto.
+    """
 
     empresa = serializers.SerializerMethodField()
     contacto = serializers.SerializerMethodField()
