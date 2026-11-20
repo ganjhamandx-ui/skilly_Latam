@@ -22,8 +22,16 @@ import './PortalProfesional.css'
 import './EntregablesPorServicioAdministracionE3.css'
 
 
-// Todas las consultas se presentan en una ventana centrada.
-// Las acciones y los formularios siguen usando sus componentes originales.
+/**
+ * Monta una ventana accesible en document.body y administra el foco con el hook común.
+ * El fondo solicita el cierre solo cuando el clic no procede de sus descendientes.
+ * @param {Object} props Propiedades de la ventana.
+ * @param {boolean} props.abierta Indica si debe montarse el contenido.
+ * @param {string} props.titulo Nombre accesible y encabezado de la ventana.
+ * @param {function(): void} props.onCerrar Solicita cerrar; el padre decide si la operación lo permite.
+ * @param {import('react').ReactNode} props.children Contenido de la consulta o formulario.
+ * @returns {import('react').ReactPortal|null} Ventana montada o null si está cerrada.
+ */
 function VentanaProfesional({ abierta, titulo, onCerrar, children }) {
   const panelRef = useRef(null)
   useDialogoAccesible(abierta, panelRef, onCerrar)
@@ -54,7 +62,12 @@ function VentanaProfesional({ abierta, titulo, onCerrar, children }) {
   )
 }
 
-// Presenta la fecha de la actividad usando la configuración regional chilena.
+/**
+ * Conserva fechas civiles y presenta marcas temporales en la zona de Santiago.
+ * @param {string|null} valor Fecha o marca temporal recibida.
+ * @param {boolean} [conHora=false] Incluye horas y minutos para marcas temporales.
+ * @returns {string} Fecha legible, texto original inválido o «No informada».
+ */
 function formatearFechaChile(valor, conHora = false) {
   if (!valor) return 'No informada'
   const texto = String(valor)
@@ -73,14 +86,22 @@ function formatearFechaChile(valor, conHora = false) {
   }).format(fecha)
 }
 
-// Agrupa perfil, validación, Marketplace, agenda y prestaciones en el área profesional.
+/**
+ * Integra perfil, validación, servicios, entrevistas, entregas y pagos propios.
+ * Comprueba el rol de la sesión y carga las consultas de cada sección al abrirla.
+ * @returns {import('react').ReactElement} Portal profesional o estado de acceso.
+ */
 function PortalProfesional() {
   const [estado, setEstado] = useState('cargando')
   const [moduloPortal, setModuloPortal] = useState('servicios')
   const [ventanaPortal, setVentanaPortal] = useState(null)
   const [ultimaConsulta, setUltimaConsulta] = useState({})
 
-  // Vincula la consulta activa a su señal de cancelación para descartar respuestas antiguas.
+  /**
+   * Registra la hora local de la última consulta completada para una sección.
+   * @param {string} seccion Clave de la sección cuyo indicador se actualiza.
+   * @returns {void}
+   */
   function registrarConsulta(seccion) {
     setUltimaConsulta((actual) => ({
       ...actual,
@@ -166,7 +187,10 @@ function PortalProfesional() {
   const [cerrando, setCerrando] = useState(false)
   const [errorSesion, setErrorSesion] = useState('')
 
-  // SKILLY_MODAL_SERVICIOS_V1
+  /**
+   * Regresa a la lista de servicios si no hay consultas o acciones del detalle en curso.
+   * @returns {void}
+   */
   function cerrarDetalleServicio() {
     if (cargandoDetalleServicio || accionServicio || cargandoVersion) return
     setDetalleServicio(null)
@@ -188,7 +212,11 @@ function PortalProfesional() {
     // Inicializa la sesión y comprueba vigencia antes de actualizar el portal.
     let activo = true
 
-    // Consulta si la sesión corresponde a un profesional antes de cargar los módulos privados.
+    /**
+     * Consulta la sesión y distingue rol no autorizado de un fallo de conexión.
+     * La marca activa evita actualizar el estado después del desmontaje.
+     * @returns {Promise<void>} Finalización de la comprobación de acceso.
+     */
     async function verificar() {
       try {
         const respuesta = await fetch('/api/acceso/sesion-actual/', {
@@ -217,7 +245,11 @@ function PortalProfesional() {
     return () => { activo = false }
   }, [])
 
-  // Finaliza la sesión en el backend y despeja el estado de acceso de la vista.
+  /**
+   * Cierra la sesión con CSRF y navega al acceso profesional tras la confirmación HTTP.
+   * Conserva el bloqueo durante la navegación y lo libera cuando se presenta un error.
+   * @returns {Promise<void>} Finalización de la solicitud de cierre.
+   */
   async function cerrarSesion() {
     if (cerrando) return
 
@@ -267,7 +299,11 @@ function PortalProfesional() {
   
 
 
-  // Carga la versión evaluada para que el profesional conozca la decisión administrativa.
+  /**
+   * Consulta las condiciones revisadas antes de permitir su decisión comercial.
+   * @param {number|string} idServicio Identificador del servicio propio.
+   * @returns {Promise<void>} Finalización de la lectura con errores en el detalle.
+   */
   async function consultarVersionRevisada(idServicio) {
     if (!idServicio || cargandoVersion) return
 
@@ -310,7 +346,13 @@ function PortalProfesional() {
     }
   }
 
-  // Envía la acción de propuesta o publicación sobre el servicio del profesional.
+  /**
+   * Valida la transición comercial, solicita confirmación y envía la acción con CSRF.
+   * Aceptar o rechazar exige haber consultado la versión; rechazar requiere un motivo.
+   * Tras la respuesta vuelve a consultar el detalle y la colección de servicios propios.
+   * @param {'revisar'|'aprobar'|'rechazar_comercial'|'publicar'} accion Operación solicitada.
+   * @returns {Promise<void>} Finalización de la escritura y recargas con errores visibles.
+   */
   async function ejecutarAccionServicio(accion) {
     if (accionServicio || !idServicioDetalle) return
 
@@ -455,7 +497,12 @@ function PortalProfesional() {
     }
   }
 
-  // Carga los datos del servicio propio seleccionado antes de mostrar el detalle.
+  /**
+   * Consulta un servicio propio y reinicia la versión revisada y los avisos anteriores.
+   * Admite el servicio dentro de una clave servicio o como objeto directo.
+   * @param {number|string} idServicio Identificador seleccionado.
+   * @returns {Promise<void>} Finalización de la consulta con errores en el detalle.
+   */
   async function consultarDetalleServicio(idServicio) {
     if (!idServicio || cargandoDetalleServicio) return
     setVentanaPortal(null)
@@ -507,7 +554,11 @@ function PortalProfesional() {
     }
   }
 
-  // Actualiza la lista de servicios que pertenecen al profesional en sesión.
+  /**
+   * Consulta servicios propios y admite las colecciones directa, servicios o resultados.
+   * Registra la hora de consulta después de validar la estructura recibida.
+   * @returns {Promise<void>} Finalización de la lectura con errores en la lista.
+   */
   async function cargarServicios() {
     setCargandoServicios(true)
     setErrorServicios('')
@@ -554,7 +605,10 @@ function PortalProfesional() {
   }
 
 
-  // Obtiene los datos del perfil necesarios para las vistas del portal.
+  /**
+   * Consulta el perfil y admite las claves perfil o profesional, o el cuerpo directo.
+   * @returns {Promise<void>} Finalización de la lectura con errores en la ficha.
+   */
   async function cargarPerfil() {
     setCargandoPerfil(true)
     setErrorPerfil('')
@@ -589,7 +643,10 @@ function PortalProfesional() {
   }
 
 
-  // Actualiza el estado de la validación profesional a partir del backend.
+  /**
+   * Consulta documentos y validación en paralelo y aplica ambos si las respuestas son válidas.
+   * @returns {Promise<void>} Finalización de las lecturas con un error conjunto.
+   */
   async function cargarValidacion() {
     setCargandoValidacion(true)
     setErrorValidacion('')
@@ -642,7 +699,10 @@ function PortalProfesional() {
 
 
 
-  // Consulta horarios de entrevista que el profesional puede reservar.
+  /**
+   * Consulta bloques reservables, valida la colección y descarta la selección anterior.
+   * @returns {Promise<void>} Finalización de la lectura con errores en la reserva.
+   */
   async function consultarBloquesEntrevista() {
     if (cargandoBloques) return
 
@@ -687,7 +747,12 @@ function PortalProfesional() {
     }
   }
 
-  // Solicita la reserva del bloque y actualiza la agenda con el resultado autorizado.
+  /**
+   * Confirma un bloque de la colección consultada y solicita reservarlo con CSRF.
+   * Tras la respuesta conserva la entrevista recibida y descarta las opciones anteriores.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío de la reserva.
+   * @returns {Promise<void>} Finalización de la escritura con errores en el formulario.
+   */
   async function reservarEntrevista(evento) {
     evento.preventDefault()
 
@@ -773,7 +838,13 @@ function PortalProfesional() {
 
 
 
-  // Envía una entrega del profesional y actualiza el historial de su prestación.
+  /**
+   * Valida descripción, estado y límites de archivos antes de registrar una entrega.
+   * Usa multipart cuando los adjuntos están habilitados y presentes; en otro caso envía
+   * la entrega descriptiva en JSON. Tras el registro limpia el borrador y recarga entregas.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío de la entrega.
+   * @returns {Promise<void>} Finalización del registro y consulta posterior.
+   */
   async function registrarEntregaProfesional(evento) {
     evento.preventDefault()
 
@@ -899,7 +970,12 @@ function PortalProfesional() {
     }
   }
 
-  // Consulta el historial de entregas de la prestación seleccionada.
+  /**
+   * Consulta entregas y observaciones, y luego los formatos y adjuntos del servicio.
+   * Un fallo en esta segunda consulta conserva las entregas y muestra su error por separado.
+   * @param {number|string} idPrestacion Identificador de la prestación propia.
+   * @returns {Promise<void>} Finalización de las lecturas con errores por sección.
+   */
   async function cargarEntregasProfesional(idPrestacion) {
     if (!idPrestacion || cargandoEntregas) return
     setVentanaPortal('entregas')
@@ -974,7 +1050,11 @@ function PortalProfesional() {
     }
   }
 
-  // Consulta avances y estado del servicio coordinado seleccionado.
+  /**
+   * Abre la ventana de seguimiento y consulta la prestación seleccionada.
+   * @param {number|string} idPrestacion Identificador de la prestación propia.
+   * @returns {Promise<void>} Finalización de la consulta con errores en la ventana.
+   */
   async function cargarSeguimientoProfesional(idPrestacion) {
     if (!idPrestacion || cargandoSeguimiento) return
     setVentanaPortal('seguimiento')
@@ -1018,7 +1098,11 @@ function PortalProfesional() {
   }
 
 
-  // Consulta el resumen de pagos de las prestaciones propias.
+  /**
+   * Consulta pagos propios y admite colecciones directa, pagos o resultados.
+   * Un error vacía el listado y conserva el indicador de consulta incompleta.
+   * @returns {Promise<void>} Finalización de la consulta con errores en pagos.
+   */
   async function cargarPagosProfesional() {
     if (cargandoPagos) return
 
@@ -1073,7 +1157,10 @@ function PortalProfesional() {
     }
   }
 
-  // Carga las prestaciones coordinadas asociadas al profesional.
+  /**
+   * Consulta prestaciones propias y valida su colección mediante el adaptador compartido.
+   * @returns {Promise<void>} Finalización de la consulta con errores en la sección.
+   */
   async function cargarCoordinados() {
     if (cargandoCoordinados) return
 
@@ -1121,7 +1208,12 @@ function PortalProfesional() {
     }
   }
 
-  // Solicita cancelar la entrevista registrada con el motivo informado.
+  /**
+   * Exige una entrevista AGENDADA y motivo de diez a quinientos caracteres.
+   * Confirma la cancelación y reemplaza la entrevista con la respuesta del servidor.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del motivo.
+   * @returns {Promise<void>} Finalización de la cancelación con errores visibles.
+   */
   async function cancelarEntrevista(evento) {
     evento.preventDefault()
     const motivo = motivoCancelacion.trim()
@@ -1167,7 +1259,10 @@ function PortalProfesional() {
     }
   }
 
-  // Consulta la entrevista vigente y actualiza sus datos en el portal.
+  /**
+   * Consulta la entrevista de la sesión y registra la hora de lectura satisfactoria.
+   * @returns {Promise<void>} Finalización de la lectura con errores en la sección.
+   */
   async function cargarEntrevista() {
     if (cargandoEntrevista) return
 
@@ -1208,12 +1303,20 @@ function PortalProfesional() {
   }
 
 
+  /**
+   * Cierra la ventana si no está activa ninguna de las escrituras controladas por el portal.
+   * @returns {void}
+   */
   const cerrarVentana = useCallback(() => {
     // No interrumpir operaciones de escritura en curso.
     if (registrandoEntrega || reservandoEntrevista || cancelandoEntrevista || accionServicio) return
     setVentanaPortal(null)
   }, [registrandoEntrega, reservandoEntrevista, cancelandoEntrevista, accionServicio])
 
+  /**
+   * Regresa a las prestaciones y limpia avisos de entrega cuando no se está registrando una.
+   * @returns {void}
+   */
   const volverACoordinados = useCallback(() => {
     if (registrandoEntrega) return
     setVentanaPortal('coordinados')
@@ -1221,7 +1324,11 @@ function PortalProfesional() {
     setExitoNuevaEntrega('')
   }, [registrandoEntrega])
 
-  // Selecciona la opción del portal y carga los datos que necesita.
+  /**
+   * Abre la sección y dispara la consulta correspondiente cuando esta la requiere.
+   * @param {string} seccion Clave de ventana del portal.
+   * @returns {void}
+   */
   function abrirOpcion(seccion) {
     setVentanaPortal(seccion)
     if (seccion === 'mis-servicios') void cargarServicios()
