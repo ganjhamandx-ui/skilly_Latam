@@ -1,4 +1,4 @@
-"""Centraliza servicios de configuración vigentes para el backoffice."""
+"""Centraliza la creación de eventos de trazabilidad usados por los módulos de SKILLY."""
 
 from django.utils import timezone
 
@@ -12,7 +12,22 @@ def registrar_evento_trazabilidad(
     accion,
     detalle_resumido=None,
 ):
-    """Crea un evento auditable con un detalle resumido y sin datos sensibles."""
+    """Persiste un evento de trazabilidad con la fecha actual de Django.
+
+    Args:
+        usuario (Usuario | None): Autor autenticado, o ``None`` para eventos sin sesión.
+        entidad_tipo (str): Tipo de entidad que permitirá agrupar el historial.
+        entidad_id (int): Identificador de la entidad afectada.
+        accion (str): Operación o transición que se registra.
+        detalle_resumido (str | None): Texto opcional, ya acotado y depurado por el llamador.
+
+    Returns:
+        EventoTrazabilidad: Evento creado en la transacción activa, si la hay.
+
+    Note:
+        No recorta el detalle ni elimina secretos automáticamente. Cada llamador
+        debe respetar la longitud del modelo y excluir datos sensibles antes de invocarlo.
+    """
 
     return EventoTrazabilidad.objects.create(
         id_usuario=usuario,

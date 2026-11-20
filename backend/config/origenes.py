@@ -6,7 +6,18 @@ ORIGEN_FRONTEND_POR_DEFECTO = "http://127.0.0.2:57744"
 
 
 def _url_http(valor):
-    """Interpreta un origen HTTP(S) y rechaza credenciales o caracteres de control."""
+    """Analiza una URL HTTP(S) sin credenciales, consulta ni fragmento.
+
+    Args:
+        valor (str): URL no vacía, sin controles, espacios ni barras inversas.
+
+    Returns:
+        SplitResult: Componentes con host y puerto válidos. La ruta aún puede
+        contener segmentos; la función de normalización restringe el origen.
+
+    Raises:
+        ValueError: Si el valor, esquema, host o puerto no cumplen la política.
+    """
 
     if (not isinstance(valor, str) or not valor
             or any(ord(caracter) <= 32 or ord(caracter) == 127 for caracter in valor)
@@ -26,7 +37,22 @@ def _url_http(valor):
 
 
 def normalizar_origen_frontend(valor):
-    """Devuelve el origen frontend canónico sin ruta, consulta ni fragmento."""
+    """Devuelve el origen HTTP(S) canónico del frontend.
+
+    Args:
+        valor (str): Origen con ruta vacía o barra única, sin consulta ni fragmento.
+
+    Returns:
+        str: Esquema y host normalizados, IPv6 entre corchetes y puerto solo si
+        difiere del predeterminado. No consulta DNS ni exige un host loopback.
+
+    Raises:
+        ValueError: Si la URL es inválida o contiene una ruta distinta de /.
+
+    Example:
+        >>> normalizar_origen_frontend("https://ejemplo.cl:443/")
+        'https://ejemplo.cl'
+    """
 
     partes = _url_http(valor)
     if partes.path not in {"", "/"}:

@@ -11,7 +11,16 @@ REDIS_ATOMICO = 'acceso.cache.RedisIntentosCache'
 
 
 def ubicacion_redis_valida(value):
-    """Valida una URI Redis local sin separadores ni parámetros inseguros."""
+    """Valida la forma de un único endpoint Redis, sin abrir conexiones.
+
+    Args:
+        value (str): URI redis/rediss con host y puerto explícito; puede contener
+            credenciales y una base numérica de hasta tres dígitos en la ruta.
+
+    Returns:
+        bool: Si cumple la forma admitida, sin consulta, fragmento ni separadores
+        de múltiples endpoints. No restringe el host a loopback ni verifica alcance.
+    """
 
     if not isinstance(value, str) or not value or value.strip() != value or any(c in value for c in '\r\n\t;,'):
         return False
@@ -26,7 +35,21 @@ def ubicacion_redis_valida(value):
 
 
 def timeout_redis(value):
-    """Convierte el tiempo de conexión Redis y rechaza valores fuera de rango."""
+    """Convierte un timeout Redis a segundos dentro del rango admitido.
+
+    Args:
+        value (str | int | float): Valor numérico convertible, excluidos booleanos.
+
+    Returns:
+        float: Tiempo finito entre 0.1 y 5 segundos, incluidos los extremos.
+
+    Raises:
+        ImproperlyConfigured: Si no puede convertirse o queda fuera del rango.
+
+    Example:
+        >>> timeout_redis("1.5")
+        1.5
+    """
 
     try:
         result = float(value)
@@ -38,7 +61,21 @@ def timeout_redis(value):
 
 
 def configurar_cache_acceso(environment):
-    """Construye la caché de intentos desde variables locales validadas."""
+    """Construye la configuración de caché de intentos desde el entorno recibido.
+
+    Args:
+        environment (Mapping): Variables ACCESO_CACHE_BACKEND, LOCATION, KEY_PREFIX
+            y TIMEOUT; no consulta el entorno global ni modifica el argumento.
+
+    Returns:
+        dict: Configuración Django con LocMem por defecto. RedisCache oficial se
+        sustituye por RedisIntentosCache y recibe timeouts acotados. La selección
+        de otros backends queda sujeta a las comprobaciones de acceso.checks.
+
+    Raises:
+        ImproperlyConfigured: Si el prefijo, la URL Redis o el timeout son inválidos.
+            Los mensajes no incluyen el endpoint ni posibles credenciales.
+    """
 
     backend = environment.get('ACCESO_CACHE_BACKEND', LOCAL)
     if backend == REDIS_DJANGO:

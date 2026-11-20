@@ -1,4 +1,4 @@
-"""Validador de datos bancarios para la futura API SKILLY (sin operaciones BD)."""
+"""Valida el formato de cuentas bancarias sin consultar bancos ni persistir datos."""
 import re
 from dataclasses import dataclass
 
@@ -13,7 +13,18 @@ class DatosBancariosInvalidos(ValueError):
 
 
 def normalizar_rut(rut):
-    """Normaliza y valida el RUT chileno, incluido su dígito verificador."""
+    """Normaliza un RUT bancario y comprueba su dígito verificador con módulo 11.
+
+    Args:
+        rut (str): RUT con cuerpo de siete u ocho dígitos antes de normalizar;
+            admite puntos, guiones y espacios que se eliminan.
+
+    Returns:
+        str: Cuerpo sin ceros iniciales, guion y verificador en mayúscula.
+
+    Raises:
+        DatosBancariosInvalidos: Si el formato o el dígito verificador no son válidos.
+    """
 
     texto = re.sub(r'[.\s-]', '', str(rut or '')).upper()
     if not re.fullmatch(r'\d{7,8}[0-9K]', texto):
@@ -31,6 +42,18 @@ def validar_cuenta(datos):
     """Devuelve datos limpios; falla ante ausencias o formatos incorrectos.
 
     Estas reglas solo comprueban formato, NO titularidad ni existencia bancaria.
+
+    Args:
+        datos (dict): Titular, rut_titular, banco, tipo_cuenta, numero_cuenta y correo
+            como textos no vacíos. Los campos adicionales se omiten del resultado.
+
+    Returns:
+        dict: Copia normalizada con RUT validado, tipo en mayúsculas y correo en
+        minúsculas. Conserva ceros iniciales del número de cuenta de 5 a 32 dígitos.
+
+    Raises:
+        DatosBancariosInvalidos: Si falta un campo, excede longitud, el RUT no valida,
+            el tipo no está admitido o número/correo incumplen el formato.
     """
     if not isinstance(datos, dict):
         raise DatosBancariosInvalidos('Los datos deben ser un objeto.')
