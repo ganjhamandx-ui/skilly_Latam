@@ -19,27 +19,44 @@ const etiquetas = {
   motivo: 'Motivo',
 }
 
-// Traduce claves recibidas en etiquetas de recomendaciones legibles.
+/**
+ * Resuelve una etiqueta conocida o adapta el nombre técnico del campo.
+ * @param {string} clave Nombre recibido de la API.
+ * @returns {string} Etiqueta para la recomendación.
+ */
 function nombreCampo(clave) {
   return etiquetas[clave] ??
     clave.replaceAll('_', ' ')
       .replace(/^./, (letra) => letra.toUpperCase())
 }
 
-// Distingue claves que se excluyen del detalle privado de recomendaciones.
+/**
+ * Identifica claves sensibles que se omiten en la presentación.
+ * @param {string} clave Nombre del campo.
+ * @returns {boolean} Coincidencia textual; no concede ni verifica permisos del servidor.
+ */
 function esRestringido(clave) {
   return /password|contrasena|token|secret|hash|csrf|credential/i
     .test(clave)
 }
 
-// Convierte valores de la recomendación en una representación legible.
+/**
+ * Convierte un valor individual a texto con etiquetas para booleanos y datos ausentes.
+ * @param {*} valor Dato recibido.
+ * @returns {string} Texto mostrado en la ficha.
+ */
 function convertirTexto(valor) {
   if (valor == null || valor === '') return 'No informado'
   if (typeof valor === 'boolean') return valor ? 'S\u00ed' : 'No'
   return String(valor)
 }
 
-// Presenta solamente los antecedentes de recomendación que superan el filtro por campo.
+/**
+ * Presenta los datos de una recomendación autorizada y filtra ciertas claves de los objetos mostrados.
+ * @param {Object} props Contenido de la ficha.
+ * @param {*} props.datos Valor JSON; los objetos dentro de listas se representan mediante JSON.stringify.
+ * @returns {import('react').ReactElement} Detalle textual sin aplicar un filtrado recursivo universal.
+ */
 function MostrarDatos({ datos }) {
   if (!datos || typeof datos !== 'object') {
     return <p>{convertirTexto(datos)}</p>
@@ -74,7 +91,11 @@ function MostrarDatos({ datos }) {
   )
 }
 
-// Extrae la lista de recomendaciones del formato recibido.
+/**
+ * Admite una lista directa o los envoltorios recomendaciones, resultados y results, en ese orden.
+ * @param {*} datos Respuesta del endpoint de recomendaciones.
+ * @returns {Array|null} Primera lista reconocida, o null si el formato no es compatible.
+ */
 function normalizarLista(datos) {
   if (Array.isArray(datos)) return datos
 
@@ -89,7 +110,12 @@ function normalizarLista(datos) {
   return null
 }
 
-// Extrae detalles de validación del servidor para evitar mensajes genéricos.
+/**
+ * Prioriza mensaje o detail textuales y usa el estado HTTP como alternativa.
+ * @param {Object|null} datos JSON del servidor.
+ * @param {number} estado Código HTTP recibido.
+ * @returns {string} Mensaje de error de consulta.
+ */
 function obtenerMensaje(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -97,7 +123,10 @@ function obtenerMensaje(datos, estado) {
   return `La solicitud no pudo completarse (HTTP ${estado}).`
 }
 
-// Lista las recomendaciones de desarrollo accesibles al profesional actual.
+/**
+ * Consulta recomendaciones comunicadas al profesional y permite abrir su detalle autorizado.
+ * @returns {import('react').ReactElement} Listado y detalle de solo lectura con cargas independientes.
+ */
 export default function RecomendacionesProfesional() {
   const [recomendaciones, setRecomendaciones] = useState([])
   const [consultadas, setConsultadas] = useState(false)
@@ -108,8 +137,11 @@ export default function RecomendacionesProfesional() {
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
   const [errorDetalle, setErrorDetalle] = useState('')
 
+  /**
+   * Reinicia listado y selección antes de consultar y normalizar las recomendaciones disponibles.
+   * @returns {Promise<void>} Aplica la lista o muestra el error sin conservar un detalle anterior.
+   */
   const consultarRecomendaciones = useCallback(async () => {
-    // Actualiza la lista de recomendaciones con estado independiente de carga.
 
     setCargando(true)
     setError('')
@@ -166,7 +198,11 @@ export default function RecomendacionesProfesional() {
     return () => { activo = false }
   }, [consultarRecomendaciones])
 
-  // Recupera el detalle de una recomendación que pertenece al profesional.
+  /**
+   * Consulta una recomendación por identificador; el backend verifica la pertenencia al profesional.
+   * @param {number|string} id Identificador seleccionado.
+   * @returns {Promise<void>} Actualiza el detalle o su error específico, sin modificar la recomendación.
+   */
   async function consultarDetalle(id) {
     if (cargandoDetalle || id == null) return
 

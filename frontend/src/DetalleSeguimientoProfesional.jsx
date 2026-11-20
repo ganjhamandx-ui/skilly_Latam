@@ -23,20 +23,32 @@ const etiquetas = {
   alcance: 'Alcance',
 }
 
-// Presenta un nombre de campo obtenido de la API en una forma legible.
+/**
+ * Obtiene una etiqueta conocida o adapta el nombre del campo.
+ * @param {string} nombre Clave recibida de la API.
+ * @returns {string} Etiqueta legible del seguimiento.
+ */
 function etiqueta(nombre) {
   return etiquetas[nombre] ??
     nombre.replaceAll('_', ' ')
       .replace(/^./, (letra) => letra.toUpperCase())
 }
 
-// Filtra claves de antecedentes internos que no corresponden a la vista profesional.
+/**
+ * Reconoce nombres de claves sensibles para ocultarlos visualmente.
+ * @param {string} nombre Clave del objeto recibido.
+ * @returns {boolean} Coincidencia textual; el backend debe filtrar los datos autorizados.
+ */
 function esDatoRestringido(nombre) {
   return /password|contrasena|token|secret|hash|csrf|credential/i
     .test(nombre)
 }
 
-// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
+/**
+ * Representa un dato individual y distingue booleanos y valores ausentes.
+ * @param {*} valor Valor que se convertirá a texto.
+ * @returns {string} Representación legible del dato.
+ */
 function texto(valor) {
   if (valor === null || valor === undefined || valor === '') {
     return 'No informado'
@@ -49,7 +61,13 @@ function texto(valor) {
   return String(valor)
 }
 
-// Presenta la colección de datos permitidos para la vista sin mostrar claves técnicas.
+/**
+ * Recorre los datos recibidos omitiendo claves sensibles reconocidas.
+ * @param {Object} props Contenido del nivel actual.
+ * @param {*} props.datos Datos JSON acíclicos que se mostrarán.
+ * @param {number} [props.profundidad=0] Detiene la expansión de objetos por encima de cinco; no de listas.
+ * @returns {import('react').ReactElement} Detalle recursivo o indicación de ausencia.
+ */
 function Valores({ datos, profundidad = 0 }) {
   if (datos === null || datos === undefined) {
     return <p>No hay informaci&oacute;n disponible.</p>
@@ -117,7 +135,12 @@ function Valores({ datos, profundidad = 0 }) {
   )
 }
 
-// Organiza el seguimiento de una prestación propia y oculta antecedentes restringidos.
+/**
+ * Organiza prestación, avances y entregas, conservando otros campos en una sección complementaria.
+ * @param {Object} props Respuesta ya autorizada para el profesional.
+ * @param {Object|null} props.datos Datos estructurados o una ficha compatible sin esas secciones.
+ * @returns {import('react').ReactElement} Detalle de solo lectura con filtrado visual de claves sensibles.
+ */
 export default function DetalleSeguimientoProfesional({ datos }) {
   if (!datos || typeof datos !== 'object') {
     return (

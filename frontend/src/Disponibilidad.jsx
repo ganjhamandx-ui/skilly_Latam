@@ -10,7 +10,12 @@ const vacio = {
   hora_fin: '',
 }
 
-// Lee una cookie visible para enviar el encabezado requerido por el backend.
+/**
+ * Lee y decodifica una cookie accesible desde el navegador.
+ * @param {string} nombre Nombre exacto de la cookie.
+ * @returns {string} Valor decodificado o cadena vacía si falta.
+ * @throws {URIError} Si el valor contiene una codificación porcentual inválida.
+ */
 function leerCookie(nombre) {
   const valor = document.cookie
     .split('; ')
@@ -18,7 +23,12 @@ function leerCookie(nombre) {
   return valor ? decodeURIComponent(valor.slice(nombre.length + 1)) : ''
 }
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Compone el mensaje de rechazo de un bloque desde la respuesta de la API.
+ * @param {Object|null} datos Cuerpo JSON del servidor.
+ * @param {number} estado Código HTTP de respaldo.
+ * @returns {string} Mensaje general o errores por campo.
+ */
 function mensajeError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -39,7 +49,13 @@ function mensajeError(datos, estado) {
   return `La operación no se completó (HTTP ${estado}).`
 }
 
-// Envía solicitudes de disponibilidad y adjunta CSRF al modificar bloques.
+/**
+ * Consulta disponibilidad y usa la cookie CSRF existente cuando el método indicado no es GET.
+ * @param {string} url Endpoint solicitado.
+ * @param {RequestInit} [opciones={}] Opciones fetch y cabeceras que prevalecen sobre las predeterminadas.
+ * @returns {Promise<Object>} JSON recibido o un objeto vacío si no puede leerse.
+ * @throws {Error} Ante fallo de red o HTTP; los errores HTTP incorporan la propiedad estado.
+ */
 async function peticion(url, opciones = {}) {
   const csrf = leerCookie('csrftoken')
   const headers = {
@@ -69,12 +85,20 @@ async function peticion(url, opciones = {}) {
   return datos
 }
 
-// Presenta la hora sin segundos para comparar bloques fácilmente.
+/**
+ * Extrae los primeros cinco caracteres de una hora textual sin validarla.
+ * @param {*} valor Hora recibida de la API.
+ * @returns {string} Texto HH:mm esperado o cadena vacía si no es string.
+ */
 function horaCorta(valor) {
   return typeof valor === 'string' ? valor.slice(0, 5) : ''
 }
 
-// Presenta la fecha del bloque conservando el día almacenado.
+/**
+ * Reordena una fecha textual para mostrarla sin conversión de zona horaria.
+ * @param {*} valor Fecha cuyo prefijo se espera en formato YYYY-MM-DD.
+ * @returns {string} Día/mes/año, texto original si no tiene tres partes o guion si falta.
+ */
 function fechaVisible(valor) {
   if (!valor || typeof valor !== 'string') return '-'
   const partes = valor.slice(0, 10).split('-')
@@ -83,12 +107,20 @@ function fechaVisible(valor) {
     : valor
 }
 
-// Una reserva pendiente de pago también bloquea el horario.
+/**
+ * Determina si la reserva comunicada impide editar el bloque en la interfaz.
+ * @param {Object} bloque Registro con reserva_actual opcional.
+ * @returns {boolean} True para PENDIENTE_PAGO o ACTIVA; el servidor revalida la ocupación.
+ */
 function tieneReservaVigente(bloque) {
   return ['PENDIENTE_PAGO', 'ACTIVA'].includes(bloque.reserva_actual?.estado)
 }
 
-// Gestiona los bloques de disponibilidad del profesional en sesión.
+/**
+ * Consulta y gestiona los bloques propios con validaciones locales complementarias al servidor.
+ * Refresca reservas al recuperar foco y cada quince segundos mientras el documento está visible.
+ * @returns {import('react').ReactElement} Agenda editable y controles de sesión.
+ */
 function Disponibilidad() {
   const [bloques, setBloques] = useState([])
   const [formulario, setFormulario] = useState(vacio)
@@ -99,7 +131,10 @@ function Disponibilidad() {
   const [exito, setExito] = useState('')
   const [sinAcceso, setSinAcceso] = useState(false)
 
-  // Actualiza los bloques de disponibilidad del profesional y su estado vigente.
+  /**
+   * Recarga la disponibilidad y distingue errores de acceso 401/403 de otros fallos.
+   * @returns {Promise<void>} Sustituye el listado o lo vacía si falla la consulta.
+   */
   async function cargar() {
     setCargando(true)
     setError('')
@@ -131,7 +166,10 @@ function Disponibilidad() {
     // Sincroniza la disponibilidad inicial mientras la vista permanece activa.
     let activo = true
 
-    // Prepara la pantalla de disponibilidad y solicita sus bloques iniciales.
+    /**
+     * Carga la disponibilidad inicial y evita aplicar resultados cuando el efecto ya se limpió.
+     * @returns {Promise<void>} Actualiza bloques, acceso y estado de carga.
+     */
     async function iniciar() {
       try {
         const datos = await peticion(API)
@@ -160,7 +198,10 @@ function Disponibilidad() {
 
   // Sincroniza las reservas hechas desde otra pestaña o sesión.
   useEffect(() => {
-    // Actualiza los bloques visibles al volver a la pestaña.
+    /**
+     * Refresca los bloques únicamente si el documento es visible, sin mostrar fallos de esa consulta.
+     * @returns {void} Inicia la petición sin esperar su resolución.
+     */
     const refrescarAlVolver = () => {
       if (document.visibilityState === 'visible') {
         void peticion(API).then((datos) => {
@@ -178,7 +219,10 @@ function Disponibilidad() {
     }
   }, [])
 
-  // Finaliza la sesión en el backend y despeja el estado de acceso de la vista.
+  /**
+   * Obtiene un token CSRF nuevo, solicita cerrar sesión y navega al acceso tras confirmar el servidor.
+   * @returns {Promise<void>} Conserva la pantalla y presenta un error si el cierre falla.
+   */
   async function cerrarSesion() {
     setError('')
     setExito('')
@@ -215,13 +259,21 @@ function Disponibilidad() {
     }
   }
 
-  // Actualiza el campo editado sin descartar los otros valores del formulario.
+  /**
+   * Copia name y value del control al formulario de horario.
+   * @param {import('react').ChangeEvent<HTMLInputElement>} evento Cambio del campo.
+   * @returns {void}
+   */
   function cambiar(evento) {
     const { name, value } = evento.target
     setFormulario((actual) => ({ ...actual, [name]: value }))
   }
 
-  // Copia los datos del bloque elegido al formulario antes de editarlo.
+  /**
+   * Prepara la edición solo para bloques DISPONIBLE sin reserva pendiente o activa comunicada.
+   * @param {Object} bloque Bloque seleccionado con identificador, fecha, horas y estado.
+   * @returns {void} En caso admisible, desplaza la pantalla hacia el formulario.
+   */
   function comenzarEdicion(bloque) {
     if (bloque.estado !== 'DISPONIBLE' || tieneReservaVigente(bloque)) return
     setEditando(bloque.id_disponibilidad)
@@ -235,14 +287,21 @@ function Disponibilidad() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Restablece la edición local del bloque conservando la disponibilidad existente.
+  /**
+   * Abandona la edición local sin enviar modificaciones al servidor.
+   * @returns {void} Limpia el identificador, formulario y error.
+   */
   function cancelarEdicion() {
     setEditando(null)
     setFormulario(vacio)
     setError('')
   }
 
-  // Crea o modifica el bloque según la edición vigente y actualiza el listado confirmado.
+  /**
+   * Crea por POST o actualiza por PATCH tras validar orden de horas y fecha local no pasada.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Recarga el listado al guardar; el backend decide disponibilidad y cruces.
+   */
   async function guardar(evento) {
     evento.preventDefault()
     if (guardando || sinAcceso) return
@@ -297,7 +356,11 @@ function Disponibilidad() {
     }
   }
 
-  // Solicita retirar el bloque elegido y refleja el resultado del backend.
+  /**
+   * Confirma y solicita eliminar un bloque disponible sin reserva vigente informada.
+   * @param {Object} bloque Bloque con identificador, horario y estado.
+   * @returns {Promise<void>} Recarga los bloques o presenta el rechazo del servidor.
+   */
   async function eliminar(bloque) {
     if (guardando || sinAcceso || bloque.estado !== 'DISPONIBLE' || tieneReservaVigente(bloque)) return
 

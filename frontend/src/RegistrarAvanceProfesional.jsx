@@ -24,7 +24,12 @@ const ESTADOS_SUGERIDOS = [
   { valor: 'HITO_COMPLETADO', nombre: 'Hito completado' },
 ]
 
-// Extrae detalles de validación del servidor para evitar mensajes genéricos.
+/**
+ * Selecciona el mensaje general o reúne errores de campo del registro de avance o incidencia.
+ * @param {Object|null} datos Respuesta JSON de la API.
+ * @param {number} codigo Estado HTTP de respaldo.
+ * @returns {string} Explicación del rechazo.
+ */
 function obtenerMensaje(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -41,7 +46,14 @@ function obtenerMensaje(datos, codigo) {
   return errores || `No se pudo registrar el avance (HTTP ${codigo}).`
 }
 
-// Permite registrar avance o informar una incidencia en una prestación propia.
+/**
+ * Permite registrar avances y remitir incidencias o antecedentes de cancelación del profesional.
+ * @param {Object} props Contexto de la prestación propia.
+ * @param {number|string} props.idPrestacion Identificador de la prestación.
+ * @param {string} props.estadoPrestacion Estado usado para habilitar controles locales.
+ * @param {function(): (void|Promise<void>)} [props.onRegistrado] Refresca el seguimiento tras guardar.
+ * @returns {import('react').ReactElement} Formularios que conservan separados avances e incidencias.
+ */
 export default function RegistrarAvanceProfesional({
   idPrestacion,
   estadoPrestacion,
@@ -72,7 +84,11 @@ export default function RegistrarAvanceProfesional({
     ? estadoPersonalizado.trim()
     : opcionEstado
 
-  // Envía la decisión o cambios del formulario y refleja el resultado autorizado por la API.
+  /**
+   * Confirma y registra un avance con estado de hasta treinta caracteres y detalle opcional.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Espera onRegistrado sin interpretar un fallo de refresco como fallo de alta.
+   */
   async function registrar(evento) {
     evento.preventDefault()
 
@@ -164,7 +180,12 @@ export default function RegistrarAvanceProfesional({
     }
   }
 
-  // Envía la incidencia profesional al canal previsto sin registrarla como entrega.
+  /**
+   * Envía una incidencia JSON o un expediente de cancelación multipart según el motivo seleccionado.
+   * La evidencia opcional se adjunta únicamente a la cancelación y se valida en el backend.
+   * @param {import('react').FormEvent} evento Envío del formulario que se cancela.
+   * @returns {Promise<void>} Limpia los datos al guardar y conserva el éxito aunque falle el refresco externo.
+   */
   async function informarIncidencia(evento) {
     evento.preventDefault()
     if (!puedeInformarIncidencia || procesandoAviso || !idPrestacion) return
