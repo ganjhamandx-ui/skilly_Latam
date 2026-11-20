@@ -29,12 +29,20 @@ const estiloGrilla = {
   gap: 14,
 }
 
-// Presenta el tramo de entrevista con la hora civil registrada.
+/**
+ * Presenta las primeras cinco posiciones de la hora civil recibida.
+ * @param {string|null} valor Hora del bloque.
+ * @returns {string} Hora abreviada o «Sin hora».
+ */
 function mostrarHora(valor) {
   return valor ? String(valor).slice(0, 5) : 'Sin hora'
 }
 
-// Presenta el día de entrevista sin cambiarlo por la zona horaria del navegador.
+/**
+ * Invierte las partes de una fecha civil sin convertir zonas horarias.
+ * @param {string|null} valor Fecha recibida, posiblemente con hora.
+ * @returns {string} Día-mes-año, texto original o «Sin fecha».
+ */
 function mostrarFecha(valor) {
   if (!valor) return 'Sin fecha'
   const partes = String(valor).slice(0, 10).split('-')
@@ -43,7 +51,12 @@ function mostrarFecha(valor) {
     : String(valor)
 }
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Prioriza mensajes generales y reúne errores textuales de campos.
+ * @param {Object|null} datos Cuerpo de respuesta.
+ * @param {number} codigo Estado HTTP usado como respaldo.
+ * @returns {string} Explicación del error para la agenda.
+ */
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
@@ -61,12 +74,20 @@ function mensajeError(datos, codigo) {
   return `La operación no se completó (HTTP ${codigo}).`
 }
 
-// Obtiene las reservas asociadas a un bloque de la agenda de entrevistas.
+/**
+ * Obtiene la colección de reservas sin filtrar sus estados.
+ * @param {Object|null|undefined} bloque Bloque consultado.
+ * @returns {Object[]} Reservas recibidas o una lista vacía.
+ */
 function reservasDe(bloque) {
   return Array.isArray(bloque?.reservas) ? bloque.reservas : []
 }
 
-// Inicializa los campos de entrevista con los datos de la selección actual.
+/**
+ * Convierte los valores del bloque a los controles del formulario.
+ * @param {Object} bloque Bloque existente de entrevista.
+ * @returns {Object} Fecha, horas, capacidad textual y estado de edición.
+ */
 function datosFormulario(bloque) {
   return {
     fecha: String(bloque.fecha ?? '').slice(0, 10),
@@ -77,7 +98,13 @@ function datosFormulario(bloque) {
   }
 }
 
-// Coordina el calendario y las reservas de entrevista desde la bandeja administrativa.
+/**
+ * Gestiona bloques de entrevistas y confirma contactos ya realizados.
+ * Las reservas condicionan los cambios de horario, capacidad y vigencia.
+ * @param {Object} props Propiedades de integración con la bandeja.
+ * @param {function(boolean): void} [props.onProcesandoChange] Notifica las escrituras en curso.
+ * @returns {import('react').ReactElement} Agenda y formulario administrativo.
+ */
 export default function EntrevistasAdministracion({ onProcesandoChange }) {
   const [bloques, setBloques] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -94,7 +121,11 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     // Cancela la lectura de agenda cuando cambia la pantalla.
     const controlador = new AbortController()
 
-    // Consulta bloques y reservas de entrevista para reconstruir la agenda.
+    /**
+     * Consulta bloques con sus reservas y verifica la colección recibida.
+     * Ignora resultados y errores si la lectura fue cancelada.
+     * @returns {Promise<void>} Finalización de la consulta con errores visibles.
+     */
     async function consultarAgenda() {
       setCargando(true)
       setError('')
@@ -128,13 +159,21 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     return () => controlador.abort()
   }, [revision])
 
-  // Actualiza un campo de la entrevista conservando la fecha y las demás entradas.
+  /**
+   * Actualiza una entrada conservando el resto del borrador y limpia su error.
+   * @param {string} nombre Campo del formulario.
+   * @param {string} valor Valor capturado por el control.
+   * @returns {void}
+   */
   function actualizarCampo(nombre, valor) {
     setFormulario((anterior) => ({ ...anterior, [nombre]: valor }))
     setErrorAccion('')
   }
 
-  // Prepara el formulario vacío para crear un bloque de entrevista.
+  /**
+   * Abre un borrador vacío cuando no hay una escritura en curso.
+   * @returns {void}
+   */
   function iniciarCreacion() {
     if (guardando) return
     setModo('crear')
@@ -144,7 +183,11 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     setAviso('')
   }
 
-  // Carga un bloque de entrevista existente en el formulario de edición.
+  /**
+   * Carga el bloque seleccionado en el formulario si no se está guardando.
+   * @param {Object} bloque Bloque de entrevista que se desea modificar.
+   * @returns {void}
+   */
   function iniciarEdicion(bloque) {
     if (guardando) return
     setModo('editar')
@@ -154,7 +197,10 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     setAviso('')
   }
 
-  // Descarta la edición local del bloque y cierra el formulario.
+  /**
+   * Cierra la edición local cuando no hay una escritura en curso.
+   * @returns {void}
+   */
   function cancelarFormulario() {
     if (guardando) return
     setModo(null)
@@ -162,7 +208,13 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     setErrorAccion('')
   }
 
-  // Crea o modifica un bloque tras validar sus fechas y horas.
+  /**
+   * Valida horario, capacidad y restricciones de reservas antes de confirmar.
+   * En edición envía solo campos diferentes; la capacidad debe cubrir todas las
+   * reservas recibidas. La respuesta debe identificar el bloque para recargar la agenda.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del formulario.
+   * @returns {Promise<void>} Finalización de la escritura con errores en el formulario.
+   */
   async function guardar(evento) {
     evento.preventDefault()
     if (guardando || cargando || !modo) return
@@ -286,7 +338,12 @@ export default function EntrevistasAdministracion({ onProcesandoChange }) {
     }
   }
 
-  // Registra el contacto administrativo con el profesional de la entrevista.
+  /**
+   * Registra la confirmación de un contacto que administración ya realizó.
+   * Requiere confirmación del usuario y del servidor antes de recargar la agenda.
+   * @param {Object} reserva Reserva con el identificador de entrevista.
+   * @returns {Promise<void>} Finalización del registro con errores visibles.
+   */
   async function marcarContactado(reserva) {
     if (guardando) return
     if (!window.confirm(`¿Confirmas que SKILLY ya contactó al profesional de la entrevista #${reserva.id_entrevista}?`)) return

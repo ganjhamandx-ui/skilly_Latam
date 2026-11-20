@@ -6,7 +6,11 @@ import './Administracion.css'
 
 const API = '/api/seguimiento/administracion/reclamos/'
 
-// Identifica reclamos terminales para restringir operaciones de resolución redundantes.
+/**
+ * Identifica reclamos terminales por su estado o por la presencia de fecha de cierre.
+ * @param {Object|null} reclamo Registro consultado.
+ * @returns {boolean} Si la interfaz debe tratar el reclamo como resuelto.
+ */
 function estaResuelto(reclamo) {
   return (
     reclamo?.estado === 'RESUELTO' ||
@@ -15,7 +19,11 @@ function estaResuelto(reclamo) {
   )
 }
 
-// Presenta la fecha almacenada en un formato adecuado para la ficha.
+/**
+ * Presenta una marca temporal en la zona local del navegador.
+ * @param {string|null} valor Fecha recibida.
+ * @returns {string} Fecha legible o indicación de ausencia o invalidez.
+ */
 function fecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -31,7 +39,12 @@ function fecha(valor) {
   })
 }
 
-// Formatea importes sin modificar los montos que maneja el backend.
+/**
+ * Formatea un importe con hasta dos decimales y añade la moneda indicada.
+ * @param {number|string|null} valor Importe recibido.
+ * @param {string} [moneda='CLP'] Etiqueta monetaria.
+ * @returns {string} Importe legible o indicación de dato ausente o inválido.
+ */
 function dinero(valor, moneda = 'CLP') {
   if (valor === null || valor === undefined) {
     return 'No informado'
@@ -48,7 +61,12 @@ function dinero(valor, moneda = 'CLP') {
   }).format(numero)} ${moneda}`
 }
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Prioriza mensajes generales y reúne el contenido de errores por campo.
+ * @param {Object|null} datos Respuesta de la API.
+ * @param {number} codigo Estado HTTP de respaldo.
+ * @returns {string} Explicación del rechazo.
+ */
 function mensajeError(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -77,7 +95,11 @@ function mensajeError(datos, codigo) {
   return `La operación no pudo completarse (HTTP ${codigo}).`
 }
 
-// Presenta la bandeja de reclamos y permite revisar o resolver el caso seleccionado.
+/**
+ * Consulta reclamos, filtra la bandeja localmente y registra resoluciones.
+ * Mantiene el detalle abierto durante la escritura y recarga la lista tras resolver.
+ * @returns {import('react').ReactElement} Bandeja y diálogo administrativo.
+ */
 export default function ReclamosAdministracion() {
   const [reclamos, setReclamos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -104,7 +126,11 @@ export default function ReclamosAdministracion() {
     // Consulta la bandeja para la sesión administrativa activa.
     let activo = true
 
-    // Recupera la bandeja de reclamos que corresponde a la sesión de administración.
+    /**
+     * Consulta y valida la lista de reclamos para la sesión actual.
+     * La marca activa impide aplicar resultados de un efecto sustituido.
+     * @returns {Promise<void>} Finalización de la consulta con errores visibles.
+     */
     async function consultar() {
       try {
         const respuesta = await fetch(API, {
@@ -170,7 +196,11 @@ export default function ReclamosAdministracion() {
 
     document.body.style.overflow = 'hidden'
 
-    // Permite activar la interacción del registro con teclado.
+    /**
+     * Cierra el diálogo con Escape cuando no se está guardando una resolución.
+     * @param {KeyboardEvent} evento Pulsación recibida por el documento.
+     * @returns {void}
+     */
     function tecla(evento) {
       if (evento.key === 'Escape' && !guardando) {
         setIdSeleccionado(null)
@@ -179,7 +209,11 @@ export default function ReclamosAdministracion() {
 
     document.addEventListener('keydown', tecla)
 
-    // Carga el caso y la información necesaria para la resolución administrativa.
+    /**
+     * Consulta el reclamo y sus antecedentes económicos antes de permitir resolverlo.
+     * Ignora resultados si la selección dejó de estar activa.
+     * @returns {Promise<void>} Finalización de la lectura con errores en el diálogo.
+     */
     async function consultarDetalle() {
       try {
         const respuesta = await fetch(
@@ -240,14 +274,21 @@ export default function ReclamosAdministracion() {
     }
   }, [idSeleccionado, guardando])
 
-  // Vuelve a consultar la información visible sin recargar toda la aplicación.
+  /**
+   * Solicita una nueva lectura de la bandeja conservando sus filtros locales.
+   * @returns {void}
+   */
   function recargar() {
     setError('')
     setCargando(true)
     setRevision((actual) => actual + 1)
   }
 
-  // Selecciona un registro y solicita sus datos antes de presentar el diálogo.
+  /**
+   * Selecciona un reclamo y reinicia el borrador de resolución anterior.
+   * @param {number|string} id Identificador del reclamo.
+   * @returns {void}
+   */
   function abrirDetalle(id) {
     setDetalle(null)
     setErrorDetalle('')
@@ -261,14 +302,22 @@ export default function ReclamosAdministracion() {
     setIdSeleccionado(id)
   }
 
-  // Descarta la selección del diálogo y evita dejar visible información anterior.
+  /**
+   * Cierra el detalle únicamente cuando no hay una resolución en curso.
+   * @returns {void}
+   */
   function cerrarDetalle() {
     if (guardando) return
     setIdSeleccionado(null)
   }
 
-  // Esta función utiliza el POST de resolución
-  // que ya existe en el backend de SKILLY.
+  /**
+   * Valida decisión, efecto económico y formato decimal antes de confirmar.
+   * Envía el importe opcional como texto normalizado para que el servidor lo valide.
+   * Tras el registro cierra el detalle y recarga la bandeja; los errores quedan visibles.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío de la resolución.
+   * @returns {Promise<void>} Finalización de la solicitud de resolución.
+   */
   async function resolverReclamo(evento) {
     evento.preventDefault()
 

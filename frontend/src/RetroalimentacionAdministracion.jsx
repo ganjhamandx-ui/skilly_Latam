@@ -6,7 +6,11 @@ import './Administracion.css'
 
 const API = '/api/retroalimentacion/administracion/'
 
-// Presenta la fecha almacenada en un formato adecuado para la ficha.
+/**
+ * Presenta una marca temporal en la zona local del navegador.
+ * @param {string|null} valor Fecha recibida.
+ * @returns {string} Fecha legible o indicación de ausencia o invalidez.
+ */
 function fecha(valor) {
   if (!valor) return 'No registrada'
 
@@ -22,7 +26,12 @@ function fecha(valor) {
   })
 }
 
-// Extrae el mensaje devuelto por el backend para presentarlo en el panel.
+/**
+ * Prioriza mensajes generales y reúne errores de campos como texto.
+ * @param {Object|null} datos Respuesta de la API.
+ * @param {number} codigo Estado HTTP de respaldo.
+ * @returns {string} Mensaje para la bandeja o el detalle.
+ */
 function mensajeApi(datos, codigo) {
   if (typeof datos?.mensaje === 'string') {
     return datos.mensaje
@@ -49,7 +58,11 @@ function mensajeApi(datos, codigo) {
   return `No se pudo completar la operación (HTTP ${codigo}).`
 }
 
-// Obtiene el token CSRF que exige una acción autenticada de administración.
+/**
+ * Obtiene el token asociado a las cookies de la sesión actual.
+ * @returns {Promise<string>} Token para una escritura administrativa.
+ * @throws {Error} Si falla la conexión, se rechaza la consulta o falta el token.
+ */
 async function csrfToken() {
   const respuesta = await fetch('/api/acceso/csrf/', {
     method: 'GET',
@@ -69,7 +82,11 @@ async function csrfToken() {
   return datos.csrfToken
 }
 
-// Coordina la revisión administrativa de evaluaciones y recomendaciones.
+/**
+ * Consulta evaluaciones privadas y registra o comunica recomendaciones al profesional.
+ * La búsqueda filtra la lista cargada; las escrituras actualizan el detalle consultado.
+ * @returns {import('react').ReactElement} Bandeja y diálogo de recomendaciones.
+ */
 export default function RetroalimentacionAdministracion() {
   const [registros, setRegistros] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -91,10 +108,14 @@ export default function RetroalimentacionAdministracion() {
 
   // Consulta privada disponible solo para administradores.
   useEffect(() => {
-    // Carga las evaluaciones según los filtros activos del panel.
+    // La búsqueda se aplica localmente sobre esta colección completa.
     let vigente = true
 
-    // Carga las filas que corresponden a los filtros activos del panel.
+    /**
+     * Consulta y valida la colección completa de retroalimentaciones.
+     * Ignora resultados y errores cuando el efecto ya no está vigente.
+     * @returns {Promise<void>} Finalización de la lectura.
+     */
     async function consultarLista() {
       try {
         const respuesta = await fetch(API, {
@@ -150,7 +171,11 @@ export default function RetroalimentacionAdministracion() {
 
     let vigente = true
 
-    // Carga la evaluación y sus antecedentes para el expediente seleccionado.
+    /**
+     * Consulta una evaluación y comprueba la colección de recomendaciones asociadas.
+     * Ignora resultados y errores cuando cambia la selección o se desmonta el panel.
+     * @returns {Promise<void>} Finalización de la consulta.
+     */
     async function consultarDetalle() {
       try {
         const respuesta = await fetch(
@@ -213,7 +238,11 @@ export default function RetroalimentacionAdministracion() {
     const anterior = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
-    // Activa con teclado la interacción disponible en una fila.
+    /**
+     * Cierra el detalle con Escape cuando no se está guardando una recomendación.
+     * @param {KeyboardEvent} evento Pulsación recibida por el documento.
+     * @returns {void}
+     */
     function alPresionar(evento) {
       if (evento.key === 'Escape' && !guardando) {
         setIdSeleccionado(null)
@@ -228,14 +257,21 @@ export default function RetroalimentacionAdministracion() {
     }
   }, [idSeleccionado, guardando])
 
-  // Refresca las filas del panel conservando sus filtros.
+  /**
+   * Solicita una nueva lectura de la bandeja conservando la búsqueda local.
+   * @returns {void}
+   */
   function recargarLista() {
     setCargando(true)
     setError('')
     setVersionLista((actual) => actual + 1)
   }
 
-  // Selecciona la evaluación y carga su detalle antes de mostrar el diálogo.
+  /**
+   * Selecciona una evaluación y reinicia el detalle y el borrador de recomendación.
+   * @param {number|string} id Identificador de retroalimentación.
+   * @returns {void}
+   */
   function abrir(id) {
     setIdSeleccionado(id)
     setDetalle(null)
@@ -247,18 +283,29 @@ export default function RetroalimentacionAdministracion() {
     setDescripcion('')
   }
 
-  // Limpia la evaluación seleccionada y cierra el diálogo.
+  /**
+   * Cierra el detalle cuando no hay una escritura en curso.
+   * @returns {void}
+   */
   function cerrar() {
     if (!guardando) setIdSeleccionado(null)
   }
 
-  // Vuelve a consultar el expediente abierto después de registrar una decisión.
+  /**
+   * Solicita una nueva lectura de la evaluación seleccionada.
+   * @returns {void}
+   */
   function refrescarDetalle() {
     setCargandoDetalle(true)
     setVersionDetalle((actual) => actual + 1)
   }
 
-  // Registra una recomendación interna, sin comunicarla todavía.
+  /**
+   * Valida título y descripción y confirma el registro de una recomendación interna.
+   * Añade la respuesta disponible al detalle y solicita una lectura para sincronizarlo.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío del formulario.
+   * @returns {Promise<void>} Finalización del registro con errores visibles.
+   */
   async function registrarRecomendacion(evento) {
     evento.preventDefault()
 
@@ -347,7 +394,12 @@ export default function RetroalimentacionAdministracion() {
     }
   }
 
-  // Comunica exclusivamente la recomendación al profesional.
+  /**
+   * Confirma la comunicación de una recomendación en estado REGISTRADA.
+   * Actualiza el registro devuelto y vuelve a consultar el detalle tras la operación.
+   * @param {Object} recomendacion Recomendación con identificador y estado actual.
+   * @returns {Promise<void>} Finalización de la comunicación con errores visibles.
+   */
   async function comunicarRecomendacion(recomendacion) {
     if (
       guardando ||

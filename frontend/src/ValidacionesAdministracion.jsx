@@ -15,14 +15,23 @@ const FILTROS = [
   { valor: 'RECHAZADA', texto: 'Rechazadas' },
 ]
 
-// Presenta el rechazo de la API en términos útiles para revisar o reintentar.
+/**
+ * Recupera un mensaje textual de la API o explica el estado HTTP.
+ * @param {Object|null} datos Respuesta recibida.
+ * @param {number} estado Estado HTTP.
+ * @returns {string} Mensaje del rechazo.
+ */
 function mensajeError(datos, estado) {
   if (typeof datos?.mensaje === 'string') return datos.mensaje
   if (typeof datos?.detail === 'string') return datos.detail
   return `No se pudo completar la consulta (HTTP ${estado}).`
 }
 
-// Normaliza la colección devuelta por la API para presentar la bandeja.
+/**
+ * Admite una lista directa o las claves de colección reconocidas por la bandeja.
+ * @param {*} datos Cuerpo de respuesta.
+ * @returns {Array|null} Primera colección reconocida o null si la estructura es inesperada.
+ */
 function extraerLista(datos) {
   if (Array.isArray(datos)) return datos
 
@@ -35,7 +44,11 @@ function extraerLista(datos) {
   return null
 }
 
-// Presenta una fecha de registro con un formato regional legible.
+/**
+ * Localiza una fecha válida y conserva el texto de valores no interpretables.
+ * @param {string|null} valor Fecha del registro.
+ * @returns {string} Fecha local, valor original o «No informada».
+ */
 function fechaLegible(valor) {
   if (!valor) return 'No informada'
   const fecha = new Date(valor)
@@ -43,7 +56,12 @@ function fechaLegible(valor) {
   return fecha.toLocaleString('es-CL')
 }
 
-// Prepara un valor de la ficha como texto legible y maneja campos ausentes.
+/**
+ * Presenta valores simples y campos escalares de un objeto.
+ * Excluye claves sensibles reconocibles del objeto inmediato; no recorre objetos anidados.
+ * @param {*} valor Dato de la ficha.
+ * @returns {string} Representación legible o «No informado».
+ */
 function texto(valor) {
   if (valor == null || valor === '') return 'No informado'
   if (typeof valor === 'boolean') return valor ? 'S\u00ed' : 'No'
@@ -60,7 +78,11 @@ function texto(valor) {
   return String(valor)
 }
 
-// Compone un nombre legible para identificar al profesional de la validación.
+/**
+ * Combina nombres, apellidos y correo cuando están disponibles.
+ * @param {*} valor Profesional recibido o dato alternativo de identificación.
+ * @returns {string} Identificación legible usando texto como respaldo.
+ */
 function nombreProfesional(valor) {
   if (!valor || typeof valor !== 'object') return texto(valor)
 
@@ -75,7 +97,12 @@ function nombreProfesional(valor) {
   return nombre || correo || texto(valor)
 }
 
-// Muestra el bloque y el estado de entrevista para la revisión administrativa.
+/**
+ * Presenta los campos conocidos de una entrevista y sus datos adicionales admitidos.
+ * @param {Object} props Propiedades del resumen.
+ * @param {*} props.entrevista Información recibida para la entrevista.
+ * @returns {import('react').ReactElement} Resumen o representación del valor recibido.
+ */
 function EntrevistaResumen({ entrevista }) {
   if (!entrevista || typeof entrevista !== 'object' || Array.isArray(entrevista)) {
     return <span>{texto(entrevista)}</span>
@@ -113,13 +140,28 @@ function EntrevistaResumen({ entrevista }) {
   )
 }
 
-// Presenta versiones documentales y acciones autorizadas para la validación.
+/**
+ * Presenta documentos actuales e históricos con descarga autenticada.
+ * Las versiones reemplazadas conservan su consulta pero no ofrecen controles de revisión.
+ * @param {Object} props Propiedades de la revisión documental.
+ * @param {Object[]} props.documentos Documentos y estados de sus revisiones.
+ * @param {number|string} props.idValidacion Validación a la que pertenecen.
+ * @param {function(number|string, string, string): *} props.onResolver Recibe documento, decisión y observación.
+ * @param {boolean} props.procesando Indica una resolución en curso.
+ * @param {boolean} props.editable Habilita los controles de revisión.
+ * @returns {import('react').ReactElement} Documentos o aviso de colección vacía.
+ */
 function DocumentosRevision({ documentos, idValidacion, onResolver, procesando, editable }) {
   const [comentarios, setComentarios] = useState({})
   const [descargando, setDescargando] = useState(null)
   const [error, setError] = useState('')
 
-  // Solicita el documento al endpoint de administración usando la sesión vigente.
+  /**
+   * Solicita un archivo privado y libera su URL temporal tras iniciar la descarga.
+   * Una respuesta 404 muestra instrucciones para recuperar la versión documental.
+   * @param {Object} documento Identificador y nombre de archivo del documento.
+   * @returns {Promise<void>} Finalización de la solicitud con errores en el panel.
+   */
   async function descargar(documento) {
     const id = documento.id_documento
 
@@ -266,7 +308,11 @@ function DocumentosRevision({ documentos, idValidacion, onResolver, procesando, 
   )
 }
 
-// Presenta validaciones documentales y los resultados de entrevista en la bandeja administrativa.
+/**
+ * Coordina la revisión documental, los resultados de entrevista y su agenda.
+ * Comprueba la sesión administrativa al cargar la bandeja y filtra sus filas localmente.
+ * @returns {import('react').ReactElement} Bandeja y detalle de validación.
+ */
 export default function ValidacionesAdministracion() {
   const [solicitudes, setSolicitudes] = useState([])
   const [seleccionada, setSeleccionada] = useState(null)
@@ -287,10 +333,14 @@ export default function ValidacionesAdministracion() {
 
 
   useEffect(() => {
-    // Actualiza la bandeja al cambiar el filtro y evita mostrar respuestas tardías.
+    // La consulta inicial ignora respuestas posteriores al desmontaje del panel.
     let vigente = true
 
-    // Actualiza la bandeja de validaciones de acuerdo con el filtro activo.
+    /**
+     * Comprueba el rol de la sesión y consulta la colección inicial de validaciones.
+     * La marca de vigencia impide aplicar respuestas después del desmontaje.
+     * @returns {Promise<void>} Finalización de la consulta con errores en la bandeja.
+     */
     async function cargar() {
       try {
         const sesion = await fetch('/api/acceso/sesion-actual/', {
@@ -354,7 +404,15 @@ export default function ValidacionesAdministracion() {
     }
   }, [])
 
-  // Envía la decisión administrativa con los datos del expediente seleccionado.
+  /**
+   * Envía una acción documental y reemplaza la solicitud confirmada en lista y detalle.
+   * Los campos adicionales se incorporan al cuerpo después de la acción y la observación.
+   * @param {number|string} id Identificador de validación.
+   * @param {string} accion Acción que validará el servidor.
+   * @param {string} [comentario=''] Observación de la revisión.
+   * @param {Object} [extra={}] Campos adicionales de la operación.
+   * @returns {Promise<void>} Finalización de la escritura con errores en el detalle.
+   */
   async function ejecutarAccion(id, accion, comentario = '', extra = {}) {
     if (procesando) return
 
@@ -421,7 +479,13 @@ export default function ValidacionesAdministracion() {
     }
   }
 
-  // Registra el resultado de la entrevista y actualiza el estado de validación asociado.
+  /**
+   * Registra el resultado tras exigir observación y confirmación de entrevista realizada.
+   * Actualiza la solicitud devuelta por la API y limpia la confirmación local.
+   * @param {number|string} id Identificador de validación.
+   * @param {string} resultado Resultado solicitado para la entrevista.
+   * @returns {Promise<void>} Finalización del registro con errores en el detalle.
+   */
   async function resolverEntrevista(id, resultado) {
     if (procesandoEntrevista || procesando || !confirmoEntrevista ||
         !observacionEntrevista.trim()) return
@@ -486,7 +550,11 @@ export default function ValidacionesAdministracion() {
     }
   }
 
-  // Abre el detalle de antecedentes del profesional seleccionado.
+  /**
+   * Carga el detalle y solicita iniciar revisión cuando su estado es PENDIENTE.
+   * @param {number|string|null} id Validación seleccionada.
+   * @returns {Promise<void>} Finalización de la consulta y del inicio de revisión, si corresponde.
+   */
   async function abrirAntecedentes(id) {
     if (id == null || cargandoDetalle || procesando) return
 
@@ -532,7 +600,11 @@ export default function ValidacionesAdministracion() {
     }
   }
 
-  // Actualiza el criterio de la bandeja y vuelve a consultar sus registros.
+  /**
+   * Cambia el filtro local de estado y descarta el detalle y sus borradores.
+   * @param {string} valor Estado seleccionado o TODAS.
+   * @returns {void}
+   */
   function cambiarFiltro(valor) {
     setFiltro(valor)
     setObservacionEntrevista('')
