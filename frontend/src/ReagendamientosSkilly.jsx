@@ -16,7 +16,7 @@ import {
 import './ReagendamientosSkilly.css'
 
 const API = '/api/reagendamientos/'
-// Mantiene visible la política vigente si una lectura transitoria omite sus metadatos.
+// Ofrece una política de respaldo cuando la respuesta omite sus metadatos.
 // El backend vuelve a validar esta versión antes de aceptar cualquier solicitud.
 const POLITICA_FALLBACK = {
   version: 'PRT-33-35-v1-2026-11-17',
@@ -34,14 +34,22 @@ const ESTADOS = {
   VENCIDA: 'Cerrado por vencimiento de la primera reunión',
 }
 
-// Construye el texto del bloque a partir de su fecha y sus horas.
+/**
+ * Describe la fecha y las horas civiles del bloque como horario de Santiago.
+ * @param {Object|null} bloque Bloque con fecha y horas de inicio y término.
+ * @returns {string} Horario descriptivo o indicación de ausencia.
+ */
 function mostrarHorario(bloque) {
   if (!bloque?.fecha) return 'Horario no disponible'
   const fecha = String(bloque.fecha).split('-').reverse().join('/')
   return `${fecha} · ${bloque.hora_inicio} a ${bloque.hora_fin} h (Santiago de Chile)`
 }
 
-// Presenta cuándo ocurrió un evento del expediente en formato local.
+/**
+ * Presenta una marca temporal usando explícitamente la zona de Santiago.
+ * @param {string} fecha Marca temporal del evento.
+ * @returns {string} Fecha y hora locales, o cadena vacía si la fecha es inválida.
+ */
 function mostrarFechaEvento(fecha) {
   const valor = new Date(fecha)
   return Number.isNaN(valor.getTime()) ? '' : new Intl.DateTimeFormat('es-CL', {
@@ -49,22 +57,45 @@ function mostrarFechaEvento(fecha) {
   }).format(valor)
 }
 
-// Inicializa la selección con listas separadas para bloques existentes y nuevos.
+/**
+ * Crea un borrador independiente con una fila vacía para disponibilidad nueva.
+ * @returns {{existentes: Array, nuevas: Object[]}} Selección inicial de alternativas.
+ */
 function alternativasVacias() {
   return { existentes: [], nuevas: [{ fecha: '', hora_inicio: '', hora_fin: '' }] }
 }
 
-// Distingue los bloques publicados de los horarios que se deben crear al enviar la propuesta.
+/**
+ * Edita referencias a bloques publicados y borradores de horarios nuevos.
+ * La validación de disponibilidad y superposición corresponde al servidor.
+ * @param {Object} props Propiedades del editor controlado.
+ * @param {Object[]} [props.disponibles=[]] Bloques publicados que se pueden seleccionar.
+ * @param {Object} props.valor Borrador con listas existentes y nuevas.
+ * @param {function(Object): void} props.onChange Recibe el borrador completo actualizado.
+ * @param {boolean} [props.disabled=false] Deshabilita los controles del editor.
+ * @returns {import('react').ReactElement} Selector de bloques y filas de horarios nuevos.
+ */
 function EditorAlternativas({ disponibles = [], valor, onChange, disabled = false }) {
   const actual = valor || alternativasVacias()
-  // Añade o retira el identificador de un bloque publicado en el borrador.
+  /**
+   * Actualiza la selección de bloques publicados sin repetir identificadores.
+   * @param {number|string} id Identificador del bloque.
+   * @param {boolean} marcado Indica si el bloque debe quedar seleccionado.
+   * @returns {void}
+   */
   const cambiarExistente = (id, marcado) => {
     const ids = marcado
       ? [...new Set([...actual.existentes, id])]
       : actual.existentes.filter((item) => item !== id)
     onChange({ ...actual, existentes: ids })
   }
-  // Actualiza la propuesta de un bloque nuevo dentro de la lista del borrador.
+  /**
+   * Actualiza un campo de un horario nuevo conservando las demás filas.
+   * @param {number} indice Posición del horario en el borrador.
+   * @param {string} campo Fecha u hora editada.
+   * @param {string} nuevoValor Valor del control.
+   * @returns {void}
+   */
   const cambiarNueva = (indice, campo, nuevoValor) => {
     const nuevas = actual.nuevas.map((item, posicion) => (
       posicion === indice ? { ...item, [campo]: nuevoValor } : item
@@ -104,7 +135,12 @@ function EditorAlternativas({ disponibles = [], valor, onChange, disabled = fals
   </fieldset>
 }
 
-// Expone carga, error y datos del expediente mediante consultas cancelables.
+/**
+ * Gestiona una consulta cancelable y conserva sus datos, estado y error.
+ * Una URL ausente se presenta como error de selección mediante el hook de carga.
+ * @param {string|null} url Endpoint de la bandeja del actor.
+ * @returns {{datos: Object|null, estado: string, error: string, cargar: Function}} Estado de lectura y recarga.
+ */
 function useBandejaReagendamientos(url) {
   const [datos, setDatos] = useState(null)
   const [estado, setEstado] = useState('cargando')
@@ -126,7 +162,13 @@ function useBandejaReagendamientos(url) {
   return { datos, estado, error, cargar }
 }
 
-// Consulta solo con la pestaña visible y pausa el sondeo durante una acción en curso.
+/**
+ * Actualiza cada treinta segundos y al recuperar visibilidad, salvo durante una pausa.
+ * Limpia el intervalo y el listener cuando cambian sus dependencias o se desmonta.
+ * @param {function(): Promise<*>} cargar Función de recarga de la bandeja.
+ * @param {boolean} pausada Indica una operación que suspende las consultas periódicas.
+ * @returns {void}
+ */
 function useActualizacionInterna(cargar, pausada) {
   useEffect(() => {
     // Realiza el sondeo solo con la pestaña visible y mientras no haya una acción en curso.
@@ -142,14 +184,27 @@ function useActualizacionInterna(cargar, pausada) {
   }, [cargar, pausada])
 }
 
-// Diferencia la espera de red del error que permite reintentar la consulta.
+/**
+ * Presenta la espera de red o el error que permite volver a consultar.
+ * @param {Object} props Estado de la consulta.
+ * @param {string} props.estado Estado cargando, error o lista.
+ * @param {string} props.error Mensaje del último fallo.
+ * @returns {import('react').ReactElement|null} Mensaje de estado cuando corresponde.
+ */
 function EstadoConsulta({ estado, error }) {
   if (estado === 'cargando') return <p role="status">Consultando reagendamientos…</p>
   if (estado === 'error') return <p role="alert" className="rea-error">{error} Usa «Actualizar» para reintentar.</p>
   return null
 }
 
-// Presenta el estado, horarios y eventos según los datos entregados al actor actual.
+/**
+ * Presenta horarios, alternativas no descartadas y eventos del expediente.
+ * Los datos de evidencia se muestran según el actor y la disponibilidad informados.
+ * @param {Object} props Propiedades del resumen.
+ * @param {Object} props.caso Expediente autorizado por la API para la consulta actual.
+ * @param {string} props.actor Organización, profesional o administración.
+ * @returns {import('react').ReactElement} Resumen del expediente.
+ */
 function Estado({ caso, actor }) {
   const alternativasVigentes = (caso.alternativas || []).filter(
     (item) => item.estado !== 'DESCARTADA',
@@ -182,7 +237,17 @@ function Estado({ caso, actor }) {
   </div>
 }
 
-// Separa la lectura de la política de su aceptación expresa y administra el foco.
+/**
+ * Presenta la política y exige una selección expresa para habilitar continuar.
+ * El hook del diálogo gestiona el foco y el cierre accesible.
+ * @param {Object} props Propiedades del diálogo controlado.
+ * @param {Object|null} props.politica Texto y versión; se usa el respaldo si faltan.
+ * @param {boolean} props.aceptada Estado de la casilla de consentimiento.
+ * @param {function(boolean): void} props.onAceptada Recibe el estado de la casilla.
+ * @param {function(): void} props.onContinuar Avanza al formulario de solicitud.
+ * @param {function(): void} props.onCerrar Cancela la lectura de la política.
+ * @returns {import('react').ReactElement} Diálogo de política y consentimiento.
+ */
 function ModalPolitica({ politica, aceptada, onAceptada, onContinuar, onCerrar }) {
   const panelRef = useRef(null)
   useDialogoAccesible(true, panelRef, onCerrar)
@@ -202,13 +267,26 @@ function ModalPolitica({ politica, aceptada, onAceptada, onContinuar, onCerrar }
   </div>
 }
 
-// Vincula la bandeja empresarial al expediente identificado por su referencia privada.
+/**
+ * Reinicia el flujo empresarial al cambiar su referencia privada.
+ * @param {Object} props Propiedades del seguimiento.
+ * @param {string} props.referencia Referencia de la solicitud empresarial.
+ * @param {string} props.estadoPrestacion Estado de la prestación vinculada.
+ * @returns {import('react').ReactElement} Panel de reagendamiento de la referencia.
+ */
 export function ReagendamientosOrganizacion({ referencia, estadoPrestacion }) {
   return <ReagendamientosOrganizacionContenido key={referencia}
     referencia={referencia} estadoPrestacion={estadoPrestacion} />
 }
 
-// Coordina consentimiento, solicitud, espera y selección mediante la referencia empresarial.
+/**
+ * Coordina consentimiento, solicitud y selección de horarios de la organización.
+ * Las acciones se habilitan según el expediente y se serializan durante la escritura.
+ * @param {Object} props Propiedades del flujo.
+ * @param {string} props.referencia Referencia privada utilizada en el endpoint.
+ * @param {string} props.estadoPrestacion Estado que condiciona iniciar una solicitud.
+ * @returns {import('react').ReactElement} Expediente y acciones empresariales.
+ */
 function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) {
   const [motivo, setMotivo] = useState('')
   const [cargando, setCargando] = useState(false)
@@ -228,7 +306,12 @@ function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) 
   const disponible = bandeja.estado === 'lista' && !cargando
   useActualizacionInterna(cargar, cargando)
 
-  // Envía la acción de organización con la referencia privada y recarga el expediente según el resultado.
+  /**
+   * Envía una acción empresarial y recarga la bandeja antes de limpiar el borrador.
+   * Una referencia mutable evita envíos simultáneos antes del siguiente renderizado.
+   * @param {Object} data Acción y campos exigidos por la transición solicitada.
+   * @returns {Promise<void>} Finalización de la escritura con errores en el panel.
+   */
   async function enviar(data) {
     if (escribiendo.current || !disponible) return
     escribiendo.current = true; setCargando(true); setError(''); setAviso('')
@@ -313,7 +396,11 @@ function ReagendamientosOrganizacionContenido({ referencia, estadoPrestacion }) 
   </section>
 }
 
-// Presenta acciones de propuesta, validación y confirmación según el estado de cada expediente.
+/**
+ * Presenta las acciones administrativas para los expedientes de reagendamiento.
+ * Las decisiones se basan en estado y plazo, y su aplicación queda validada por la API.
+ * @returns {import('react').ReactElement} Bandeja administrativa con selección y cierre.
+ */
 export function ReagendamientosAdministracion() {
   const [selecciones, setSelecciones] = useState({})
   const [motivosCierre, setMotivosCierre] = useState({})
@@ -327,7 +414,13 @@ export function ReagendamientosAdministracion() {
   const disponible = bandeja.estado === 'lista' && !cargando
   useActualizacionInterna(cargar, cargando)
 
-  // Envía la decisión administrativa del expediente con los campos exigidos por el estado.
+  /**
+   * Envía la decisión con el bloque y motivo capturados para ese expediente.
+   * La aplicación del horario exige confirmación antes de escribir y recargar la bandeja.
+   * @param {Object} item Expediente con identificador.
+   * @param {string} accion Transición administrativa solicitada.
+   * @returns {Promise<void>} Finalización de la operación con errores visibles.
+   */
   async function accionar(item, accion) {
     if (escribiendo.current || !disponible) return
     if (accion === 'CONFIRMAR' && !window.confirm('¿Aplicar el horario seleccionado en la agenda segura?')) return
@@ -394,7 +487,11 @@ export function ReagendamientosAdministracion() {
   </section>
 }
 
-// Permite iniciar el trámite con evidencia o responder a una propuesta vigente.
+/**
+ * Permite responder propuestas o iniciar un cambio por impedimento con evidencia.
+ * Conserva borradores por expediente y pausa las consultas periódicas durante escrituras.
+ * @returns {import('react').ReactElement} Bandeja profesional y formulario de solicitud.
+ */
 export function ReagendamientosProfesional() {
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
@@ -417,7 +514,13 @@ export function ReagendamientosProfesional() {
   const disponible = bandeja.estado === 'lista' && !cargando
   useActualizacionInterna(cargar, cargando)
 
-  // Transmite la respuesta profesional al expediente e incorpora los bloques cuando corresponden.
+  /**
+   * Envía una respuesta profesional y recarga los expedientes tras su registro.
+   * @param {Object|null} item Expediente al que corresponde la respuesta.
+   * @param {string} accion Acción profesional solicitada.
+   * @param {Object} [campos={}] Datos adicionales incorporados después de id y acción.
+   * @returns {Promise<void>} Finalización de la operación con errores en el panel.
+   */
   async function enviarJson(item, accion, campos = {}) {
     if (escribiendo.current || !disponible) return
     escribiendo.current = true; setCargando(true); setError(''); setAviso('')
@@ -431,7 +534,12 @@ export function ReagendamientosProfesional() {
     }
   }
 
-  // Envía evidencia y alternativas en multipart para conservar el archivo original.
+  /**
+   * Envía motivo, consentimiento, alternativas y evidencia opcional en multipart.
+   * Normaliza las alternativas antes de escribir y limpia el formulario tras la recarga.
+   * @param {import('react').FormEvent<HTMLFormElement>} evento Envío de la solicitud.
+   * @returns {Promise<void>} Finalización del registro con errores en el panel.
+   */
   async function solicitarComoProfesional(evento) {
     evento.preventDefault()
     if (escribiendo.current || !disponible) return
